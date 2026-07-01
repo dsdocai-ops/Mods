@@ -1,0 +1,76 @@
+# ForgePvP Launcher
+
+A lightweight, offline-first Minecraft launcher focused on **smooth performance**, **PvP**, and **one-click mod toggling**. No backend, no online account server — it drives a Minecraft install you already have and manages mods as simple on/off switches.
+
+## Why this exists
+
+Most launchers either lock you into vanilla, or require full manual `mods/` folder surgery to A/B test a modpack. This launcher assumes you already have Minecraft (vanilla, Forge, Fabric, Quilt, or NeoForge) installed somewhere with the standard `versions/` / `libraries/` / `assets/` layout — the official launcher, MultiMC, Prism, or a manual install all work — and layers instance management + mod toggles + PvP-tuned JVM flags on top of it, without downloading or re-hosting anything itself.
+
+## Features
+
+- **Instances**: point at any existing Minecraft install folder, auto-detects installed versions and their loader (vanilla/Forge/Fabric/Quilt/NeoForge) by reading the version JSON.
+- **Mod toggles**: import your own mod `.jar`s and flip them on/off per-instance with a switch. Disabling renames `mod.jar` → `mod.jar.disabled`, which every loader already ignores — no destructive moves, nothing leaves the folder.
+- **Automatic mod metadata**: reads `fabric.mod.json`, `quilt.mod.json`, Forge's `META-INF/mods.toml` / `neoforge.mods.toml`, and legacy `mcmod.info` straight out of the jar to show real names/versions/descriptions, and auto-tags mods (`performance`, `pvp`, `visual`, `library`, ...) by keyword.
+- **Presets**: one click to flip on everything tagged for smooth PvP (performance + combat mods) or swap to a visual/HUD-only loadout, without hunting through the list.
+- **Smooth PvP JVM tuning**: optional G1GC flag preset (Aikar's-flags-style) aimed at cutting GC-pause frame hitches, which matter most in close-quarters PvP.
+- **Offline play**: launches with a deterministic offline UUID (same algorithm the vanilla launcher uses), no Microsoft/Mojang auth and no network calls at launch time.
+- **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
+
+## Project layout
+
+```
+src/
+  shared/types.ts        # types shared between main and renderer processes
+  main/                  # Electron main process (Node, has filesystem/process access)
+    store.ts             # JSON persistence (instances + settings) in userData
+    instances.ts         # instance CRUD, installed-version detection
+    modMetadata.ts        # jar metadata parsing (fabric.mod.json / mods.toml / mcmod.info)
+    mods.ts               # mod scan/import/enable-disable/preset logic
+    java.ts               # local Java runtime discovery
+    versionResolver.ts    # version JSON inheritance, rule evaluation, arg templating
+    launch.ts             # natives extraction, classpath build, JVM spawn
+    main.ts / preload.ts  # window + IPC wiring
+  renderer/               # React UI (Vite)
+    pages/, components/
+```
+
+## Setup
+
+Requires Node.js 20+.
+
+```bash
+npm install
+npm run dev        # starts Vite + Electron in dev mode with hot reload
+```
+
+## Building a Windows .exe
+
+```bash
+npm run build       # compiles renderer (Vite) + main process (tsc)
+npm run dist:win     # packages via electron-builder -> release/ (portable .exe + NSIS installer)
+```
+
+`dist:win` must be run on (or cross-compiled for) Windows for a fully signed/native build; electron-builder can cross-package from Linux/macOS for basic portable builds but a native Windows run is recommended for the final release artifact.
+
+## Using it
+
+1. **Settings** → set a default Java path (or leave blank to use `java` on PATH) and default RAM.
+2. **New Instance** → browse to your existing Minecraft folder (the one with `versions/`, `libraries/`, `assets/` — this is `%APPDATA%\.minecraft` by default on Windows). The launcher scans it and lists every installed version + detected loader.
+3. Pick a version, name the instance, create it.
+4. In the instance's **Mods** tab, click **Import your mods** and select the `.jar` files from your existing mods collection — they show up immediately as toggle rows with parsed name/version/tags.
+5. Flip mods on/off, or use the **Smooth PvP** / **Visual-HUD only** preset buttons to bulk-switch by tag.
+6. Hit **Play**. Console output streams live in the **Console** tab; **Stop** kills the process.
+
+## Design notes / constraints
+
+- **No bundled mods.** The launcher never ships or downloads third-party mod jars — you bring your own. This keeps it clear of any mod's own license/distribution terms.
+- **No installer/downloader for Minecraft itself.** Reimplementing Mojang's asset/library downloader and Forge/Fabric installers is a large, security-sensitive undertaking; instead the launcher works with an install you already have (via the official launcher or MultiMC-style tools), which is also what makes it "no online servers" — the only network activity is whatever *you* already did to install the game.
+- **Offline auth only.** No Microsoft/Mojang OAuth flow is implemented. This is intentional for the "no online servers" requirement; it also means it won't join servers with `online-mode=true` unless you add that later.
+- **Mods folder = instance run directory's `mods/`.** Each instance's effective "game directory" passed to the JVM is the parent of its mods folder, so per-instance isolation falls out naturally if you ever point an instance's mods folder outside the shared install (not yet exposed in the UI, but the launch engine already supports it).
+
+## Possible next steps
+
+- Per-instance isolated `mods`/`saves`/`config` folders exposed in the New Instance UI (the launch engine already supports arbitrary `modsDir`).
+- Drag-and-drop mod import onto the mod list.
+- A "verify install" pass that flags missing libraries/assets before launch instead of only warning in the console.
+- Optional Microsoft auth for online-mode servers, kept strictly opt-in.
