@@ -591,6 +591,48 @@ body {
   font-size: 12.5px;
 }
 
+.settings-subheading {
+  margin: 28px 0 4px 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.settings-subheading:first-of-type {
+  margin-top: 20px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.account-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.account-uuid {
+  flex: 1;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+}
+
 /* Buttons */
 .btn {
   border: 1px solid var(--border);

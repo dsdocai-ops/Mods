@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ConfigFormat, Instance, ModInfo, ModTag } from "@shared/types";
+import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
@@ -23,6 +23,7 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("mods");
   const [draft, setDraft] = useState<Instance>(instance);
+  const [accounts, setAccounts] = useState<PublicAccount[]>([]);
   const [configTarget, setConfigTarget] = useState<{
     modName: string;
     filePath: string;
@@ -40,6 +41,10 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
     setDraft(instance);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance.id, instance.modsDir]);
+
+  useEffect(() => {
+    window.api.accounts.list().then(setAccounts);
+  }, []);
 
   const filteredMods = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -196,9 +201,26 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
           </label>
 
           <label className="field">
-            <span>Offline username</span>
+            <span>Account</span>
+            <select
+              className="input"
+              value={draft.accountId ?? ""}
+              onChange={(e) => setDraft({ ...draft, accountId: e.target.value || undefined })}
+            >
+              <option value="">Offline</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.username} (Microsoft)
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Offline username{draft.accountId ? " (unused while a Microsoft account is selected)" : ""}</span>
             <input
               className="input"
+              disabled={!!draft.accountId}
               value={draft.offlineUsername}
               onChange={(e) => setDraft({ ...draft, offlineUsername: e.target.value })}
             />

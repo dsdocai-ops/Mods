@@ -14,6 +14,7 @@ const DEFAULT_STORE: StoreShape = {
   settings: {
     defaultJvm: DEFAULT_JVM,
     defaultOfflineUsername: "Player",
+    msaClientId: "",
   },
 };
 
@@ -34,6 +35,7 @@ function readStore(): StoreShape {
       settings: {
         defaultJvm: { ...DEFAULT_JVM, ...(parsed.settings?.defaultJvm ?? {}) },
         defaultOfflineUsername: parsed.settings?.defaultOfflineUsername ?? "Player",
+        msaClientId: parsed.settings?.msaClientId ?? "",
       },
     };
   } catch {

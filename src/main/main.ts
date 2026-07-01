@@ -8,6 +8,7 @@ import * as store from "./store";
 import * as javaModule from "./java";
 import { launchInstance } from "./launch";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
+import * as accounts from "./accountStore";
 
 const isDev = process.env.NODE_ENV === "development";
 const runningProcesses = new Map<string, ChildProcess>();
@@ -82,13 +83,21 @@ app.whenReady().then(() => {
   ipcMain.handle("settings:get", () => store.getSettings());
   ipcMain.handle("settings:set", (_e, settings: AppSettings) => store.saveSettings(settings));
 
-  ipcMain.handle("launch:start", (_e, instance: Instance) => {
+  ipcMain.handle("accounts:list", () => accounts.listAccounts());
+  ipcMain.handle("accounts:addMicrosoft", async () => {
+    const clientId = store.getSettings().msaClientId;
+    return accounts.addMicrosoftAccount(clientId, win);
+  });
+  ipcMain.handle("accounts:remove", (_e, id: string) => accounts.removeAccount(id));
+
+  ipcMain.handle("launch:start", async (_e, instance: Instance) => {
     if (runningProcesses.has(instance.id)) {
       throw new Error("This instance is already running.");
     }
     const onLog = (event: LaunchLogEvent) => win.webContents.send("launch:log", event);
     try {
-      const handle = launchInstance(instance, onLog);
+      const msaClientId = store.getSettings().msaClientId;
+      const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
       handle.process.on("exit", () => runningProcesses.delete(instance.id));
       instances.markLaunched(instance.id);

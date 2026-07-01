@@ -56,11 +56,26 @@ export interface Instance {
   /** Per-instance mods folder. Defaults to gameDir/mods but can be isolated per instance. */
   modsDir: string;
   offlineUsername: string;
+  /** If set, launch with this signed-in Microsoft/Minecraft account instead of an offline session. */
+  accountId?: string;
   jvm: JvmSettings;
   window: WindowSettings;
   createdAt: number;
   lastPlayedAt: number | null;
   iconColor: string;
+}
+
+/**
+ * A linked Microsoft/Minecraft account, as exposed to the renderer. Refresh/access tokens never
+ * leave the main process - see accountStore.ts, where they're encrypted at rest via Electron's
+ * safeStorage and kept out of anything sent over IPC.
+ */
+export interface PublicAccount {
+  id: string;
+  type: "microsoft";
+  username: string;
+  uuid: string;
+  addedAt: number;
 }
 
 export type ConfigFormat = "json" | "toml";
@@ -94,6 +109,8 @@ export interface LaunchLogEvent {
 export interface AppSettings {
   defaultJvm: JvmSettings;
   defaultOfflineUsername: string;
+  /** Azure AD "Application (client) ID" for Microsoft sign-in - see README for how to register one. Empty until you provide your own. */
+  msaClientId: string;
 }
 
 export const DEFAULT_JVM: JvmSettings = {

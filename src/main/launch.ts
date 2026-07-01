@@ -6,6 +6,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import AdmZip from "adm-zip";
 import type { Instance, LaunchLogEvent } from "../shared/types";
 import { resolveVersion, findClientJar, resolveArgTokens, evaluateRules, mavenNameToPath, type LibraryEntry } from "./versionResolver";
+import { getValidAccessToken } from "./accountStore";
 
 /** Aikar's-flags-style G1GC tuning: trades a bit of memory for far fewer GC-pause frame hitches, which matters most in PvP. */
 const SMOOTH_PVP_JVM_FLAGS = [
@@ -94,8 +95,18 @@ export interface LaunchHandle {
   process: ChildProcess;
 }
 
-export function launchInstance(instance: Instance, onLog: (event: LaunchLogEvent) => void): LaunchHandle {
+export async function launchInstance(instance: Instance, msaClientId: string, onLog: (event: LaunchLogEvent) => void): Promise<LaunchHandle> {
   const log = (line: string) => onLog({ instanceId: instance.id, stream: "status", data: line });
+
+  let auth: { username: string; uuid: string; accessToken: string; userType: string };
+  if (instance.accountId) {
+    log("Signing in with your Microsoft account...");
+    const token = await getValidAccessToken(msaClientId, instance.accountId);
+    auth = { username: token.username, uuid: token.uuid, accessToken: token.accessToken, userType: "msa" };
+  } else {
+    const uuid = offlineUuid(instance.offlineUsername);
+    auth = { username: instance.offlineUsername, uuid, accessToken: "0", userType: "legacy" };
+  }
 
   const resolved = resolveVersion(instance.gameDir, instance.versionId);
   const clientJar = findClientJar(instance.gameDir, resolved.chainIds);
@@ -115,21 +126,20 @@ export function launchInstance(instance: Instance, onLog: (event: LaunchLogEvent
   const classpath = buildClasspath(instance.gameDir, resolved.libraries, clientJar, log);
   const classpathString = classpath.join(path.delimiter);
 
-  const uuid = offlineUuid(instance.offlineUsername);
   const assetsDir = path.join(instance.gameDir, "assets");
 
   const placeholderValues: Record<string, string> = {
-    auth_player_name: instance.offlineUsername,
+    auth_player_name: auth.username,
     version_name: resolved.id,
     game_directory: runDir,
     assets_root: assetsDir,
     game_assets: assetsDir,
     assets_index_name: resolved.assetIndexId,
-    auth_uuid: uuid,
-    auth_access_token: "0",
+    auth_uuid: auth.uuid,
+    auth_access_token: auth.accessToken,
     auth_xuid: "0",
     clientid: "0",
-    user_type: "legacy",
+    user_type: auth.userType,
     version_type: resolved.type,
     natives_directory: nativesDir,
     launcher_name: "OmegaClient",

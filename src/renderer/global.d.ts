@@ -8,6 +8,7 @@ import type {
   ModConfigFile,
   ModInfo,
   ModTag,
+  PublicAccount,
 } from "@shared/types";
 
 export interface LauncherApi {
@@ -42,6 +43,11 @@ export interface LauncherApi {
   settings: {
     get(): Promise<AppSettings>;
     set(settings: AppSettings): Promise<AppSettings>;
+  };
+  accounts: {
+    list(): Promise<PublicAccount[]>;
+    addMicrosoft(): Promise<PublicAccount>;
+    remove(id: string): Promise<void>;
   };
   launch: {
     start(instance: Instance): Promise<boolean>;

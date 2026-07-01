@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag, PublicAccount } from "../shared/types";
 
 const api = {
   instances: {
@@ -36,6 +36,11 @@ const api = {
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke("settings:get"),
     set: (settings: AppSettings) => ipcRenderer.invoke("settings:set", settings),
+  },
+  accounts: {
+    list: (): Promise<PublicAccount[]> => ipcRenderer.invoke("accounts:list"),
+    addMicrosoft: (): Promise<PublicAccount> => ipcRenderer.invoke("accounts:addMicrosoft"),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke("accounts:remove", id),
   },
   launch: {
     start: (instance: Instance) => ipcRenderer.invoke("launch:start", instance),
