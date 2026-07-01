@@ -7,7 +7,7 @@ export interface ToastPayload {
 }
 
 let counter = 0;
-const TOAST_EVENT = "forgepvp:toast";
+const TOAST_EVENT = "omega:toast";
 
 export function toast(message: string, kind: ToastKind = "info"): void {
   const payload: ToastPayload = { id: ++counter, message, kind };

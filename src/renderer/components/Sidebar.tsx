@@ -14,8 +14,11 @@ export default function Sidebar({ instances, selectedId, onSelect, onNewInstance
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="brand">
-          <span className="brand-mark">FP</span>
-          <span className="brand-name">ForgePvP</span>
+          <span className="brand-mark">Ω</span>
+          <span className="brand-text">
+            <span className="brand-name">Omega Client</span>
+            <span className="brand-slogan">The last client you will ever need.</span>
+          </span>
         </div>
       </div>
 

@@ -107,7 +107,7 @@ export function launchInstance(instance: Instance, onLog: (event: LaunchLogEvent
   const runDir = path.dirname(instance.modsDir);
   fs.mkdirSync(instance.modsDir, { recursive: true });
 
-  const nativesDir = path.join(os.tmpdir(), "forgepvp-launcher", `natives-${instance.id}-${Date.now()}`);
+  const nativesDir = path.join(os.tmpdir(), "omega-client", `natives-${instance.id}-${Date.now()}`);
   log(`Extracting natives to ${nativesDir}`);
   extractNatives(instance.gameDir, resolved.libraries, nativesDir, log);
 
@@ -131,7 +131,7 @@ export function launchInstance(instance: Instance, onLog: (event: LaunchLogEvent
     user_type: "legacy",
     version_type: resolved.type,
     natives_directory: nativesDir,
-    launcher_name: "ForgePvPLauncher",
+    launcher_name: "OmegaClient",
     launcher_version: "0.1.0",
     classpath: classpathString,
     classpath_separator: path.delimiter,

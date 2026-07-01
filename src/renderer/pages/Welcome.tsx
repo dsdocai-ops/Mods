@@ -5,7 +5,8 @@ interface Props {
 export default function Welcome({ onNewInstance }: Props) {
   return (
     <div className="welcome">
-      <h1>ForgePvP Launcher</h1>
+      <h1>Omega Client</h1>
+      <p className="welcome-slogan">The last client you will ever need.</p>
       <p>
         Point the launcher at a Minecraft install you already have set up (vanilla launcher, MultiMC/Prism, or any
         folder with <code>versions/</code>, <code>libraries/</code> and <code>assets/</code>), then toggle your mods

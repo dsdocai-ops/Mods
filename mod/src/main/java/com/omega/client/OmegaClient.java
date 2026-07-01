@@ -1,10 +1,10 @@
-package com.forgepvp.client;
+package com.omega.client;
 
-import com.forgepvp.client.features.BlockHighlightFeature;
-import com.forgepvp.client.features.FovZoomFeature;
-import com.forgepvp.client.features.FullbrightFeature;
-import com.forgepvp.client.features.InfoHudFeature;
-import com.forgepvp.client.features.ToggleSprintFeature;
+import com.omega.client.features.BlockHighlightFeature;
+import com.omega.client.features.FovZoomFeature;
+import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.InfoHudFeature;
+import com.omega.client.features.ToggleSprintFeature;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -20,7 +20,7 @@ import org.lwjgl.glfw.GLFW;
  * custom FOV/zoom, toggle-sprint, and an info HUD. Deliberately excludes anything that reads hidden
  * information through terrain or automates combat input.
  */
-public class ForgePvpClient implements ClientModInitializer {
+public class OmegaClient implements ClientModInitializer {
     private final ModConfig config = ModConfig.load();
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
@@ -35,16 +35,16 @@ public class ForgePvpClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.forgepvp-client.menu",
+                "key.omega-client.menu",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "key.categories.forgepvp-client"
+                "key.categories.omega-client"
         ));
         zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.forgepvp-client.zoom",
+                "key.omega-client.zoom",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_C,
-                "key.categories.forgepvp-client"
+                "key.categories.omega-client"
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);

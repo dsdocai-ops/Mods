@@ -1,6 +1,6 @@
-package com.forgepvp.client.features;
+package com.omega.client.features;
 
-import com.forgepvp.client.ModConfig;
+import com.omega.client.ModConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ClientPlayerEntity;

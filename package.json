@@ -1,7 +1,7 @@
 {
-  "name": "forge-pvp-launcher",
+  "name": "omega-client",
   "version": "0.1.0",
-  "description": "A lightweight, offline, mod-toggle-focused Minecraft launcher built for smooth PvP performance.",
+  "description": "Omega Client - The last client you will ever need. A lightweight, offline, mod-toggle-focused Minecraft launcher built for smooth PvP performance.",
   "main": "dist-electron/main/main.js",
   "author": "",
   "license": "MIT",
@@ -35,8 +35,8 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.forgepvp.launcher",
-    "productName": "ForgePvP Launcher",
+    "appId": "com.omega.client",
+    "productName": "Omega Client",
     "files": [
       "dist-electron/**/*",
       "dist-renderer/**/*",

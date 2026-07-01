@@ -1,4 +1,4 @@
-package com.forgepvp.client;
+package com.omega.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -14,12 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Plain-JSON config, deliberately readable/editable both in-game and by the ForgePvP Launcher's
+ * Plain-JSON config, deliberately readable/editable both in-game and by the Omega Client launcher's
  * generic mod-config editor (which infers a form from whatever fields it finds here).
  */
 public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final String FILE_NAME = "forgepvp-client.json";
+    private static final String FILE_NAME = "omega-client.json";
 
     public boolean fullbrightEnabled = false;
 

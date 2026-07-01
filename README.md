@@ -1,4 +1,6 @@
-# ForgePvP Launcher
+# Omega Client
+
+*The last client you will ever need.*
 
 A lightweight, offline-first Minecraft launcher focused on **smooth performance**, **PvP**, and **one-click mod toggling**. No backend, no online account server — it drives a Minecraft install you already have and manages mods as simple on/off switches.
 
@@ -16,7 +18,7 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Offline play**: launches with a deterministic offline UUID (same algorithm the vanilla launcher uses), no Microsoft/Mojang auth and no network calls at launch time.
 - **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
 - **Per-mod config editor**: click **Configure** on any mod to edit its actual config file (JSON or Forge-style TOML) from a schema-inferred form, no text editor required. Works on any mod that follows the standard `config/<modid>.toml` / `config/<modid>.json` convention.
-- **Bundled companion mod** (`mod/`): a small Fabric client mod, "ForgePvP Client", with an in-game toggle menu for visual/QoL PvP settings — see [`mod/README.md`](mod/README.md).
+- **Bundled companion mod** (`mod/`): a small Fabric client mod, also called "Omega Client", with an in-game toggle menu for visual/QoL PvP settings — see [`mod/README.md`](mod/README.md).
 
 ## Project layout
 

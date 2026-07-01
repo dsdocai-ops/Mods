@@ -1,5 +1,6 @@
-package com.forgepvp.client;
+package com.omega.client;
 
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
@@ -9,19 +10,24 @@ import net.minecraft.text.Text;
  * a ModConfig field - no automation, no combat assistance, just visual/QoL settings.
  */
 public class ClickGuiScreen extends Screen {
+    private static final String SLOGAN = "The last client you will ever need.";
+
     private final ModConfig config;
     private static final int ROW_HEIGHT = 24;
     private static final int ROW_WIDTH = 220;
 
+    private int headerY;
+
     public ClickGuiScreen(ModConfig config) {
-        super(Text.literal("ForgePvP Client"));
+        super(Text.literal("Omega Client"));
         this.config = config;
     }
 
     @Override
     protected void init() {
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        int y = this.height / 2 - (ROW_HEIGHT * 4);
+        headerY = this.height / 2 - (ROW_HEIGHT * 4) - 34;
+        int y = headerY + 34;
 
         addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
         y += ROW_HEIGHT;
@@ -37,6 +43,13 @@ public class ClickGuiScreen extends Screen {
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Done"), button -> this.close())
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());
+    }
+
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        super.render(context, mouseX, mouseY, delta);
+        context.drawCenteredTextWithShadow(this.textRenderer, "Omega Client", this.width / 2, headerY, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(this.textRenderer, SLOGAN, this.width / 2, headerY + 12, 0xAAAAAA);
     }
 
     private void addToggleRow(int x, int y, String label, java.util.function.BooleanSupplier getter, java.util.function.Consumer<Boolean> setter) {

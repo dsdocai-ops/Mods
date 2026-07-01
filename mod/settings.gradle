@@ -9,4 +9,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "forgepvp-client"
+rootProject.name = "omega-client"

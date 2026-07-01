@@ -1,6 +1,6 @@
-package com.forgepvp.client.features;
+package com.omega.client.features;
 
-import com.forgepvp.client.ModConfig;
+import com.omega.client.ModConfig;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;

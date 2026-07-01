@@ -1,8 +1,10 @@
-# ForgePvP Client (companion Fabric mod)
+# Omega Client (companion Fabric mod)
 
-A small Fabric client mod that adds an in-game toggle menu for visual/QoL PvP settings. It's designed to be installed like any other mod through the ForgePvP Launcher's **Import your mods** button, and its config file (`config/forgepvp-client.json`) is a plain JSON file the launcher's **Configure** button can already edit.
+*The last client you will ever need.*
 
-Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls screen, under "ForgePvP Client").
+A small Fabric client mod that adds an in-game toggle menu for visual/QoL PvP settings. It's designed to be installed like any other mod through the Omega Client launcher's **Import your mods** button, and its config file (`config/omega-client.json`) is a plain JSON file the launcher's **Configure** button can already edit.
+
+Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls screen, under "Omega Client").
 
 ## What it does - and deliberately doesn't
 
@@ -31,7 +33,7 @@ cd mod
 gradle build     # or: ./gradlew build, if you generate the wrapper first (see below)
 ```
 
-The resulting jar lands in `mod/build/libs/forgepvp-client-0.1.0.jar` - import it into any instance through the launcher's **Import your mods** button like any other mod.
+The resulting jar lands in `mod/build/libs/omega-client-0.1.0.jar` - import it into any instance through the launcher's **Import your mods** button like any other mod.
 
 Requirements:
 - JDK 17+
