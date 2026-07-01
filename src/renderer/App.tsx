@@ -5,6 +5,7 @@ import InstanceDetail from "./pages/InstanceDetail";
 import SettingsPage from "./pages/Settings";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
 import Welcome from "./pages/Welcome";
+import ToastHost from "./components/ToastHost";
 
 type View = { kind: "instance"; id: string } | { kind: "settings" } | { kind: "welcome" };
 
@@ -75,6 +76,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <ToastHost />
       <Sidebar
         instances={instances}
         selectedId={view.kind === "instance" ? view.id : null}

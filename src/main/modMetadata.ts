@@ -2,6 +2,8 @@ import AdmZip from "adm-zip";
 import type { Loader, ModTag } from "../shared/types";
 
 export interface ParsedModMetadata {
+  /** The mod's own internal id (e.g. "sodium"), used to find its config file - distinct from the display name. */
+  modId: string;
   name: string;
   version: string;
   description: string;
@@ -37,10 +39,11 @@ function extractTomlField(toml: string, key: string): string | undefined {
 function parseFabricLike(entryData: Buffer, loader: Loader): ParsedModMetadata | null {
   try {
     const json = JSON.parse(entryData.toString("utf-8"));
+    const modId: string = json.id || "unknown";
     const name: string = json.name || json.id || "Unknown Mod";
     const version: string = json.version || "unknown";
     const description: string = json.description || "";
-    return { name, version, description, loader, tags: guessTags(name, description) };
+    return { modId, name, version, description, loader, tags: guessTags(name, description) };
   } catch {
     return null;
   }
@@ -48,10 +51,11 @@ function parseFabricLike(entryData: Buffer, loader: Loader): ParsedModMetadata |
 
 function parseModsToml(entryData: Buffer): ParsedModMetadata | null {
   const text = entryData.toString("utf-8");
+  const modId = extractTomlField(text, "modId") ?? "unknown";
   const name = extractTomlField(text, "displayName") ?? "Unknown Mod";
   const version = extractTomlField(text, "version") ?? "unknown";
   const description = extractTomlField(text, "description") ?? "";
-  return { name, version, description, loader: "forge", tags: guessTags(name, description) };
+  return { modId, name, version, description, loader: "forge", tags: guessTags(name, description) };
 }
 
 function parseMcmodInfo(entryData: Buffer): ParsedModMetadata | null {
@@ -59,10 +63,11 @@ function parseMcmodInfo(entryData: Buffer): ParsedModMetadata | null {
     const json = JSON.parse(entryData.toString("utf-8"));
     const first = Array.isArray(json) ? json[0] : json.modList?.[0];
     if (!first) return null;
+    const modId: string = first.modid || "unknown";
     const name: string = first.name || "Unknown Mod";
     const version: string = first.version || "unknown";
     const description: string = first.description || "";
-    return { name, version, description, loader: "forge", tags: guessTags(name, description) };
+    return { modId, name, version, description, loader: "forge", tags: guessTags(name, description) };
   } catch {
     return null;
   }
@@ -84,10 +89,11 @@ export function readModMetadata(jarPath: string, fallbackName: string): ParsedMo
       try {
         const json = JSON.parse(quiltEntry.getData().toString("utf-8"));
         const meta = json.quilt_loader?.metadata ?? {};
+        const modId: string = json.quilt_loader?.id || "unknown";
         const name: string = meta.name || json.quilt_loader?.id || "Unknown Mod";
         const version: string = json.quilt_loader?.version || "unknown";
         const description: string = meta.description || "";
-        return { name, version, description, loader: "quilt", tags: guessTags(name, description) };
+        return { modId, name, version, description, loader: "quilt", tags: guessTags(name, description) };
       } catch {
         // fall through to other formats
       }
@@ -115,6 +121,7 @@ export function readModMetadata(jarPath: string, fallbackName: string): ParsedMo
   }
 
   return {
+    modId: fallbackName.toLowerCase().replace(/[^a-z0-9_-]/g, ""),
     name: fallbackName,
     version: "unknown",
     description: "",

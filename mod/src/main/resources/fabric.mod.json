@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "forgepvp-client",
+  "version": "${version}",
+  "name": "ForgePvP Client",
+  "description": "Visual/QoL toggles for smooth PvP play: fullbright, combat-clarity block highlighting, FOV/zoom, toggle-sprint, and an info HUD. All settings, no automation or reveal-through-walls. Configurable in-game (default keybind: Right Shift) or from the ForgePvP Launcher.",
+  "authors": ["ForgePvP Launcher"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.forgepvp.client.ForgePvpClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
+  }
+}

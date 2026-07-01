@@ -15,6 +15,8 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Smooth PvP JVM tuning**: optional G1GC flag preset (Aikar's-flags-style) aimed at cutting GC-pause frame hitches, which matter most in close-quarters PvP.
 - **Offline play**: launches with a deterministic offline UUID (same algorithm the vanilla launcher uses), no Microsoft/Mojang auth and no network calls at launch time.
 - **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
+- **Per-mod config editor**: click **Configure** on any mod to edit its actual config file (JSON or Forge-style TOML) from a schema-inferred form, no text editor required. Works on any mod that follows the standard `config/<modid>.toml` / `config/<modid>.json` convention.
+- **Bundled companion mod** (`mod/`): a small Fabric client mod, "ForgePvP Client", with an in-game toggle menu for visual/QoL PvP settings — see [`mod/README.md`](mod/README.md).
 
 ## Project layout
 
@@ -26,12 +28,15 @@ src/
     instances.ts         # instance CRUD, installed-version detection
     modMetadata.ts        # jar metadata parsing (fabric.mod.json / mods.toml / mcmod.info)
     mods.ts               # mod scan/import/enable-disable/preset logic
+    toml.ts               # minimal TOML subset parser/serializer
+    modConfig.ts           # per-mod config file discovery + read/write (JSON + TOML)
     java.ts               # local Java runtime discovery
     versionResolver.ts    # version JSON inheritance, rule evaluation, arg templating
     launch.ts             # natives extraction, classpath build, JVM spawn
     main.ts / preload.ts  # window + IPC wiring
   renderer/               # React UI (Vite)
-    pages/, components/
+    pages/, components/    # incl. ConfigModal (schema-inferred config editor), ToastHost
+mod/                      # companion Fabric client mod - see mod/README.md
 ```
 
 ## Setup
@@ -59,7 +64,8 @@ npm run dist:win     # packages via electron-builder -> release/ (portable .exe 
 3. Pick a version, name the instance, create it.
 4. In the instance's **Mods** tab, click **Import your mods** and select the `.jar` files from your existing mods collection — they show up immediately as toggle rows with parsed name/version/tags.
 5. Flip mods on/off, or use the **Smooth PvP** / **Visual-HUD only** preset buttons to bulk-switch by tag.
-6. Hit **Play**. Console output streams live in the **Console** tab; **Stop** kills the process.
+6. Click **Configure** on any mod to edit its settings without leaving the launcher (only works once the mod has generated a config file - usually after its first run).
+7. Hit **Play**. Console output streams live in the **Console** tab; **Stop** kills the process.
 
 ## Design notes / constraints
 
@@ -67,6 +73,8 @@ npm run dist:win     # packages via electron-builder -> release/ (portable .exe 
 - **No installer/downloader for Minecraft itself.** Reimplementing Mojang's asset/library downloader and Forge/Fabric installers is a large, security-sensitive undertaking; instead the launcher works with an install you already have (via the official launcher or MultiMC-style tools), which is also what makes it "no online servers" — the only network activity is whatever *you* already did to install the game.
 - **Offline auth only.** No Microsoft/Mojang OAuth flow is implemented. This is intentional for the "no online servers" requirement; it also means it won't join servers with `online-mode=true` unless you add that later.
 - **Mods folder = instance run directory's `mods/`.** Each instance's effective "game directory" passed to the JVM is the parent of its mods folder, so per-instance isolation falls out naturally if you ever point an instance's mods folder outside the shared install (not yet exposed in the UI, but the launch engine already supports it).
+- **The config editor doesn't preserve comments.** Saving through the UI regenerates the file from parsed data (JSON round-trips exactly; the TOML writer doesn't keep hand-written `#` comments). The UI warns about this before you save a TOML file.
+- **The companion mod is visual/QoL only, by design.** Fullbright, block highlighting, FOV/zoom, toggle-sprint, and the info HUD - nothing that reveals info through walls (highlighting is depth-tested) and nothing that automates combat input (no reach/velocity/aim changes). See [`mod/README.md`](mod/README.md) for the reasoning and exact feature list.
 
 ## Possible next steps
 

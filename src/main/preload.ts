@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AppSettings, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
 
 const api = {
   instances: {
@@ -20,6 +20,12 @@ const api = {
       ipcRenderer.invoke("mods:setEnabled", modsDir, modId, enabled),
     remove: (modsDir: string, modId: string) => ipcRenderer.invoke("mods:remove", modsDir, modId),
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
+  },
+  modConfig: {
+    find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),
+    read: (filePath: string) => ipcRenderer.invoke("modconfig:read", filePath),
+    write: (filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
+      ipcRenderer.invoke("modconfig:write", filePath, format, data),
   },
   java: {
     detect: (gameDir?: string) => ipcRenderer.invoke("java:detect", gameDir),

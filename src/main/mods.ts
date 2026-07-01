@@ -32,6 +32,7 @@ export function listMods(modsDir: string): ModInfo[] {
     return {
       id,
       fileName: entry.name,
+      modId: meta.modId,
       name: meta.name,
       version: meta.version,
       description: meta.description,

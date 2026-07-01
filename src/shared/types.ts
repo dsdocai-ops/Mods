@@ -10,10 +10,12 @@ export type ModTag =
   | "other";
 
 export interface ModInfo {
-  /** Stable id derived from the enabled file name (without .disabled suffix). */
+  /** Stable id derived from the enabled file name (without .disabled suffix). Used for toggle/remove operations. */
   id: string;
   /** File name as it currently sits on disk, e.g. "sodium-fabric-0.5.jar" or "sodium-fabric-0.5.jar.disabled". */
   fileName: string;
+  /** The mod's own internal id read from its manifest (e.g. "sodium"), used to locate its config file. */
+  modId: string;
   name: string;
   version: string;
   description: string;
@@ -55,6 +57,14 @@ export interface Instance {
   createdAt: number;
   lastPlayedAt: number | null;
   iconColor: string;
+}
+
+export type ConfigFormat = "json" | "toml";
+
+export interface ModConfigFile {
+  path: string;
+  format: ConfigFormat;
+  data: Record<string, unknown>;
 }
 
 export interface CreateInstanceInput {

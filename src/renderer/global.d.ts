@@ -1,9 +1,11 @@
 import type {
   AppSettings,
+  ConfigFormat,
   CreateInstanceInput,
   DetectedVersion,
   Instance,
   LaunchLogEvent,
+  ModConfigFile,
   ModInfo,
   ModTag,
 } from "@shared/types";
@@ -26,6 +28,11 @@ export interface LauncherApi {
     setEnabled(modsDir: string, modId: string, enabled: boolean): Promise<ModInfo[]>;
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
+  };
+  modConfig: {
+    find(modsDir: string, modId: string): Promise<string | null>;
+    read(filePath: string): Promise<ModConfigFile>;
+    write(filePath: string, format: ConfigFormat, data: Record<string, unknown>): Promise<void>;
   };
   java: {
     detect(gameDir?: string): Promise<string[]>;

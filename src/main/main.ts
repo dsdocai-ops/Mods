@@ -1,12 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import type { AppSettings, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as store from "./store";
 import * as javaModule from "./java";
 import { launchInstance } from "./launch";
+import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 
 const isDev = process.env.NODE_ENV === "development";
 const runningProcesses = new Map<string, ChildProcess>();
@@ -65,6 +66,12 @@ app.whenReady().then(() => {
   );
   ipcMain.handle("mods:remove", (_e, modsDir: string, modId: string) => mods.removeMod(modsDir, modId));
   ipcMain.handle("mods:applyPreset", (_e, modsDir: string, tags: ModTag[]) => mods.applyTagPreset(modsDir, tags));
+
+  ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
+  ipcMain.handle("modconfig:read", (_e, filePath: string) => readModConfigFile(filePath));
+  ipcMain.handle("modconfig:write", (_e, filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
+    writeModConfigFile(filePath, format, data)
+  );
 
   ipcMain.handle("java:detect", (_e, gameDir?: string) => javaModule.detectJavaCandidates(gameDir));
   ipcMain.handle("java:verify", (_e, javaPath: string) => javaModule.verifyJava(javaPath));
