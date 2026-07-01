@@ -78,7 +78,7 @@ Minecraft has no API for hot-swapping a live account mid-session, so **"Switch A
 ## Particle control
 
 Open the menu (**Right Shift**) → **Particles...** for:
-- **A master switch** - turns every particle off, full stop.
+- **A master switch** - turns every particle off, full stop. Two Mixin injections back this, not one: the normal type-classified spawn path (`addParticle(ParticleEffect, ...)` / `createParticle(ParticleOptions, ...)`), plus a second, category-blind injection on the lower-level `addParticle(Particle)` / `add(Particle)` overload that a handful of vanilla effects use to spawn already-constructed child particles directly (bypassing type lookup entirely, e.g. some particles spawning their own children from `tick()`). Only the master switch can act on that second path - a raw `Particle` object doesn't carry the type info a category check needs - but it's covered, so "All particles: OFF" actually means all of them, not "most, from the normal spawn path." Turning it off stops new particles from appearing immediately; particles already alive at that moment still finish their remaining lifetime rather than vanishing instantly (typically under a second, up to a few seconds for slow ones like smoke).
 - **Six category switches** - Block (the generic break/step/land particle - "particles for every block"), Ambient block (torch smoke, drips, spores, and similar decorations), Totem, Crit (crit + enchanted-hit), Explosion, and Portal.
 - **A custom blacklist** - type any particle id (e.g. `minecraft:soul`, or just `soul` and it'll assume `minecraft:`) to block something the categories above don't cover - the "and more" from the original request.
 - **A density slider** (cycles 100% → 75% → 50% → 25% → 10%) - probabilistically thins whatever's still allowed through, instead of an all-or-nothing cut.
@@ -118,7 +118,7 @@ Roughly in order of how likely they are to have drifted:
 - `GameOptions.getGamma()` / `getFov()` in `FullbrightFeature.java` / `FovZoomFeature.java`.
 - `ClientPlayerEntity.sendMessage(Text, boolean)` in `OmegaClient.java`.
 - `MinecraftClient.scheduleStop()` in `ClickGuiScreen.java` (account switching) - this one's lower-risk than most of this list, it's a long-standing Yarn name with no known history of changing.
-- `ParticleManager#addParticle(ParticleEffect, double,double,double,double,double,double)`'s exact method descriptor in `ParticleManagerMixin.java` (particle control) - if this signature has drifted, Mixin fails loudly at startup (the config is `"required": true`) rather than silently doing nothing, so a broken match is easy to notice.
+- `ParticleManager#addParticle(ParticleEffect, double,double,double,double,double,double)` and `ParticleManager#addParticle(Particle)`'s exact method descriptors in `ParticleManagerMixin.java` (particle control) - if either signature has drifted, Mixin fails loudly at startup (the config is `"required": true`) rather than silently doing nothing, so a broken match is easy to notice.
 
 Your IDE's autocomplete on `client.options.`, `player.sendMessage(`, `block.getStateManager().`, or `NbtIo.` will show the real signatures for your exact `yarn_mappings` build if any of these have drifted.
 
@@ -135,6 +135,7 @@ This list is longer than Fabric's because every file in `forge/` is a fresh, nev
 - **`.bounds(x, y, w, h)`** on `Button.Builder` in `ClickGuiScreen.java`/`SchematicScreen.java` - a guess at the official-mappings equivalent of Yarn's convenience `.dimensions(...)` call.
 - **`Minecraft.stop()`** in `ClickGuiScreen.java` (account switching) - guessed as the official-mappings equivalent of Yarn's `MinecraftClient.scheduleStop()`; moderate confidence.
 - **`ParticleEngineMixin.java`'s target signature and the Mixin Gradle wiring in `build.gradle`/`mods.toml`** (particle control) - the single highest-risk addition in this whole module, see "Particle control" above for why. If `createParticle`'s name or parameter shape has drifted, or the `-Amixin.env.disableRefMap=true` refmap-bypass guess is wrong for this Forge/Mixin version combination, the mod fails loudly at startup rather than silently misbehaving (the mixin config is `"required": true`).
+- **`ParticleEngine#add(Particle)`** in the same file - the raw-Particle spawn path the master particle switch also needs to cover (see "Particle control" above); guessed short name `add`, unverified.
 
 Higher-confidence renames used throughout (less likely to be the problem, but listed for completeness): `MinecraftClient`→`Minecraft`, `World`→`Level`, `Identifier`→`ResourceLocation`, `Text`→`Component`, `DrawContext`→`GuiGraphics`, `MatrixStack`→`PoseStack`, `Vec3d`→`Vec3`, `RenderLayer`→`RenderType`, `VertexConsumerProvider`→`MultiBufferSource`, `NbtCompound`/`NbtList`→`CompoundTag`/`ListTag`.
 
