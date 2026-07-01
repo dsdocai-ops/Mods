@@ -21,12 +21,17 @@ import net.minecraft.util.math.Vec3d;
  * Both the render distance and the per-frame block count are capped for the same reason the block
  * highlight scan was budgeted: a schematic can contain thousands of blocks, and building fresh
  * geometry for all of them every single frame regardless of size would be exactly the kind of
- * unbounded per-frame cost this project has otherwise been careful to avoid.
+ * unbounded per-frame cost this project has otherwise been careful to avoid. That cap has to apply
+ * to how many entries get *examined* each frame, not just how many get drawn - a schematic where
+ * most blocks are currently out of render range would otherwise still walk the entire block list
+ * every single frame (only the geometry-building step was actually bounded), silently reintroducing
+ * the exact per-frame cost this budget exists to prevent.
  */
 public final class SchematicRenderFeature {
     private static final double MAX_RENDER_DISTANCE = 64.0;
     private static final double MAX_RENDER_DISTANCE_SQ = MAX_RENDER_DISTANCE * MAX_RENDER_DISTANCE;
     private static final int MAX_RENDERED_BLOCKS_PER_FRAME = 6000;
+    private static final int MAX_EXAMINED_BLOCKS_PER_FRAME = 20000;
 
     private SchematicData active;
     private BlockPos origin = BlockPos.ORIGIN;
@@ -64,8 +69,10 @@ public final class SchematicRenderFeature {
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
 
         int rendered = 0;
+        int examined = 0;
         for (SchematicBlockEntry entry : active.blocks) {
-            if (rendered >= MAX_RENDERED_BLOCKS_PER_FRAME) break;
+            if (rendered >= MAX_RENDERED_BLOCKS_PER_FRAME || examined >= MAX_EXAMINED_BLOCKS_PER_FRAME) break;
+            examined++;
 
             double worldX = origin.getX() + entry.x;
             double worldY = origin.getY() + entry.y;

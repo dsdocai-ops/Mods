@@ -16,8 +16,15 @@ public final class FovZoomFeature {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options == null) return;
 
-        if (!baseFovCaptured) {
-            baseFov = client.options.getFov().getValue();
+        // If the live value doesn't match the last one *we* wrote, something else changed it - most
+        // likely the player adjusting the FOV slider in vanilla's own Options screen. Re-capture it
+        // as the new base so zoom (and turning Custom FOV off) returns to what the player actually
+        // has it set to now, not whatever it was when this mod first ticked. Without this, a base
+        // captured once at load time would never notice a later vanilla-side change, and holding
+        // then releasing zoom would silently snap FOV back to that stale value.
+        int liveFov = client.options.getFov().getValue();
+        if (!baseFovCaptured || liveFov != lastAppliedFov) {
+            baseFov = liveFov;
             baseFovCaptured = true;
         }
 

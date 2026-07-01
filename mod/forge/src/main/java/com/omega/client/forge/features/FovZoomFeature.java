@@ -3,7 +3,12 @@ package com.omega.client.forge.features;
 import com.omega.client.forge.ModConfig;
 import net.minecraft.client.Minecraft;
 
-/** Forge-side twin of the Fabric FovZoomFeature - same field-vs-getter translation as FullbrightFeature. */
+/**
+ * Forge-side twin of the Fabric FovZoomFeature - same field-vs-getter translation as
+ * FullbrightFeature, same re-sync-from-live-value fix (see the Fabric class's javadoc for why
+ * capturing the base FOV only once would go stale the moment the player touches vanilla's own FOV
+ * slider).
+ */
 public final class FovZoomFeature {
     private int baseFov = 90;
     private boolean baseFovCaptured = false;
@@ -13,8 +18,9 @@ public final class FovZoomFeature {
         Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
 
-        if (!baseFovCaptured) {
-            baseFov = client.options.fov.get();
+        int liveFov = client.options.fov.get();
+        if (!baseFovCaptured || liveFov != lastAppliedFov) {
+            baseFov = liveFov;
             baseFovCaptured = true;
         }
 

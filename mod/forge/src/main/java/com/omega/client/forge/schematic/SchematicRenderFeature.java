@@ -20,11 +20,16 @@ import net.minecraft.world.phys.Vec3;
  *
  * Renames vs. Yarn: Vec3d -> Vec3, RenderLayer -> RenderType, VertexConsumerProvider ->
  * MultiBufferSource (all well-established, high confidence).
+ *
+ * The per-frame examined-block cap (not just the drawn-block cap) matches a fix applied to the
+ * Fabric twin of this class - see its javadoc: capping only the draw count left the block-list walk
+ * itself unbounded whenever most blocks were out of render range.
  */
 public final class SchematicRenderFeature {
     private static final double MAX_RENDER_DISTANCE = 64.0;
     private static final double MAX_RENDER_DISTANCE_SQ = MAX_RENDER_DISTANCE * MAX_RENDER_DISTANCE;
     private static final int MAX_RENDERED_BLOCKS_PER_FRAME = 6000;
+    private static final int MAX_EXAMINED_BLOCKS_PER_FRAME = 20000;
 
     private SchematicData active;
     private BlockPos origin = BlockPos.ZERO;
@@ -58,8 +63,10 @@ public final class SchematicRenderFeature {
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
 
         int rendered = 0;
+        int examined = 0;
         for (SchematicBlockEntry entry : active.blocks) {
-            if (rendered >= MAX_RENDERED_BLOCKS_PER_FRAME) break;
+            if (rendered >= MAX_RENDERED_BLOCKS_PER_FRAME || examined >= MAX_EXAMINED_BLOCKS_PER_FRAME) break;
+            examined++;
 
             double worldX = origin.getX() + entry.x;
             double worldY = origin.getY() + entry.y;

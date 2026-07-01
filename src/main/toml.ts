@@ -54,6 +54,24 @@ function splitTopLevel(text: string): string[] {
   return parts;
 }
 
+/** Strips a trailing `# comment`, but only outside of quotes - a naive `split("#")` would truncate any string value that legitimately contains a "#" (hex colors, descriptions with hashtags, etc). */
+function stripInlineComment(value: string): string {
+  let inQuote: string | null = null;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (inQuote) {
+      if (ch === inQuote) inQuote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inQuote = ch;
+      continue;
+    }
+    if (ch === "#") return value.slice(0, i);
+  }
+  return value;
+}
+
 function getOrCreateSection(root: TomlTable, path: string[]): TomlTable {
   let node = root;
   for (const segment of path) {
@@ -86,7 +104,7 @@ export function parseToml(text: string): TomlTable {
     const kvMatch = /^([A-Za-z0-9_.\-]+)\s*=\s*(.+)$/.exec(line);
     if (kvMatch) {
       const key = kvMatch[1].trim();
-      const valueRaw = kvMatch[2].split(/\s+#/)[0].trim(); // strip trailing inline comment
+      const valueRaw = stripInlineComment(kvMatch[2]).trim();
       current[key] = parseScalar(valueRaw);
     }
   }
