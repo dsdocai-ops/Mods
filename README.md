@@ -19,7 +19,7 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Optional Microsoft sign-in**: link your real Minecraft account (needed for online-mode servers) via the standard Microsoft OAuth → Xbox Live → Minecraft token chain, the same public flow every third-party launcher uses. Tokens are encrypted at rest (Electron's OS-level `safeStorage`) and refreshed automatically before each launch. Needs your own free Azure app registration - see "Microsoft sign-in setup" below.
 - **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
 - **Per-mod config editor**: click **Configure** on any mod to edit its actual config file (JSON or Forge-style TOML) from a schema-inferred form, no text editor required. Works on any mod that follows the standard `config/<modid>.toml` / `config/<modid>.json` convention.
-- **Bundled companion mod** (`mod/`): a small Fabric client mod, also called "Omega Client", with an in-game toggle menu for visual/QoL PvP settings plus a WorldEdit-style schematic selection/save/ghost-preview tool — see [`mod/README.md`](mod/README.md).
+- **Bundled companion mod** (`mod/`): a small client mod, also called "Omega Client", built for **both Fabric and Forge**, with an in-game toggle menu for visual/QoL PvP settings plus a WorldEdit-style schematic selection/save/ghost-preview tool — see [`mod/README.md`](mod/README.md).
 
 ## Project layout
 
@@ -41,7 +41,7 @@ src/
     main.ts / preload.ts  # window + IPC wiring
   renderer/               # React UI (Vite)
     pages/, components/    # incl. ConfigModal (schema-inferred config editor), ToastHost
-mod/                      # companion Fabric client mod - see mod/README.md
+mod/                      # companion mod: common/ (shared data classes) + fabric/ + forge/ - see mod/README.md
 ```
 
 ## Setup
@@ -98,7 +98,7 @@ Optional - skip this if offline play is all you need. Signing in requires your o
 ## Possible next steps
 
 - **A real installer**: download vanilla (Mojang's version manifest + assets + libraries) and Fabric (Fabric's meta API) directly; for Forge, download and invoke the official installer jar headlessly rather than reimplementing its processor pipeline.
-- **Multi-loader companion mod**: port `mod/` to also build for Forge (currently Fabric-only) via a shared `common` module plus per-loader entry points, so Omega Client's own features work regardless of which loader an instance uses.
+- **NeoForge support**: `mod/` now covers Fabric + Forge; NeoForge (a fork of Forge with a similar but not identical API) would be a third module following the same pattern.
 - Per-instance isolated `mods`/`saves`/`config` folders exposed in the New Instance UI (the launch engine already supports arbitrary `modsDir`).
 - Drag-and-drop mod import onto the mod list.
 - A "verify install" pass that flags missing libraries/assets before launch instead of only warning in the console.

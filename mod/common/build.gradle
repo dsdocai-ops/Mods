@@ -1,0 +1,15 @@
+// Deliberately not a Loom/ForgeGradle project: everything here (SchematicData, SchematicBlockEntry)
+// is plain Java with zero Minecraft imports, so there's no obfuscation-mapping to worry about.
+// fabric/ and forge/ each add this module's source directory straight into their own compilation
+// (see their build.gradle) rather than depending on a separately-compiled jar - since nothing here
+// touches a mapped Minecraft class, that's a safe, low-risk way to genuinely share this code
+// between two modules built against different mapping sets. See mod/README.md for why the rest of
+// the mod (anything that *does* touch Minecraft classes) is NOT shared this way.
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}

@@ -1,0 +1,54 @@
+// Standard ForgeGradle MDK-template shape (the official Forge project template's structure has
+// been stable across many Minecraft versions) - the exact plugin version range is the one spot
+// here I'd double check first if this doesn't resolve, same spirit as the moderate-confidence
+// spots flagged in mod/README.md.
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+base {
+    archivesName = "${project.archives_base_name}-forge"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - added directly as
+// a source directory for the same reason the fabric module does this instead of depending on a
+// separately-built jar.
+sourceSets.main.java.srcDir project(':common').file('src/main/java')
+
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                omega_client_forge {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.forge_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": project.version, "forge_loader_range": project.forge_loader_range
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+}

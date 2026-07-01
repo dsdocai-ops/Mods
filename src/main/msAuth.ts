@@ -86,6 +86,12 @@ async function postJson(url: string, body: unknown): Promise<any> {
 }
 
 /** Opens a modal sign-in window and resolves with the OAuth authorization code once Microsoft redirects back. */
+// Microsoft's login page actively detects and blocks Electron's default embedded-browser user
+// agent ("this browser or app may not be secure"), so the auth window has to present itself as a
+// normal desktop Chrome to get past that check.
+const DESKTOP_CHROME_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
 function captureAuthorizationCode(authUrl: string, expectedState: string, parentWindow: BrowserWindow): Promise<string> {
   return new Promise((resolve, reject) => {
     const authWindow = new BrowserWindow({
@@ -100,6 +106,7 @@ function captureAuthorizationCode(authUrl: string, expectedState: string, parent
         contextIsolation: true,
       },
     });
+    authWindow.webContents.setUserAgent(DESKTOP_CHROME_USER_AGENT);
 
     let settled = false;
 

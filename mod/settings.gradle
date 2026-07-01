@@ -4,9 +4,15 @@ pluginManagement {
             name = "Fabric"
             url = "https://maven.fabricmc.net/"
         }
+        maven {
+            name = "MinecraftForge"
+            url = "https://maven.minecraftforge.net/"
+        }
         mavenCentral()
         gradlePluginPortal()
     }
 }
 
 rootProject.name = "omega-client"
+
+include("common", "fabric", "forge")

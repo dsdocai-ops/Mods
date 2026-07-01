@@ -1,19 +1,24 @@
-package com.omega.client.schematic;
+package com.omega.client.forge.schematic;
 
-import com.omega.client.ModConfig;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import com.omega.client.forge.ModConfig;
+import com.omega.client.schematic.SchematicData;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
-/** Lists saved schematics and lets you save the current selection, import a .litematic file, preview/place one, or delete it. */
+/**
+ * Forge-side twin of the Fabric SchematicScreen. Renames vs. Yarn: TextFieldWidget -> EditBox,
+ * ButtonWidget -> Button, DrawContext -> GuiGraphics, Text -> Component, addDrawableChild ->
+ * addRenderableWidget, client.world -> client.level, player.getBlockPos() -> player.blockPosition().
+ */
 public class SchematicScreen extends Screen {
     private static final int MAX_VISIBLE_SAVED_ROWS = 5;
     private static final int MAX_VISIBLE_IMPORT_ROWS = 3;
@@ -22,11 +27,11 @@ public class SchematicScreen extends Screen {
     private final SchematicSelection selection;
     private final SchematicRenderFeature renderFeature;
 
-    private TextFieldWidget nameField;
+    private EditBox nameField;
     private String statusMessage = "";
 
     public SchematicScreen(ModConfig config, SchematicSelection selection, SchematicRenderFeature renderFeature) {
-        super(Text.literal("Omega Schematics"));
+        super(Component.literal("Omega Schematics"));
         this.config = config;
         this.selection = selection;
         this.renderFeature = renderFeature;
@@ -37,11 +42,11 @@ public class SchematicScreen extends Screen {
         int centerX = this.width / 2;
         int y = 46;
 
-        nameField = new TextFieldWidget(this.textRenderer, centerX - 150, y, 190, 20, Text.literal("Schematic name"));
+        nameField = new EditBox(this.font, centerX - 150, y, 190, 20, Component.literal("Schematic name"));
         nameField.setMaxLength(64);
-        this.addSelectableChild(nameField);
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Save Selection"), b -> saveSelection())
-                .dimensions(centerX + 45, y, 110, 20)
+        this.addRenderableWidget(nameField);
+        this.addRenderableWidget(Button.builder(Component.literal("Save Selection"), b -> saveSelection())
+                .bounds(centerX + 45, y, 110, 20)
                 .build());
         y += 30;
 
@@ -49,15 +54,15 @@ public class SchematicScreen extends Screen {
         y = addSavedSchematicRows(centerX, y);
 
         int bottomY = Math.max(y + 16, this.height - 60);
-        this.addDrawableChild(ButtonWidget.builder(Text.literal(config.schematicPreviewEnabled ? "Hide Preview" : "Show Preview"), b -> togglePreview())
-                .dimensions(centerX - 110, bottomY, 100, 20)
+        this.addRenderableWidget(Button.builder(Component.literal(config.schematicPreviewEnabled ? "Hide Preview" : "Show Preview"), b -> togglePreview())
+                .bounds(centerX - 110, bottomY, 100, 20)
                 .build());
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Re-anchor to Me"), b -> reanchor())
-                .dimensions(centerX + 10, bottomY, 100, 20)
+        this.addRenderableWidget(Button.builder(Component.literal("Re-anchor to Me"), b -> reanchor())
+                .bounds(centerX + 10, bottomY, 100, 20)
                 .build());
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Back"), b -> this.close())
-                .dimensions(centerX - 50, this.height - 30, 100, 20)
+        this.addRenderableWidget(Button.builder(Component.literal("Back"), b -> this.onClose())
+                .bounds(centerX - 50, this.height - 30, 100, 20)
                 .build());
     }
 
@@ -69,8 +74,8 @@ public class SchematicScreen extends Screen {
         for (int i = 0; i < shown; i++) {
             Path file = litematicFiles.get(i);
             String fileName = file.getFileName().toString();
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("Import: " + fileName), b -> importLitematic(file))
-                    .dimensions(centerX - 160, y, 320, 20)
+            this.addRenderableWidget(Button.builder(Component.literal("Import: " + fileName), b -> importLitematic(file))
+                    .bounds(centerX - 160, y, 320, 20)
                     .build());
             y += 24;
         }
@@ -82,14 +87,15 @@ public class SchematicScreen extends Screen {
         int shown = Math.min(names.size(), MAX_VISIBLE_SAVED_ROWS);
         for (int i = 0; i < shown; i++) {
             String name = names.get(i);
-            this.addDrawableChild(ButtonWidget.builder(Text.literal(name), b -> loadAndPreview(name))
-                    .dimensions(centerX - 160, y, 220, 20)
+            this.addRenderableWidget(Button.builder(Component.literal(name), b -> loadAndPreview(name))
+                    .bounds(centerX - 160, y, 220, 20)
                     .build());
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete"), b -> {
+            this.addRenderableWidget(Button.builder(Component.literal("Delete"), b -> {
                         SchematicStorage.delete(name);
-                        this.clearAndInit();
+                        this.clearWidgets();
+                        this.init();
                     })
-                    .dimensions(centerX + 65, y, 95, 20)
+                    .bounds(centerX + 65, y, 95, 20)
                     .build());
             y += 24;
         }
@@ -104,14 +110,14 @@ public class SchematicScreen extends Screen {
             statusMessage = "Set both positions first (Pos 1 / Pos 2 keybinds).";
             return;
         }
-        String name = nameField.getText().trim();
+        String name = nameField.getValue().trim();
         if (name.isEmpty()) name = "schematic-" + System.currentTimeMillis();
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.level == null) return;
 
         try {
-            SchematicData data = new SchematicCaptureFeature().capture(client.world, selection, name);
+            SchematicData data = new SchematicCaptureFeature().capture(client.level, selection, name);
             SchematicStorage.save(data);
             statusMessage = "Saved \"" + name + "\" (" + data.blocks.size() + " blocks).";
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -121,7 +127,7 @@ public class SchematicScreen extends Screen {
             statusMessage = "Failed to save: " + e.getMessage();
             return;
         }
-        this.clearAndInit();
+        refresh();
     }
 
     private void importLitematic(Path file) {
@@ -132,22 +138,19 @@ public class SchematicScreen extends Screen {
             SchematicStorage.save(data);
             statusMessage = "Imported \"" + name + "\" (" + data.blocks.size() + " blocks) - best-effort, double check it looks right before building.";
         } catch (IOException | RuntimeException e) {
-            // Broad catch is deliberate: LitematicaImporter is reconstructed from memory of an
-            // undocumented format, so a wrong structural assumption could throw almost anything
-            // (NPE, class cast, index-out-of-bounds) - all of that should end in a status message,
-            // not a crashed client.
+            // Broad catch is deliberate - see LitematicaImporter's doc comment.
             statusMessage = "Import failed: " + e.getMessage();
         }
-        this.clearAndInit();
+        refresh();
     }
 
     private void loadAndPreview(String name) {
         try {
             SchematicData data = SchematicStorage.load(name);
             renderFeature.setActive(data);
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player != null) {
-                renderFeature.setOrigin(client.player.getBlockPos());
+                renderFeature.setOrigin(client.player.blockPosition());
             }
             config.schematicPreviewEnabled = true;
             config.save();
@@ -155,35 +158,40 @@ public class SchematicScreen extends Screen {
         } catch (IOException e) {
             statusMessage = "Failed to load: " + e.getMessage();
         }
-        this.clearAndInit();
+        refresh();
     }
 
     private void togglePreview() {
         config.schematicPreviewEnabled = !config.schematicPreviewEnabled;
         config.save();
-        this.clearAndInit();
+        refresh();
     }
 
     private void reanchor() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client.player != null) {
-            renderFeature.setOrigin(client.player.getBlockPos());
+            renderFeature.setOrigin(client.player.blockPosition());
             statusMessage = "Re-anchored to your position.";
         }
     }
 
+    private void refresh() {
+        this.clearWidgets();
+        this.init();
+    }
+
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
         int centerX = this.width / 2;
-        context.drawCenteredTextWithShadow(this.textRenderer, "Omega Schematics", centerX, 16, 0xFFFFFF);
+        context.drawCenteredString(this.font, "Omega Schematics", centerX, 16, 0xFFFFFF);
 
         String selectionText = selectionStatusText();
-        context.drawCenteredTextWithShadow(this.textRenderer, selectionText, centerX, 30, 0xAAAAAA);
+        context.drawCenteredString(this.font, selectionText, centerX, 30, 0xAAAAAA);
 
         if (!statusMessage.isEmpty()) {
-            context.drawCenteredTextWithShadow(this.textRenderer, statusMessage, centerX, this.height - 44, 0xFFD37F);
+            context.drawCenteredString(this.font, statusMessage, centerX, this.height - 44, 0xFFD37F);
         }
     }
 
@@ -196,7 +204,7 @@ public class SchematicScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

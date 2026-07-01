@@ -1,0 +1,44 @@
+plugins {
+    id 'fabric-loom' version '1.6.12'
+    id 'maven-publish'
+}
+
+base {
+    archivesName = "${project.archives_base_name}-fabric"
+}
+
+repositories {
+    mavenCentral()
+}
+
+// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - adding its source
+// directory straight into this module's own compilation, rather than depending on a separately
+// built jar, means it's compiled together with everything else in one pass with no jar-embedding
+// step needed.
+sourceSets.main.java.srcDir project(':common').file('src/main/java')
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = 17
+}
