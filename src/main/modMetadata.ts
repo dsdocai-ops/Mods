@@ -16,6 +16,10 @@ const PERF_KEYWORDS = ["sodium", "lithium", "starlight", "phosphor", "lazydfu", 
 const PVP_KEYWORDS = ["pvp", "hit", "combat", "reach", "crosshair", "cit"];
 const VISUAL_KEYWORDS = ["shader", "resource", "texture", "hud", "overlay", "waypoint", "minimap", "chat"];
 const LIBRARY_KEYWORDS = ["api", "library", "lib", "fabric-language", "kotlin"];
+const CPVP_KEYWORDS = ["crystal", "totem", "anchor", "autototem", "cpvp", "obsidian"];
+const UHC_KEYWORDS = ["uhc", "ultrahardcore", "ultra hardcore", "hardcore timer", "golden head", "regen"];
+const BEDWARS_KEYWORDS = ["bedwars", "bed wars", "bed defense"];
+const SURVIVAL_KEYWORDS = ["survival", "waypoint", "minimap", "storage", "inventory", "recipe", "crafting", "backpack"];
 
 function guessTags(name: string, description: string): ModTag[] {
   const haystack = `${name} ${description}`.toLowerCase();
@@ -24,6 +28,10 @@ function guessTags(name: string, description: string): ModTag[] {
   if (PVP_KEYWORDS.some((k) => haystack.includes(k))) tags.add("pvp");
   if (VISUAL_KEYWORDS.some((k) => haystack.includes(k))) tags.add("visual");
   if (LIBRARY_KEYWORDS.some((k) => haystack.includes(k))) tags.add("library");
+  if (CPVP_KEYWORDS.some((k) => haystack.includes(k))) tags.add("cpvp");
+  if (UHC_KEYWORDS.some((k) => haystack.includes(k))) tags.add("uhc");
+  if (BEDWARS_KEYWORDS.some((k) => haystack.includes(k))) tags.add("bedwars");
+  if (SURVIVAL_KEYWORDS.some((k) => haystack.includes(k))) tags.add("survival");
   if (tags.size === 0) tags.add("other");
   return [...tags];
 }

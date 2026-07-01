@@ -1,5 +1,8 @@
 package com.omega.client;
 
+import com.omega.client.schematic.SchematicRenderFeature;
+import com.omega.client.schematic.SchematicScreen;
+import com.omega.client.schematic.SchematicSelection;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -13,20 +16,24 @@ public class ClickGuiScreen extends Screen {
     private static final String SLOGAN = "The last client you will ever need.";
 
     private final ModConfig config;
+    private final SchematicSelection selection;
+    private final SchematicRenderFeature schematicRender;
     private static final int ROW_HEIGHT = 24;
     private static final int ROW_WIDTH = 220;
 
     private int headerY;
 
-    public ClickGuiScreen(ModConfig config) {
+    public ClickGuiScreen(ModConfig config, SchematicSelection selection, SchematicRenderFeature schematicRender) {
         super(Text.literal("Omega Client"));
         this.config = config;
+        this.selection = selection;
+        this.schematicRender = schematicRender;
     }
 
     @Override
     protected void init() {
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        headerY = this.height / 2 - (ROW_HEIGHT * 4) - 34;
+        headerY = this.height / 2 - (ROW_HEIGHT * 5) - 34;
         int y = headerY + 34;
 
         addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
@@ -38,6 +45,13 @@ public class ClickGuiScreen extends Screen {
         addToggleRow(startX, y, "Toggle Sprint", () -> config.toggleSprintEnabled, v -> config.toggleSprintEnabled = v);
         y += ROW_HEIGHT;
         addToggleRow(startX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
+        y += ROW_HEIGHT;
+
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {
+                    if (this.client != null) this.client.setScreen(new SchematicScreen(config, selection, schematicRender));
+                })
+                .dimensions(startX, y, ROW_WIDTH, 20)
+                .build());
         y += ROW_HEIGHT + 8;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Done"), button -> this.close())

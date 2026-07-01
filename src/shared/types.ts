@@ -7,6 +7,10 @@ export type ModTag =
   | "visual"
   | "library"
   | "hud"
+  | "cpvp"
+  | "uhc"
+  | "bedwars"
+  | "survival"
   | "other";
 
 export interface ModInfo {
@@ -100,13 +104,40 @@ export const DEFAULT_JVM: JvmSettings = {
   useSmoothPvpFlags: true,
 };
 
-export const MOD_TAG_PRESETS: Record<string, { label: string; tags: ModTag[] }> = {
+/**
+ * Preset buttons in the Mods tab. Each one bulk-enables every imported mod carrying any of its
+ * tags and disables the rest - the launcher never bundles mods itself (see README), so a preset
+ * is only as good as the auto-tagging in modMetadata.ts recognizing the mods you've imported.
+ */
+export const MOD_TAG_PRESETS: Record<string, { label: string; description: string; tags: ModTag[] }> = {
   "smooth-pvp": {
-    label: "Smooth PvP Preset",
+    label: "Smooth PvP",
+    description: "Performance + general combat mods.",
     tags: ["performance", "pvp"],
+  },
+  cpvp: {
+    label: "Crystal PvP",
+    description: "Performance + crystal/totem/anchor combat mods.",
+    tags: ["performance", "pvp", "cpvp"],
+  },
+  uhc: {
+    label: "UHC",
+    description: "Performance + UHC-specific utility mods (timers, health indicators, etc.).",
+    tags: ["performance", "uhc"],
+  },
+  bedwars: {
+    label: "Bedwars",
+    description: "Performance + Bedwars-specific utility mods.",
+    tags: ["performance", "bedwars"],
+  },
+  survival: {
+    label: "Survival",
+    description: "Performance + general survival QoL mods (maps, storage, crafting helpers).",
+    tags: ["performance", "survival"],
   },
   "visual-only": {
     label: "Visual/HUD Only",
+    description: "Just visual and HUD mods, everything else off.",
     tags: ["visual", "hud"],
   },
 };

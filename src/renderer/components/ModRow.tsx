@@ -14,6 +14,10 @@ const TAG_LABELS: Record<string, string> = {
   visual: "Visual",
   library: "Library",
   hud: "HUD",
+  cpvp: "Crystal PvP",
+  uhc: "UHC",
+  bedwars: "Bedwars",
+  survival: "Survival",
   other: "Other",
 };
 

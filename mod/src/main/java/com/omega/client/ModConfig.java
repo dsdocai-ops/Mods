@@ -42,6 +42,8 @@ public class ModConfig {
     public boolean hudShowFps = true;
     public boolean hudShowKeystrokes = true;
 
+    public boolean schematicPreviewEnabled = false;
+
     private static Path configPath() {
         return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ConfigFormat, Instance, ModInfo, ModTag } from "@shared/types";
+import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
@@ -152,12 +153,11 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
 
           <div className="preset-bar">
             <span className="preset-label">Presets:</span>
-            <button className="btn btn-chip" onClick={() => applyPreset(["performance", "pvp"])}>
-              Smooth PvP
-            </button>
-            <button className="btn btn-chip" onClick={() => applyPreset(["visual", "hud"])}>
-              Visual/HUD only
-            </button>
+            {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
+              <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
+                {preset.label}
+              </button>
+            ))}
             <button className="btn btn-chip" onClick={enableAll}>
               Enable all
             </button>

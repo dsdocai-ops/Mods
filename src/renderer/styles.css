@@ -434,6 +434,26 @@ body {
   border-color: #1c4a44;
 }
 
+.tag-cpvp {
+  color: #c9a3ff;
+  border-color: #3f2a5c;
+}
+
+.tag-uhc {
+  color: #ffb37f;
+  border-color: #5c3a1c;
+}
+
+.tag-bedwars {
+  color: #ff86c2;
+  border-color: #5c1c40;
+}
+
+.tag-survival {
+  color: #9fd77c;
+  border-color: #2f4a1c;
+}
+
 /* Switch */
 .switch {
   position: relative;

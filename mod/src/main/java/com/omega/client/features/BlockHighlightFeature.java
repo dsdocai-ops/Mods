@@ -1,6 +1,7 @@
 package com.omega.client.features;
 
 import com.omega.client.ModConfig;
+import com.omega.client.render.WireBoxRenderer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -110,42 +111,10 @@ public final class BlockHighlightFeature {
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
 
         for (BlockPos pos : cachedMatches) {
-            drawBoxOutline(matrices, buffer, pos, rgba);
+            WireBoxRenderer.drawBoxOutline(matrices, buffer, pos, rgba[0], rgba[1], rgba[2], rgba[3]);
         }
 
         matrices.pop();
-    }
-
-    private void drawBoxOutline(MatrixStack matrices, VertexConsumer buffer, BlockPos pos, float[] rgba) {
-        double x1 = pos.getX() - 0.002;
-        double y1 = pos.getY() - 0.002;
-        double z1 = pos.getZ() - 0.002;
-        double x2 = pos.getX() + 1.002;
-        double y2 = pos.getY() + 1.002;
-        double z2 = pos.getZ() + 1.002;
-
-        double[][] edges = {
-                {x1, y1, z1, x2, y1, z1}, {x2, y1, z1, x2, y1, z2}, {x2, y1, z2, x1, y1, z2}, {x1, y1, z2, x1, y1, z1},
-                {x1, y2, z1, x2, y2, z1}, {x2, y2, z1, x2, y2, z2}, {x2, y2, z2, x1, y2, z2}, {x1, y2, z2, x1, y2, z1},
-                {x1, y1, z1, x1, y2, z1}, {x2, y1, z1, x2, y2, z1}, {x2, y1, z2, x2, y2, z2}, {x1, y1, z2, x1, y2, z2},
-        };
-
-        var matrix = matrices.peek().getPositionMatrix();
-        var normalMatrix = matrices.peek().getNormalMatrix();
-
-        for (double[] e : edges) {
-            float nx = (float) (e[3] - e[0]);
-            float ny = (float) (e[4] - e[1]);
-            float nz = (float) (e[5] - e[2]);
-            buffer.vertex(matrix, (float) e[0], (float) e[1], (float) e[2])
-                    .color(rgba[0], rgba[1], rgba[2], rgba[3])
-                    .normal(normalMatrix, nx, ny, nz)
-                    .next();
-            buffer.vertex(matrix, (float) e[3], (float) e[4], (float) e[5])
-                    .color(rgba[0], rgba[1], rgba[2], rgba[3])
-                    .normal(normalMatrix, nx, ny, nz)
-                    .next();
-        }
     }
 
     /** Parses "#AARRGGBB" or "#RRGGBB" into normalized [r,g,b,a], cached so repeated per-frame calls don't re-parse an unchanged string. */
