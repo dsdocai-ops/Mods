@@ -41,17 +41,28 @@ function decryptFromBlob(blob: string): string {
   return safeStorage.decryptString(Buffer.from(blob, "base64"));
 }
 
+// Same reasoning as store.ts's cache: listAccounts() gets called on every AccountSwitcher/Settings
+// mount, and every mutation here already goes through writeAll() below, so there's nothing else
+// that can change the file underneath us - safe to avoid a disk read+parse on every list call.
+let cachedAccounts: StoredAccount[] | null = null;
+
 function readAll(): StoredAccount[] {
+  if (cachedAccounts) return cachedAccounts;
   const file = accountsFilePath();
-  if (!fs.existsSync(file)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf-8"));
-  } catch {
-    return [];
+  if (!fs.existsSync(file)) {
+    cachedAccounts = [];
+    return cachedAccounts;
   }
+  try {
+    cachedAccounts = JSON.parse(fs.readFileSync(file, "utf-8"));
+  } catch {
+    cachedAccounts = [];
+  }
+  return cachedAccounts!;
 }
 
 function writeAll(accounts: StoredAccount[]): void {
+  cachedAccounts = accounts;
   const file = accountsFilePath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(accounts, null, 2), "utf-8");

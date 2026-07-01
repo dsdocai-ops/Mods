@@ -94,6 +94,25 @@ interface CacheEntry {
 // is never re-parsed, while a jar that actually changed (re-imported, updated) always is.
 const metadataCache = new Map<string, CacheEntry>();
 
+/**
+ * Toggling a mod on/off renames its jar (adds/removes ".disabled"), and removing one deletes it -
+ * both change or invalidate the cache key above. Without this, every toggle would leak a stale
+ * entry under the old path (it's keyed by full path, so a rename never naturally overwrites or
+ * evicts it) while also forcing a full re-parse under the new path even though the jar's actual
+ * content - the only thing that determines its metadata - never changed. Called from mods.ts right
+ * after the rename/delete actually happens on disk.
+ */
+export function noteModMetadataRenamed(oldPath: string, newPath: string): void {
+  const cached = metadataCache.get(oldPath);
+  if (!cached) return;
+  metadataCache.delete(oldPath);
+  metadataCache.set(newPath, cached);
+}
+
+export function forgetModMetadata(jarPath: string): void {
+  metadataCache.delete(jarPath);
+}
+
 /** Reads a mod jar and pulls out display metadata by checking each loader's manifest format in turn. */
 export function readModMetadata(jarPath: string, fallbackName: string): ParsedModMetadata {
   let stat: fs.Stats | null = null;

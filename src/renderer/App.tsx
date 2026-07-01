@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent } from "@shared/types";
 import Sidebar from "./components/Sidebar";
 import InstanceDetail from "./pages/InstanceDetail";
@@ -26,18 +26,41 @@ export default function App() {
     return list;
   };
 
+  // Minecraft can emit a burst of dozens of log lines within a single tick (mod loading, chunk
+  // spam), and each one arrives as a separate IPC event. Committing every single one straight to
+  // React state would mean a full re-render for each line - buffer them and flush at most once per
+  // animation frame instead, so a 50-line burst becomes one state update/re-render instead of 50.
+  const logBufferRef = useRef<Record<string, string[]>>({});
+  const flushScheduledRef = useRef(false);
+
   useEffect(() => {
     refreshInstances().then((list) => {
       if (list.length > 0) setView({ kind: "instance", id: list[0].id });
     });
 
-    const unsubscribe = window.api.launch.onLog((event: LaunchLogEvent) => {
+    const flushLogBuffer = () => {
+      flushScheduledRef.current = false;
+      const buffered = logBufferRef.current;
+      logBufferRef.current = {};
       setLogs((prev) => {
-        const existing = prev[event.instanceId] ?? [];
-        const prefix = event.stream === "stderr" ? "[err] " : event.stream === "status" ? "[launcher] " : "";
-        const line = event.stream === "exit" ? `[launcher] process exited (code ${event.data})` : `${prefix}${event.data}`;
-        return { ...prev, [event.instanceId]: [...existing, line].slice(-2000) };
+        const next = { ...prev };
+        for (const [instanceId, newLines] of Object.entries(buffered)) {
+          next[instanceId] = [...(next[instanceId] ?? []), ...newLines].slice(-2000);
+        }
+        return next;
       });
+    };
+
+    const unsubscribe = window.api.launch.onLog((event: LaunchLogEvent) => {
+      const prefix = event.stream === "stderr" ? "[err] " : event.stream === "status" ? "[launcher] " : "";
+      const line = event.stream === "exit" ? `[launcher] process exited (code ${event.data})` : `${prefix}${event.data}`;
+      const buffer = logBufferRef.current;
+      (buffer[event.instanceId] ??= []).push(line);
+      if (!flushScheduledRef.current) {
+        flushScheduledRef.current = true;
+        requestAnimationFrame(flushLogBuffer);
+      }
+
       if (event.stream === "exit") {
         setRunningIds((prev) => {
           const next = new Set(prev);

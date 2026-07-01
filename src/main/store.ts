@@ -49,35 +49,53 @@ function writeStore(store: StoreShape): void {
   fs.writeFileSync(file, JSON.stringify(store, null, 2), "utf-8");
 }
 
+// The renderer re-fetches instances/settings constantly (every page navigation, every mod toggle's
+// onInstanceChanged refresh, every AccountSwitcher mount) - without this, each of those was a fresh
+// synchronous readFileSync + JSON.parse of the whole store file, blocking Electron's single main
+// thread (window/IPC/menus, everything) for the duration. All mutations go through this module, so
+// there's no external writer to race - the cache is always accurate once populated.
+let cachedStore: StoreShape | null = null;
+
+function getStore(): StoreShape {
+  if (!cachedStore) {
+    cachedStore = readStore();
+  }
+  return cachedStore;
+}
+
+function persist(): void {
+  if (cachedStore) writeStore(cachedStore);
+}
+
 export function getInstances(): Instance[] {
-  return readStore().instances;
+  return [...getStore().instances];
 }
 
 export function saveInstance(instance: Instance): Instance {
-  const store = readStore();
+  const store = getStore();
   const idx = store.instances.findIndex((i) => i.id === instance.id);
   if (idx >= 0) {
     store.instances[idx] = instance;
   } else {
     store.instances.push(instance);
   }
-  writeStore(store);
+  persist();
   return instance;
 }
 
 export function deleteInstance(id: string): void {
-  const store = readStore();
+  const store = getStore();
   store.instances = store.instances.filter((i) => i.id !== id);
-  writeStore(store);
+  persist();
 }
 
 export function getSettings(): AppSettings {
-  return readStore().settings;
+  return { ...getStore().settings };
 }
 
 export function saveSettings(settings: AppSettings): AppSettings {
-  const store = readStore();
+  const store = getStore();
   store.settings = settings;
-  writeStore(store);
+  persist();
   return settings;
 }

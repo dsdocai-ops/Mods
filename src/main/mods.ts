@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ModInfo, ModTag } from "../shared/types";
-import { readModMetadata } from "./modMetadata";
+import { forgetModMetadata, noteModMetadataRenamed, readModMetadata } from "./modMetadata";
 
 const DISABLED_SUFFIX = ".disabled";
 
@@ -64,8 +64,10 @@ function renameModFile(modsDir: string, modId: string, enabled: boolean): void {
 
   if (enabled && fs.existsSync(disabledPath)) {
     fs.renameSync(disabledPath, enabledPath);
+    noteModMetadataRenamed(disabledPath, enabledPath);
   } else if (!enabled && fs.existsSync(enabledPath)) {
     fs.renameSync(enabledPath, disabledPath);
+    noteModMetadataRenamed(enabledPath, disabledPath);
   }
 }
 
@@ -78,7 +80,10 @@ export function setModEnabled(modsDir: string, modId: string, enabled: boolean):
 export function removeMod(modsDir: string, modId: string): ModInfo[] {
   for (const candidate of [modId, modId + DISABLED_SUFFIX]) {
     const full = path.join(modsDir, candidate);
-    if (fs.existsSync(full)) fs.unlinkSync(full);
+    if (fs.existsSync(full)) {
+      fs.unlinkSync(full);
+      forgetModMetadata(full);
+    }
   }
   return listMods(modsDir);
 }
