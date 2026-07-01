@@ -13,6 +13,9 @@ const api = {
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke("dialog:pickDirectory"),
     pickJarFiles: (): Promise<string[]> => ipcRenderer.invoke("dialog:pickJarFiles"),
   },
+  external: {
+    open: (url: string): Promise<boolean> => ipcRenderer.invoke("external:open", url),
+  },
   mods: {
     list: (modsDir: string) => ipcRenderer.invoke("mods:list", modsDir),
     import: (modsDir: string, sourcePaths: string[]) => ipcRenderer.invoke("mods:import", modsDir, sourcePaths),

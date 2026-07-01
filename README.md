@@ -97,6 +97,12 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 - **The companion mod is visual/QoL only, by design.** Fullbright, block highlighting, FOV/zoom, toggle-sprint, the info HUD, and the schematic tool - nothing that reveals info through walls (highlighting/preview are depth-tested) and nothing that automates combat input (no reach/velocity/aim changes). See [`mod/README.md`](mod/README.md) for the reasoning and exact feature list.
 - **Presets are a tag→mods mapping, not a mod source.** "Crystal PvP", "UHC", "Bedwars", etc. only ever act on mods you've imported; the launcher recognizes them via keyword-based auto-tagging (`modMetadata.ts`), which is a heuristic and won't catch every mod's real purpose - check a mod's tags after importing it if a preset doesn't pick it up as expected.
 
+## Monetization
+
+The Welcome screen and Settings both show an optional "Need a practice server?" card recommending Apex Hosting, with an explicit affiliate-link disclosure (`shared/affiliates.ts`) - required by FTC-style disclosure rules and Minecraft's own usage guidelines around not implying endorsement. Apex was picked after comparing commission rates *and* payout reliability across the major Minecraft-hosting affiliate programs; a couple of competitors advertise higher headline commissions but have documented reports of withheld/disappeared affiliate balances, which made Apex's smaller-but-recurring, actually-paid-out commission the better real choice. The link opens in the system browser via a `shell.openExternal` IPC call restricted to `https://` URLs (`external:open` in `main.ts`) - the renderer never gets to pass it an arbitrary URL, only the hardcoded one in `shared/affiliates.ts`.
+
+This is the only monetization built so far; it needs no backend and doesn't touch core launching/modding functionality at all, which keeps it clearly on the right side of Mojang's guidelines (nothing required to use the launcher is paywalled or ad-gated). A cosmetic supporter tier and/or an optional cloud-sync subscription were also scoped as viable next steps, but are meaningfully bigger undertakings (payment/licensing plumbing, or a whole hosted backend, respectively) - not started.
+
 ## Possible next steps
 
 - **A real installer**: download vanilla (Mojang's version manifest + assets + libraries) and Fabric (Fabric's meta API) directly; for Forge, download and invoke the official installer jar headlessly rather than reimplementing its processor pipeline.

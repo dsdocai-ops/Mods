@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, PublicAccount } from "@shared/types";
+import SponsoredHostCard from "../components/SponsoredHostCard";
 import { toast } from "../toast";
 
 export default function SettingsPage() {
@@ -158,6 +159,9 @@ export default function SettingsPage() {
         </button>
         {saved && <span className="saved-hint">Saved</span>}
       </div>
+
+      <h3 className="settings-subheading">Recommended</h3>
+      <SponsoredHostCard />
     </div>
   );
 }

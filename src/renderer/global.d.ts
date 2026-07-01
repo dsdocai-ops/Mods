@@ -23,6 +23,9 @@ export interface LauncherApi {
     pickDirectory(): Promise<string | null>;
     pickJarFiles(): Promise<string[]>;
   };
+  external: {
+    open(url: string): Promise<boolean>;
+  };
   mods: {
     list(modsDir: string): Promise<ModInfo[]>;
     import(modsDir: string, sourcePaths: string[]): Promise<ModInfo[]>;

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
@@ -74,6 +74,15 @@ app.whenReady().then(() => {
       filters: [{ name: "Minecraft Mods", extensions: ["jar"] }],
     });
     return result.canceled ? [] : result.filePaths;
+  });
+
+  // Only ever called with our own hardcoded affiliate/reference links (see shared/affiliates.ts),
+  // never renderer-supplied input - restricted to https anyway so a compromised renderer couldn't
+  // smuggle a file:/javascript: URI through shell.openExternal.
+  ipcMain.handle("external:open", (_e, url: string) => {
+    if (!url.startsWith("https://")) return false;
+    shell.openExternal(url);
+    return true;
   });
 
   ipcMain.handle("mods:list", (_e, modsDir: string) => mods.listMods(modsDir));

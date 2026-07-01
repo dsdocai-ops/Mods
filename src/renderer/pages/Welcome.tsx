@@ -1,3 +1,5 @@
+import SponsoredHostCard from "../components/SponsoredHostCard";
+
 interface Props {
   onNewInstance: () => void;
 }
@@ -15,6 +17,8 @@ export default function Welcome({ onNewInstance }: Props) {
       <button className="btn btn-primary" onClick={onNewInstance}>
         Create your first instance
       </button>
+
+      <SponsoredHostCard />
     </div>
   );
 }
