@@ -10,11 +10,13 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
-/** Lists saved schematics and lets you save the current selection, preview/place one, or delete it. */
+/** Lists saved schematics and lets you save the current selection, import a .litematic file, preview/place one, or delete it. */
 public class SchematicScreen extends Screen {
-    private static final int MAX_VISIBLE_ROWS = 8;
+    private static final int MAX_VISIBLE_SAVED_ROWS = 5;
+    private static final int MAX_VISIBLE_IMPORT_ROWS = 3;
 
     private final ModConfig config;
     private final SchematicSelection selection;
@@ -43,26 +45,10 @@ public class SchematicScreen extends Screen {
                 .build());
         y += 30;
 
-        List<String> names = SchematicStorage.listNames();
-        int shown = Math.min(names.size(), MAX_VISIBLE_ROWS);
-        for (int i = 0; i < shown; i++) {
-            String name = names.get(i);
-            int rowY = y + i * 24;
-            this.addDrawableChild(ButtonWidget.builder(Text.literal(name), b -> loadAndPreview(name))
-                    .dimensions(centerX - 160, rowY, 220, 20)
-                    .build());
-            this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete"), b -> {
-                        SchematicStorage.delete(name);
-                        this.clearAndInit();
-                    })
-                    .dimensions(centerX + 65, rowY, 95, 20)
-                    .build());
-        }
-        if (names.size() > MAX_VISIBLE_ROWS) {
-            statusMessage = (names.size() - MAX_VISIBLE_ROWS) + " more not shown.";
-        }
+        y = addLitematicImportRows(centerX, y);
+        y = addSavedSchematicRows(centerX, y);
 
-        int bottomY = Math.max(y + shown * 24 + 16, this.height - 60);
+        int bottomY = Math.max(y + 16, this.height - 60);
         this.addDrawableChild(ButtonWidget.builder(Text.literal(config.schematicPreviewEnabled ? "Hide Preview" : "Show Preview"), b -> togglePreview())
                 .dimensions(centerX - 110, bottomY, 100, 20)
                 .build());
@@ -73,6 +59,44 @@ public class SchematicScreen extends Screen {
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Back"), b -> this.close())
                 .dimensions(centerX - 50, this.height - 30, 100, 20)
                 .build());
+    }
+
+    private int addLitematicImportRows(int centerX, int y) {
+        List<Path> litematicFiles = SchematicStorage.listLitematicFiles();
+        if (litematicFiles.isEmpty()) return y;
+
+        int shown = Math.min(litematicFiles.size(), MAX_VISIBLE_IMPORT_ROWS);
+        for (int i = 0; i < shown; i++) {
+            Path file = litematicFiles.get(i);
+            String fileName = file.getFileName().toString();
+            this.addDrawableChild(ButtonWidget.builder(Text.literal("Import: " + fileName), b -> importLitematic(file))
+                    .dimensions(centerX - 160, y, 320, 20)
+                    .build());
+            y += 24;
+        }
+        return y + 6;
+    }
+
+    private int addSavedSchematicRows(int centerX, int y) {
+        List<String> names = SchematicStorage.listNames();
+        int shown = Math.min(names.size(), MAX_VISIBLE_SAVED_ROWS);
+        for (int i = 0; i < shown; i++) {
+            String name = names.get(i);
+            this.addDrawableChild(ButtonWidget.builder(Text.literal(name), b -> loadAndPreview(name))
+                    .dimensions(centerX - 160, y, 220, 20)
+                    .build());
+            this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete"), b -> {
+                        SchematicStorage.delete(name);
+                        this.clearAndInit();
+                    })
+                    .dimensions(centerX + 65, y, 95, 20)
+                    .build());
+            y += 24;
+        }
+        if (names.size() > MAX_VISIBLE_SAVED_ROWS) {
+            statusMessage = (names.size() - MAX_VISIBLE_SAVED_ROWS) + " more saved schematics not shown.";
+        }
+        return y;
     }
 
     private void saveSelection() {
@@ -96,6 +120,23 @@ public class SchematicScreen extends Screen {
         } catch (IOException e) {
             statusMessage = "Failed to save: " + e.getMessage();
             return;
+        }
+        this.clearAndInit();
+    }
+
+    private void importLitematic(Path file) {
+        String fileName = file.getFileName().toString();
+        String name = fileName.toLowerCase().endsWith(".litematic") ? fileName.substring(0, fileName.length() - ".litematic".length()) : fileName;
+        try {
+            SchematicData data = LitematicaImporter.importFile(file, name);
+            SchematicStorage.save(data);
+            statusMessage = "Imported \"" + name + "\" (" + data.blocks.size() + " blocks) - best-effort, double check it looks right before building.";
+        } catch (IOException | RuntimeException e) {
+            // Broad catch is deliberate: LitematicaImporter is reconstructed from memory of an
+            // undocumented format, so a wrong structural assumption could throw almost anything
+            // (NPE, class cast, index-out-of-bounds) - all of that should end in a status message,
+            // not a crashed client.
+            statusMessage = "Import failed: " + e.getMessage();
         }
         this.clearAndInit();
     }

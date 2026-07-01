@@ -32,6 +32,28 @@ public final class SchematicStorage {
         return dir;
     }
 
+    /** Drop .litematic files here to have them show up as importable in the Schematics screen. */
+    public static Path importDir() {
+        Path dir = schematicsDir().resolve("import");
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException ignored) {
+            // Best-effort; listLitematicFiles() just returns nothing if this truly doesn't exist.
+        }
+        return dir;
+    }
+
+    public static List<Path> listLitematicFiles() {
+        List<Path> files = new ArrayList<>();
+        try (var stream = Files.list(importDir())) {
+            stream.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".litematic")).forEach(files::add);
+        } catch (IOException ignored) {
+            // Import directory missing/unreadable - treat as nothing to import.
+        }
+        files.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        return files;
+    }
+
     private static String sanitize(String name) {
         String cleaned = name.trim().replaceAll("[^a-zA-Z0-9_ -]", "_");
         return cleaned.isEmpty() ? "schematic" : cleaned;

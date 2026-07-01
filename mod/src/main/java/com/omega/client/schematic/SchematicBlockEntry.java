@@ -5,7 +5,7 @@ public class SchematicBlockEntry {
     public int x;
     public int y;
     public int z;
-    /** Block registry id only (e.g. "minecraft:stone") - orientation/state properties are not captured, see SchematicData. */
+    /** Full block state string, e.g. "minecraft:oak_stairs[facing=north,half=bottom,shape=straight]" - see BlockStateCodec. */
     public String block;
 
     public SchematicBlockEntry() {

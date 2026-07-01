@@ -17,7 +17,7 @@ Every feature here is a visual or convenience setting, nothing that reads inform
 | **Custom FOV / Zoom** | Same no-mixin technique as fullbright, applied to `GameOptions.fov`. Zoom is hold-to-zoom via a keybind (default **C**). |
 | **Toggle Sprint** | Keeps you sprinting while holding forward, so you don't need double-tap or a sprint-lock keybind from another mod. Doesn't change movement speed or add anything beyond vanilla sprinting. |
 | **Info HUD** | Coordinates, FPS, and a WASD+space+click keystroke display. All of this is already visible via vanilla's F3 debug screen - this is just an always-on, friendlier subset of it. |
-| **Schematics** | A WorldEdit-style two-point selection, save-to-file, and ghost-preview tool - see below. |
+| **Schematics** | A WorldEdit-style two-point selection, save-to-file, and ghost-preview tool, plus a best-effort Litematica `.litematic` file importer - see below. |
 
 **Intentionally not included**, because they cross from "visual setting" into "unfair advantage against other players" and most servers treat them as cheating: reach/hitbox expansion, aimbot/kill-aura, auto-clicking, velocity or knockback modification, X-ray (seeing blocks *through* terrain), and anything that reads server-side information the client wouldn't normally have.
 
@@ -44,11 +44,14 @@ A small WorldEdit/Litematica-style building tool: select a region, save it, then
 2. Open the menu (**Right Shift**) → **Schematics...**, type a name, and hit **Save Selection**.
 3. To build from it later: open **Schematics...**, click the saved name to load and start previewing it, stand where you want its corner to land, and click **Re-anchor to Me**.
 
-**This is not the real Litematica `.litematic` file format.** That format is a proprietary, undocumented binary NBT layout (bit-packed per-block-state arrays, sub-region support, etc.), and this project has no way to verify byte-for-byte compatibility with it without a real game session to test against - getting it subtly wrong would produce files that silently don't work in actual Litematica. Instead, Omega Client has its own format ("Omega Schematic", `.omschem.json` - plain, human-readable JSON via Gson) that does the same *job* (capture a region, preview it as a ghost overlay before building) without claiming compatibility it can't back up. Files live in `<config>/omega-client/schematics/`.
+**Saving does not write the real Litematica `.litematic` file format.** That format is proprietary, undocumented binary NBT (bit-packed per-block-state arrays, sub-region support, etc.), and this project has no way to verify byte-for-byte *write* compatibility with it without a real game session to test against - getting it subtly wrong would produce files that silently don't work in actual Litematica. Instead, saving/previewing uses Omega Client's own format ("Omega Schematic", `.omschem.json` - plain, human-readable JSON via Gson) that does the same *job* without claiming write-compatibility it can't back up. Files live in `<config>/omega-client/schematics/`. Full block state (orientation, waterlogged, stair shape, etc.) is captured, not just the block type - see `BlockStateCodec.java`.
 
-Two more scope notes, both deliberate tradeoffs given the constraints above:
-- **Only the block type is stored, not orientation/state** (stairs, waterlogged, etc. all lose that detail) - capturing and correctly round-tripping full block-state properties needed either a much riskier custom serializer or a real test session to validate, and this project has neither available. You still get the right block in the right place, just not necessarily facing the right way.
-- **The ghost preview is color-coded wireframe outlines, not real block textures.** Textured rendering exists in the Minecraft client (`BlockRenderManager`) but calling it correctly is another spot this project can't compile-verify, so the preview reuses the same depth-tested wireframe technique as Block Highlight instead (each block type gets a consistent deterministic color, so different materials are still distinguishable) - see `SchematicRenderFeature.java`.
+**Importing real `.litematic` files is supported, best-effort.** Drop `.litematic` files into `<config>/omega-client/schematics/import/` and they'll show up as "Import: filename.litematic" buttons in the Schematics screen; clicking one converts and saves it as a normal Omega Schematic. Unlike everything else in this mod, `LitematicaImporter.java` isn't built on documented/stable Minecraft APIs - it's reconstructed from memory of how the Litematica format is commonly described (community write-ups, other third-party readers), since the format itself is undocumented and this project has no real `.litematic` file to test against. The bit-unpacking *arithmetic* is verified correct via an isolated round-trip simulation (shift/mask math has no bugs), but whether it matches Litematica's *actual* on-disk layout is unverified. Concretely:
+- Only the first region in a file is imported (Litematica's multi-region support is out of scope here).
+- A failed/wrong-looking import shows an error message rather than crashing your game (defensive by design, given the uncertainty above) - always eyeball an imported schematic's preview before building from it.
+- If it doesn't work for your file, the most likely culprits are the exact `BlockStatePalette`/`BlockStates` NBT tag names, or Litematica having changed its bit-packing scheme between versions.
+
+**The ghost preview is color-coded wireframe outlines, not real block textures.** Textured rendering exists in the Minecraft client (`BlockRenderManager`) but calling it correctly is another spot this project can't compile-verify, so the preview reuses the same depth-tested wireframe technique as Block Highlight instead (each exact block state gets a consistent deterministic color, so different materials/orientations are still distinguishable) - see `SchematicRenderFeature.java`.
 
 ## Building
 
@@ -68,11 +71,14 @@ Requirements:
 - Network access to `maven.fabricmc.net` and Mojang's piston-meta (Loom downloads and remaps the Minecraft jar on first build)
 - No Gradle wrapper is checked in (the sandbox that generated this project couldn't validate the wrapper's distribution URL through its proxy). If you don't have Gradle installed, run `gradle wrapper --gradle-version 8.7` once with a local Gradle install, or just open the project in IntelliJ IDEA with the Minecraft Development plugin, which sets one up automatically.
 
-If something doesn't compile against the pinned `yarn_mappings` in `gradle.properties`, check these spots first - everything else in the mod sticks to APIs I have high confidence in, these are the exceptions:
+If something doesn't compile against the pinned `yarn_mappings` in `gradle.properties`, check these spots first - everything else in the mod sticks to APIs I have high confidence in, these are the exceptions, roughly in order of how likely they are to have drifted:
+- `LitematicaImporter.java` - the whole file, since it's working against an undocumented third-party format rather than a Minecraft API. See the Schematics section above.
+- `Property.name(value)` / `Property.parse(text)` and `StateManager.getProperty(name)` in `BlockStateCodec.java` (block-state ↔ string conversion) - moderate confidence on these exact method names.
+- `NbtIo.readCompressed(InputStream)` in `LitematicaImporter.java` - some MC versions require an extra `NbtSizeTracker` argument; if yours does, add `NbtSizeTracker.ofUnlimitedBytes()` (or your version's equivalent) as a second argument.
 - `GameOptions.getGamma()` / `getFov()` in `FullbrightFeature.java` / `FovZoomFeature.java` - Yarn's exact accessor names for these two fields are moderate- rather than high-confidence.
 - `ClientPlayerEntity.sendMessage(Text, boolean)` in `OmegaClient.java` (the action-bar confirmation when setting a schematic position) - the two-arg overload and its boolean meaning (action bar vs. chat) is moderate-confidence.
 
-Your IDE's autocomplete on `client.options.` / `player.sendMessage(` will show the real signatures for your exact `yarn_mappings` build if any of these have drifted.
+Your IDE's autocomplete on `client.options.`, `player.sendMessage(`, `block.getStateManager().`, or `NbtIo.` will show the real signatures for your exact `yarn_mappings` build if any of these have drifted.
 
 ## Target version
 

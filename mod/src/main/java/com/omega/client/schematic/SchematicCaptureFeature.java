@@ -1,7 +1,6 @@
 package com.omega.client.schematic;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.registry.Registries;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -10,6 +9,9 @@ import net.minecraft.world.World;
  * by a button click, not recurring per-tick work like BlockHighlightFeature's scan - so unlike that
  * feature, doing the whole region in one pass here is an acceptable, expected brief pause (the same
  * tradeoff vanilla itself makes for "Save World"), as long as the region has a sane upper bound.
+ *
+ * Captures the full block state (orientation, waterlogged, stair shape, etc. - not just the block
+ * type) via BlockStateCodec, so a re-placed schematic actually matches what was selected.
  */
 public final class SchematicCaptureFeature {
     /** ~63^3 blocks - large enough for a small-to-mid build, small enough to capture in well under a second. */
@@ -36,8 +38,8 @@ public final class SchematicCaptureFeature {
         for (BlockPos pos : BlockPos.iterate(min, max)) {
             BlockState state = world.getBlockState(pos);
             if (state.isAir()) continue;
-            String blockId = Registries.BLOCK.getId(state.getBlock()).toString();
-            data.blocks.add(new SchematicBlockEntry(pos.getX() - min.getX(), pos.getY() - min.getY(), pos.getZ() - min.getZ(), blockId));
+            String blockString = BlockStateCodec.serialize(state);
+            data.blocks.add(new SchematicBlockEntry(pos.getX() - min.getX(), pos.getY() - min.getY(), pos.getZ() - min.getZ(), blockString));
         }
 
         return data;
