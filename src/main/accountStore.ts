@@ -54,11 +54,15 @@ function readAll(): StoredAccount[] {
     return cachedAccounts;
   }
   try {
-    cachedAccounts = JSON.parse(fs.readFileSync(file, "utf-8"));
+    // Array.isArray, not just parse-success: a corrupted/hand-edited file containing `{}` or
+    // `null` is valid JSON that doesn't throw, and returning a non-array here would crash every
+    // caller (.map/.filter/.findIndex) instead of degrading to "no accounts".
+    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf-8"));
+    cachedAccounts = Array.isArray(parsed) ? (parsed as StoredAccount[]) : [];
   } catch {
     cachedAccounts = [];
   }
-  return cachedAccounts!;
+  return cachedAccounts;
 }
 
 function writeAll(accounts: StoredAccount[]): void {

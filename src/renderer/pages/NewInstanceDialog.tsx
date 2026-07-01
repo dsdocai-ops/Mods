@@ -26,6 +26,8 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
       if (found.length === 0) {
         setError('No installed versions found in that folder. Pick the folder that contains "versions", "libraries" and "assets" (your .minecraft directory).');
       }
+    } catch (err) {
+      setError(`Couldn't scan that folder: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setScanning(false);
     }
@@ -33,13 +35,19 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
 
   const create = async () => {
     if (!selectedVersion) return;
-    const instance = await window.api.instances.create({
-      name: name.trim() || selectedVersion.versionId,
-      gameDir,
-      versionId: selectedVersion.versionId,
-      loader: selectedVersion.loader,
-    });
-    onCreated(instance);
+    try {
+      const instance = await window.api.instances.create({
+        name: name.trim() || selectedVersion.versionId,
+        gameDir,
+        versionId: selectedVersion.versionId,
+        loader: selectedVersion.loader,
+      });
+      onCreated(instance);
+    } catch (err) {
+      // Without this, a main-process failure (e.g. the mods folder can't be created in a read-only
+      // install dir) rejects silently and the dialog just appears to do nothing.
+      setError(`Couldn't create the instance: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   return (

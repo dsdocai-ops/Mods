@@ -13,6 +13,10 @@ import * as accounts from "./accountStore";
 
 const isDev = process.env.NODE_ENV === "development";
 const runningProcesses = new Map<string, ChildProcess>();
+// Instances currently inside launchInstance()'s async setup (which can sit in a Microsoft token
+// refresh for seconds) - they're not in runningProcesses yet, but a second launch:start for the
+// same instance during that window would otherwise pass the has() guard and spawn a second JVM.
+const pendingLaunches = new Set<string>();
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -41,7 +45,16 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  const win = createWindow();
+  // `let`, not `const`: on macOS the window can be closed while the app (and any running game
+  // process) stays alive, and "activate" then creates a fresh window. Every closure below reads
+  // this binding at call time, so reassigning it on activate is what keeps dialogs, log streaming,
+  // and the switch-account flow pointed at the live window instead of a destroyed one.
+  let win = createWindow();
+
+  /** webContents.send on a destroyed window throws - and game stdout keeps flowing after a macOS window close. */
+  function sendToRenderer(channel: string, payload: unknown) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
 
   /** The companion mod's in-game "Switch Account" button writes this marker right before quitting - see launch.ts. */
   function checkSwitchAccountRequest(instance: Instance) {
@@ -53,6 +66,7 @@ app.whenReady().then(() => {
     } catch {
       // Best-effort cleanup; leaving it behind just means it's ignored (already-consumed) next launch.
     }
+    if (win.isDestroyed()) return;
     win.show();
     win.focus();
     win.webContents.send("launch:switchAccountRequested", instance.id);
@@ -116,10 +130,11 @@ app.whenReady().then(() => {
   ipcMain.handle("accounts:remove", (_e, id: string) => accounts.removeAccount(id));
 
   ipcMain.handle("launch:start", async (_e, instance: Instance) => {
-    if (runningProcesses.has(instance.id)) {
+    if (runningProcesses.has(instance.id) || pendingLaunches.has(instance.id)) {
       throw new Error("This instance is already running.");
     }
-    const onLog = (event: LaunchLogEvent) => win.webContents.send("launch:log", event);
+    pendingLaunches.add(instance.id);
+    const onLog = (event: LaunchLogEvent) => sendToRenderer("launch:log", event);
     try {
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
@@ -133,6 +148,8 @@ app.whenReady().then(() => {
     } catch (err) {
       onLog({ instanceId: instance.id, stream: "stderr", data: err instanceof Error ? err.message : String(err) });
       throw err;
+    } finally {
+      pendingLaunches.delete(instance.id);
     }
   });
 
@@ -148,7 +165,7 @@ app.whenReady().then(() => {
   ipcMain.handle("launch:isRunning", (_e, instanceId: string) => runningProcesses.has(instanceId));
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) win = createWindow();
   });
 });
 

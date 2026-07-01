@@ -31,7 +31,9 @@ function readStore(): StoreShape {
     const raw = fs.readFileSync(file, "utf-8");
     const parsed = JSON.parse(raw) as Partial<StoreShape>;
     return {
-      instances: parsed.instances ?? [],
+      // Array.isArray, not just ?? - a hand-corrupted `"instances": {}` is truthy and would pass
+      // straight through to .sort()/.find() callers instead of degrading to an empty list.
+      instances: Array.isArray(parsed.instances) ? parsed.instances : [],
       settings: {
         defaultJvm: { ...DEFAULT_JVM, ...(parsed.settings?.defaultJvm ?? {}) },
         defaultOfflineUsername: parsed.settings?.defaultOfflineUsername ?? "Player",

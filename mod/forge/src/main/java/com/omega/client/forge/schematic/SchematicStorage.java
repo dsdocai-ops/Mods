@@ -76,6 +76,9 @@ public final class SchematicStorage {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             SchematicData data = GSON.fromJson(reader, SchematicData.class);
             if (data == null) throw new IOException("Schematic file is empty or invalid: " + file);
+            // Gson overrides the field default with null if a hand-edited file explicitly contains
+            // "blocks": null - and the ghost renderer iterates this list every frame.
+            if (data.blocks == null) data.blocks = new java.util.ArrayList<>();
             return data;
         }
     }

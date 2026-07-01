@@ -78,7 +78,14 @@ public class ModConfig {
         }
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             ModConfig loaded = GSON.fromJson(reader, ModConfig.class);
-            return loaded != null ? loaded : new ModConfig();
+            if (loaded == null) return new ModConfig();
+            // Gson overrides field defaults with null when the JSON explicitly contains null (a
+            // hand-edit, or a bad save through the launcher's generic config editor) - and these
+            // lists get iterated on hot paths (every particle spawn / every highlight scan), where
+            // a null would crash the game instead of just misbehaving.
+            if (loaded.highlightedBlocks == null) loaded.highlightedBlocks = new ArrayList<>();
+            if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
+            return loaded;
         } catch (IOException e) {
             return new ModConfig();
         }

@@ -28,8 +28,12 @@ export default function App() {
 
   // Minecraft can emit a burst of dozens of log lines within a single tick (mod loading, chunk
   // spam), and each one arrives as a separate IPC event. Committing every single one straight to
-  // React state would mean a full re-render for each line - buffer them and flush at most once per
-  // animation frame instead, so a 50-line burst becomes one state update/re-render instead of 50.
+  // React state would mean a full re-render for each line - buffer them and flush on a short timer
+  // instead, so a 50-line burst becomes one state update/re-render instead of 50. setTimeout, NOT
+  // requestAnimationFrame: Electron pauses rAF entirely while the window is hidden/minimized, which
+  // would leave the buffer growing for as long as the launcher sits minimized with a game running
+  // (timers still fire in background windows, just clamped to ~1s - fine for log display).
+  const MAX_LOG_LINES = 2000;
   const logBufferRef = useRef<Record<string, string[]>>({});
   const flushScheduledRef = useRef(false);
 
@@ -45,7 +49,7 @@ export default function App() {
       setLogs((prev) => {
         const next = { ...prev };
         for (const [instanceId, newLines] of Object.entries(buffered)) {
-          next[instanceId] = [...(next[instanceId] ?? []), ...newLines].slice(-2000);
+          next[instanceId] = [...(next[instanceId] ?? []), ...newLines].slice(-MAX_LOG_LINES);
         }
         return next;
       });
@@ -55,10 +59,14 @@ export default function App() {
       const prefix = event.stream === "stderr" ? "[err] " : event.stream === "status" ? "[launcher] " : "";
       const line = event.stream === "exit" ? `[launcher] process exited (code ${event.data})` : `${prefix}${event.data}`;
       const buffer = logBufferRef.current;
-      (buffer[event.instanceId] ??= []).push(line);
+      const lines = (buffer[event.instanceId] ??= []);
+      lines.push(line);
+      // Cap the buffer itself too - only the last MAX_LOG_LINES survive the flush anyway, so
+      // anything beyond that is pure memory growth if flushes are being throttled/delayed.
+      if (lines.length > MAX_LOG_LINES) lines.splice(0, lines.length - MAX_LOG_LINES);
       if (!flushScheduledRef.current) {
         flushScheduledRef.current = true;
-        requestAnimationFrame(flushLogBuffer);
+        setTimeout(flushLogBuffer, 33);
       }
 
       if (event.stream === "exit") {
