@@ -1,5 +1,6 @@
 package com.omega.client.forge;
 
+import com.omega.client.forge.particle.ParticleScreen;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicScreen;
 import com.omega.client.forge.schematic.SchematicSelection;
@@ -44,7 +45,7 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        headerY = this.height / 2 - (ROW_HEIGHT * 6) - 34;
+        headerY = this.height / 2 - (ROW_HEIGHT * 7) - 34;
         int y = headerY + 34;
 
         addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
@@ -60,6 +61,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal("Schematics..."), b -> {
                     if (this.minecraft != null) this.minecraft.setScreen(new SchematicScreen(config, selection, schematicRender));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Particles..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new ParticleScreen(config));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());

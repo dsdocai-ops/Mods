@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.omega.client.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ParticleManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

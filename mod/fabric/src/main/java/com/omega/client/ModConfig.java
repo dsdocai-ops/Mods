@@ -21,6 +21,9 @@ public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String FILE_NAME = "omega-client.json";
 
+    /** The instance the particle Mixin reads from - set whenever load() runs. See ParticleFilter. */
+    public static ModConfig ACTIVE = new ModConfig();
+
     public boolean fullbrightEnabled = false;
 
     public boolean blockHighlightEnabled = false;
@@ -44,11 +47,29 @@ public class ModConfig {
 
     public boolean schematicPreviewEnabled = false;
 
+    public boolean particlesMasterEnabled = true;
+    public boolean blockParticlesEnabled = true;
+    public boolean ambientParticlesEnabled = true;
+    public boolean totemParticlesEnabled = true;
+    public boolean critParticlesEnabled = true;
+    public boolean explosionParticlesEnabled = true;
+    public boolean portalParticlesEnabled = true;
+    /** Extra particle type ids to always block, e.g. "minecraft:soul" - on top of the category toggles above. */
+    public List<String> particleBlacklist = new ArrayList<>();
+    /** Chance (0.0-1.0) that a particle otherwise allowed through actually spawns - a global thinning slider. */
+    public float particleDensity = 1.0f;
+
     private static Path configPath() {
         return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
     }
 
     public static ModConfig load() {
+        ModConfig result = loadFromDisk();
+        ACTIVE = result;
+        return result;
+    }
+
+    private static ModConfig loadFromDisk() {
         Path path = configPath();
         if (!Files.exists(path)) {
             ModConfig fresh = new ModConfig();

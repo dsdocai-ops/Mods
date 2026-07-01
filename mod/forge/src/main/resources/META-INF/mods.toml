@@ -2,6 +2,12 @@ modLoader="javafml"
 loaderVersion="${forge_loader_range}"
 license="MIT"
 
+# Registers the mod's one Mixin (particle spawn filtering - see mod/README.md's "Particle control"
+# section). Forge has bundled Mixin support since ~1.16.5 and this is the standard way to declare a
+# config for it; unverified against a real build like everything else Forge-Mixin-related here.
+[[mixins]]
+config="omega_client_forge.mixins.json"
+
 [[mods]]
 modId="omega_client_forge"
 version="${version}"

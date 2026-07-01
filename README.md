@@ -19,7 +19,7 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Optional Microsoft sign-in**: link your real Minecraft account (needed for online-mode servers) via the standard Microsoft OAuth → Xbox Live → Minecraft token chain, the same public flow every third-party launcher uses. Tokens are encrypted at rest (Electron's OS-level `safeStorage`) and refreshed automatically before each launch. Needs your own free Azure app registration - see "Microsoft sign-in setup" below.
 - **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
 - **Per-mod config editor**: click **Configure** on any mod to edit its actual config file (JSON or Forge-style TOML) from a schema-inferred form, no text editor required. Works on any mod that follows the standard `config/<modid>.toml` / `config/<modid>.json` convention.
-- **Bundled companion mod** (`mod/`): a small client mod, also called "Omega Client", built for **both Fabric and Forge**, with an in-game toggle menu for visual/QoL PvP settings plus a WorldEdit-style schematic selection/save/ghost-preview tool — see [`mod/README.md`](mod/README.md).
+- **Bundled companion mod** (`mod/`): a small client mod, also called "Omega Client", built for **both Fabric and Forge**, with an in-game toggle menu for visual/QoL PvP settings, granular particle control (block/totem/crit/explosion/portal toggles, a custom blacklist, and a density slider), and a WorldEdit-style schematic selection/save/ghost-preview tool — see [`mod/README.md`](mod/README.md).
 
 ## Project layout
 

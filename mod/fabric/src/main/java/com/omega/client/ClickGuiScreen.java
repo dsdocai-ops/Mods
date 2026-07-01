@@ -1,5 +1,6 @@
 package com.omega.client;
 
+import com.omega.client.particle.ParticleScreen;
 import com.omega.client.schematic.SchematicRenderFeature;
 import com.omega.client.schematic.SchematicScreen;
 import com.omega.client.schematic.SchematicSelection;
@@ -40,7 +41,7 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        headerY = this.height / 2 - (ROW_HEIGHT * 6) - 34;
+        headerY = this.height / 2 - (ROW_HEIGHT * 7) - 34;
         int y = headerY + 34;
 
         addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
@@ -56,6 +57,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {
                     if (this.client != null) this.client.setScreen(new SchematicScreen(config, selection, schematicRender));
+                })
+                .dimensions(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Particles..."), b -> {
+                    if (this.client != null) this.client.setScreen(new ParticleScreen(config));
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());

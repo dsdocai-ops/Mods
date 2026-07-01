@@ -10,12 +10,14 @@ Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls scr
 
 ```
 mod/
-  common/    # SchematicData, SchematicBlockEntry, SessionInfo - the ONLY code shared between loaders (see below)
+  common/    # SchematicData, SchematicBlockEntry, SessionInfo, ParticleCategory - the ONLY code shared between loaders (see below)
   fabric/    # Fabric build - mod id "omega-client"
   forge/     # Forge build - mod id "omega_client_forge" (Forge disallows hyphens in mod ids)
 ```
 
-Each loader module has its own full implementation of every feature (ModConfig, FullbrightFeature, the schematic tool, etc.) - **not** a single shared implementation. Here's why: Fabric mods are conventionally written against Yarn mappings (community-maintained names for Minecraft's classes), Forge mods against Mojang's own official mappings - different names for the same underlying game classes. Naively sharing source between a Yarn-mapped module and an officially-mapped one isn't safe without a remapping layer (that's literally what the Architectury Loom toolchain exists to solve). Since this project has no way to test-verify a Gradle setup that complex, the lower-risk choice was two independent, loader-idiomatic implementations, sharing only the classes with zero Minecraft API surface at all (`SchematicData`, `SchematicBlockEntry`, `SessionInfo` - plain data holders, safe to compile once and use from both). If you want true single-source multi-loader builds later, adopting Architectury for this project is the natural next step.
+Each loader module has its own full implementation of every feature (ModConfig, FullbrightFeature, the schematic tool, etc.) - **not** a single shared implementation. Here's why: Fabric mods are conventionally written against Yarn mappings (community-maintained names for Minecraft's classes), Forge mods against Mojang's own official mappings - different names for the same underlying game classes. Naively sharing source between a Yarn-mapped module and an officially-mapped one isn't safe without a remapping layer (that's literally what the Architectury Loom toolchain exists to solve). Since this project has no way to test-verify a Gradle setup that complex, the lower-risk choice was two independent, loader-idiomatic implementations, sharing only the classes with zero Minecraft API surface at all (`SchematicData`, `SchematicBlockEntry`, `SessionInfo`, `ParticleCategory` - plain data/logic holders, safe to compile once and use from both). If you want true single-source multi-loader builds later, adopting Architectury for this project is the natural next step.
+
+This mod is otherwise **zero-Mixin by design** - every other feature reads/writes plain client-option fields or hooks a documented Fabric API / Forge event, deliberately avoiding the extra fragility of bytecode-injection tooling in a project with no way to compile-verify it. Particle control (see below) is the one place that turned out to be genuinely impossible without it, and is called out everywhere it matters.
 
 One practical consequence: **the Forge module has never had any of its class/method name guesses checked against anything** (not even the "this pattern is well-established" confidence the Fabric side earned from being written first) - it carries meaningfully more unverified surface area. See "Building" below for the specific spots to check first.
 
@@ -31,6 +33,7 @@ Every feature here is a visual or convenience setting, nothing that reads inform
 | **Toggle Sprint** | Keeps you sprinting while holding forward, so you don't need double-tap or a sprint-lock keybind from another mod. Doesn't change movement speed or add anything beyond vanilla sprinting. |
 | **Info HUD** | Coordinates, FPS, and a WASD+space+click keystroke display. All of this is already visible via vanilla's F3 debug screen - this is just an always-on, friendlier subset of it. |
 | **Schematics** | A WorldEdit-style two-point selection, save-to-file, and ghost-preview tool, plus a best-effort Litematica `.litematic` file importer - see below. |
+| **Particle control** | Per-category on/off switches (block, ambient block, totem, crit, explosion, portal), a free-form blacklist for anything else, and a density slider to thin out whatever's left. Purely visual/performance tuning, same spirit as vanilla's own Particles option, just more granular - see below. |
 
 **Intentionally not included**, because they cross from "visual setting" into "unfair advantage against other players" and most servers treat them as cheating: reach/hitbox expansion, aimbot/kill-aura, auto-clicking, velocity or knockback modification, X-ray (seeing blocks *through* terrain), and anything that reads server-side information the client wouldn't normally have.
 
@@ -72,6 +75,22 @@ The menu's header shows "Playing as: {username} ({microsoft|offline})", read fro
 
 Minecraft has no API for hot-swapping a live account mid-session, so **"Switch Account" doesn't actually switch anything in-game** - clicking it (twice, to confirm) writes a marker file (`omega-client-switch-account.request`) into the game directory and then quits the client (`MinecraftClient.scheduleStop()` on Fabric, `Minecraft.stop()` on Forge - a clean, same-tick shutdown request, not `System.exit()`). The launcher watches for that marker file after its spawned game process exits and, if present, brings itself to the foreground and reopens its own account switcher automatically. Both sides only ever communicate through these two files - there's no socket or IPC channel between the launcher and a running game.
 
+## Particle control
+
+Open the menu (**Right Shift**) → **Particles...** for:
+- **A master switch** - turns every particle off, full stop.
+- **Six category switches** - Block (the generic break/step/land particle - "particles for every block"), Ambient block (torch smoke, drips, spores, and similar decorations), Totem, Crit (crit + enchanted-hit), Explosion, and Portal.
+- **A custom blacklist** - type any particle id (e.g. `minecraft:soul`, or just `soul` and it'll assume `minecraft:`) to block something the categories above don't cover - the "and more" from the original request.
+- **A density slider** (cycles 100% → 75% → 50% → 25% → 10%) - probabilistically thins whatever's still allowed through, instead of an all-or-nothing cut.
+
+Settings are per-category, not per-block - "turn off particles for every block" means the Block/Ambient switches, not a thousand individual block toggles. Use the blacklist for anything more specific.
+
+**This is the mod's one deliberate exception to being otherwise zero-Mixin.** There's no documented Fabric API event or Forge event for cancelling an individual particle spawn by type, and every non-Mixin alternative considered (replacing the client's particle-manager instance, or reflectively wrapping its registered particle factories) is strictly more fragile - both depend on reproducing or racing against internal state that gets rebuilt on every resource pack reload. A single injection at the front of the one real choke point - every particle spawn in the game funnels through `ParticleManager#addParticle` (Fabric) / `ParticleEngine#createParticle` (Forge) - is the smaller, more standard risk; it's a well-established target for real particle-control mods, not a novel hack. See `ParticleManagerMixin.java` (Fabric) and `ParticleEngineMixin.java` (Forge).
+
+The classification itself (which category a given particle id falls into) is pure string matching in `common/ParticleCategory.java` and is deliberately conservative - unrecognized ids (including anything from a modded namespace) fall through as uncategorized and are only affected by the master switch, blacklist, and density slider, never silently lumped into the wrong category. The per-spawn check is written to allocate nothing in the common case (master on, no blacklist, density 100%) since it runs on every particle, every frame - see the hot-path note in `ParticleFilter.java`.
+
+On the Fabric side, adding this Mixin needed no extra Gradle wiring - Fabric Loom bundles Mixin annotation processing already, the mod just needed a `.mixins.json` and a `"mixins"` entry in `fabric.mod.json`. Forge needed real Gradle changes (an `annotationProcessor` dependency on SpongePowered's Mixin, a `[[mixins]]` entry in `mods.toml`, and a `-Amixin.env.disableRefMap=true` compiler flag - see `forge/build.gradle`) - **this Gradle wiring, and the exact `createParticle` method signature it targets, are the single highest-risk additions this feature makes to the Forge module**, on top of everything already flagged below.
+
 ## Building
 
 This mod could not be compiled inside the sandboxed environment that generated it - `maven.fabricmc.net` (Fabric) and `maven.minecraftforge.net` (Forge) are both blocked by that environment's egress policy, and there's no way to launch/test a real Minecraft session there either. Every file passed a `javac` syntax check with no classpath (catches real syntax errors and internal cross-file mistakes, confirmed clean across all three modules), but **none of this has been compiled or run against real Minecraft/Fabric/Forge classes.** Treat it as a solid first draft, not a verified build - true of both loaders, but more so for Forge (see below).
@@ -99,6 +118,7 @@ Roughly in order of how likely they are to have drifted:
 - `GameOptions.getGamma()` / `getFov()` in `FullbrightFeature.java` / `FovZoomFeature.java`.
 - `ClientPlayerEntity.sendMessage(Text, boolean)` in `OmegaClient.java`.
 - `MinecraftClient.scheduleStop()` in `ClickGuiScreen.java` (account switching) - this one's lower-risk than most of this list, it's a long-standing Yarn name with no known history of changing.
+- `ParticleManager#addParticle(ParticleEffect, double,double,double,double,double,double)`'s exact method descriptor in `ParticleManagerMixin.java` (particle control) - if this signature has drifted, Mixin fails loudly at startup (the config is `"required": true`) rather than silently doing nothing, so a broken match is easy to notice.
 
 Your IDE's autocomplete on `client.options.`, `player.sendMessage(`, `block.getStateManager().`, or `NbtIo.` will show the real signatures for your exact `yarn_mappings` build if any of these have drifted.
 
@@ -114,6 +134,7 @@ This list is longer than Fabric's because every file in `forge/` is a fresh, nev
 - **`player.displayClientMessage(Component, boolean)`** in `OmegaClientForge.java` - the official-mappings equivalent of Fabric's `sendMessage(Text, boolean)`.
 - **`.bounds(x, y, w, h)`** on `Button.Builder` in `ClickGuiScreen.java`/`SchematicScreen.java` - a guess at the official-mappings equivalent of Yarn's convenience `.dimensions(...)` call.
 - **`Minecraft.stop()`** in `ClickGuiScreen.java` (account switching) - guessed as the official-mappings equivalent of Yarn's `MinecraftClient.scheduleStop()`; moderate confidence.
+- **`ParticleEngineMixin.java`'s target signature and the Mixin Gradle wiring in `build.gradle`/`mods.toml`** (particle control) - the single highest-risk addition in this whole module, see "Particle control" above for why. If `createParticle`'s name or parameter shape has drifted, or the `-Amixin.env.disableRefMap=true` refmap-bypass guess is wrong for this Forge/Mixin version combination, the mod fails loudly at startup rather than silently misbehaving (the mixin config is `"required": true`).
 
 Higher-confidence renames used throughout (less likely to be the problem, but listed for completeness): `MinecraftClient`→`Minecraft`, `World`→`Level`, `Identifier`→`ResourceLocation`, `Text`→`Component`, `DrawContext`→`GuiGraphics`, `MatrixStack`→`PoseStack`, `Vec3d`→`Vec3`, `RenderLayer`→`RenderType`, `VertexConsumerProvider`→`MultiBufferSource`, `NbtCompound`/`NbtList`→`CompoundTag`/`ListTag`.
 
