@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import AdmZip from "adm-zip";
 import type { Loader, ModTag } from "../shared/types";
 
@@ -11,7 +12,7 @@ export interface ParsedModMetadata {
   tags: ModTag[];
 }
 
-const PERF_KEYWORDS = ["sodium", "lithium", "starlight", "phosphor", "lazydfu", "ferrite", "modernfix", "krypton", "immediatelyfast", "entityculling", "c2me", "noisium", "performance", "optimi", "fps", "lag"];
+const PERF_KEYWORDS = ["sodium", "lithium", "starlight", "phosphor", "lazydfu", "ferrite", "modernfix", "krypton", "immediatelyfast", "entityculling", "c2me", "noisium", "performance", "optimi", "fps", "lag", "rubidium", "embeddium", "canvas", "indium", "moreculling", "smoothboot", "dynamicfps", "particlecore", "enhancedblockentities"];
 const PVP_KEYWORDS = ["pvp", "hit", "combat", "reach", "crosshair", "cit"];
 const VISUAL_KEYWORDS = ["shader", "resource", "texture", "hud", "overlay", "waypoint", "minimap", "chat"];
 const LIBRARY_KEYWORDS = ["api", "library", "lib", "fabric-language", "kotlin"];
@@ -73,8 +74,39 @@ function parseMcmodInfo(entryData: Buffer): ParsedModMetadata | null {
   }
 }
 
+interface CacheEntry {
+  mtimeMs: number;
+  size: number;
+  metadata: ParsedModMetadata;
+}
+
+// Parsing a jar means opening it as a zip and reading/parsing a manifest entry - real work that
+// listMods() would otherwise redo for every jar on every single toggle/import/remove, since it
+// re-scans the whole mods directory each time. Keyed by path + mtime + size so an untouched jar
+// is never re-parsed, while a jar that actually changed (re-imported, updated) always is.
+const metadataCache = new Map<string, CacheEntry>();
+
 /** Reads a mod jar and pulls out display metadata by checking each loader's manifest format in turn. */
 export function readModMetadata(jarPath: string, fallbackName: string): ParsedModMetadata {
+  let stat: fs.Stats | null = null;
+  try {
+    stat = fs.statSync(jarPath);
+    const cached = metadataCache.get(jarPath);
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      return cached.metadata;
+    }
+  } catch {
+    // Fall through to a full parse attempt below if the stat itself failed.
+  }
+
+  const metadata = parseModMetadata(jarPath, fallbackName);
+  if (stat) {
+    metadataCache.set(jarPath, { mtimeMs: stat.mtimeMs, size: stat.size, metadata });
+  }
+  return metadata;
+}
+
+function parseModMetadata(jarPath: string, fallbackName: string): ParsedModMetadata {
   try {
     const zip = new AdmZip(jarPath);
 

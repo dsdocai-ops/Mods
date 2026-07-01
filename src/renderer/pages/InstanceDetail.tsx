@@ -84,17 +84,15 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
   };
 
   const enableAll = async () => {
-    for (const mod of mods.filter((m) => !m.enabled)) {
-      await window.api.mods.setEnabled(instance.modsDir, mod.id, true);
-    }
-    await loadMods();
+    const changes = Object.fromEntries(mods.filter((m) => !m.enabled).map((m) => [m.id, true]));
+    const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
+    setMods(updated);
   };
 
   const disableAll = async () => {
-    for (const mod of mods.filter((m) => m.enabled)) {
-      await window.api.mods.setEnabled(instance.modsDir, mod.id, false);
-    }
-    await loadMods();
+    const changes = Object.fromEntries(mods.filter((m) => m.enabled).map((m) => [m.id, false]));
+    const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
+    setMods(updated);
   };
 
   const saveDraft = async () => {

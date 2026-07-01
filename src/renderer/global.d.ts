@@ -28,6 +28,7 @@ export interface LauncherApi {
     setEnabled(modsDir: string, modId: string, enabled: boolean): Promise<ModInfo[]>;
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
+    setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
   };
   modConfig: {
     find(modsDir: string, modId: string): Promise<string | null>;

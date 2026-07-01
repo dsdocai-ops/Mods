@@ -10,6 +10,7 @@ import net.minecraft.client.MinecraftClient;
 public final class FovZoomFeature {
     private int baseFov = 90;
     private boolean baseFovCaptured = false;
+    private int lastAppliedFov = Integer.MIN_VALUE;
 
     public void tick(ModConfig config, boolean zoomKeyHeld) {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -20,12 +21,12 @@ public final class FovZoomFeature {
             baseFovCaptured = true;
         }
 
-        if (zoomKeyHeld) {
-            client.options.getFov().setValue(config.zoomFov);
-            return;
-        }
+        int target = zoomKeyHeld ? config.zoomFov : (config.customFovEnabled ? config.customFov : baseFov);
 
-        int target = config.customFovEnabled ? config.customFov : baseFov;
-        client.options.getFov().setValue(target);
+        // GameOptions.setValue() isn't a no-op write - avoid calling it every tick when nothing changed.
+        if (target != lastAppliedFov) {
+            client.options.getFov().setValue(target);
+            lastAppliedFov = target;
+        }
     }
 }

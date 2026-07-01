@@ -66,6 +66,9 @@ app.whenReady().then(() => {
   );
   ipcMain.handle("mods:remove", (_e, modsDir: string, modId: string) => mods.removeMod(modsDir, modId));
   ipcMain.handle("mods:applyPreset", (_e, modsDir: string, tags: ModTag[]) => mods.applyTagPreset(modsDir, tags));
+  ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
+    mods.setModsEnabledBulk(modsDir, changes)
+  );
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
   ipcMain.handle("modconfig:read", (_e, filePath: string) => readModConfigFile(filePath));

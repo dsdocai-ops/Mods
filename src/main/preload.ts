@@ -20,6 +20,8 @@ const api = {
       ipcRenderer.invoke("mods:setEnabled", modsDir, modId, enabled),
     remove: (modsDir: string, modId: string) => ipcRenderer.invoke("mods:remove", modsDir, modId),
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
+    setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
+      ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
   },
   modConfig: {
     find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),

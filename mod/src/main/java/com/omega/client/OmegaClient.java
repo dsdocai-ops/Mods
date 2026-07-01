@@ -60,6 +60,7 @@ public class OmegaClient implements ClientModInitializer {
         fullbright.tick(config);
         fovZoom.tick(config, zoomKey.isPressed());
         toggleSprint.tick(config);
+        infoHud.tick(config, client);
 
         if (client.player != null && client.world != null) {
             blockHighlight.tick(config, client.world, client.player.getBlockPos());

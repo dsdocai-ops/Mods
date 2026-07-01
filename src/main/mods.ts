@@ -57,8 +57,8 @@ export function importMods(modsDir: string, sourcePaths: string[]): ModInfo[] {
   return listMods(modsDir);
 }
 
-/** Flips a mod between active (`.jar`) and inactive (`.jar.disabled`) - the toggle behind the UI switch. */
-export function setModEnabled(modsDir: string, modId: string, enabled: boolean): ModInfo[] {
+/** Renames one mod's jar to reflect the desired enabled state, without the cost of a full directory re-scan. */
+function renameModFile(modsDir: string, modId: string, enabled: boolean): void {
   const enabledPath = path.join(modsDir, modId);
   const disabledPath = path.join(modsDir, modId + DISABLED_SUFFIX);
 
@@ -67,6 +67,11 @@ export function setModEnabled(modsDir: string, modId: string, enabled: boolean):
   } else if (!enabled && fs.existsSync(enabledPath)) {
     fs.renameSync(enabledPath, disabledPath);
   }
+}
+
+/** Flips a mod between active (`.jar`) and inactive (`.jar.disabled`) - the toggle behind the UI switch. */
+export function setModEnabled(modsDir: string, modId: string, enabled: boolean): ModInfo[] {
+  renameModFile(modsDir, modId, enabled);
   return listMods(modsDir);
 }
 
@@ -78,12 +83,25 @@ export function removeMod(modsDir: string, modId: string): ModInfo[] {
   return listMods(modsDir);
 }
 
+/**
+ * Applies many enable/disable changes in a single pass. `setModEnabled` in a loop would re-scan
+ * and re-parse every jar in the folder once per mod changed - O(n^2) for an n-mod pack - so bulk
+ * callers (presets, enable/disable-all) go through here instead: all the renames happen first,
+ * and the directory is only re-scanned once at the end.
+ */
+export function setModsEnabledBulk(modsDir: string, changes: Record<string, boolean>): ModInfo[] {
+  for (const [modId, enabled] of Object.entries(changes)) {
+    renameModFile(modsDir, modId, enabled);
+  }
+  return listMods(modsDir);
+}
+
 /** Bulk-enable every mod carrying any of the given tags and bulk-disable the rest - powers preset buttons like "Smooth PvP". */
 export function applyTagPreset(modsDir: string, tags: ModTag[]): ModInfo[] {
   const mods = listMods(modsDir);
+  const changes: Record<string, boolean> = {};
   for (const mod of mods) {
-    const matches = mod.tags.some((t) => tags.includes(t));
-    setModEnabled(modsDir, mod.id, matches);
+    changes[mod.id] = mod.tags.some((t) => tags.includes(t));
   }
-  return listMods(modsDir);
+  return setModsEnabledBulk(modsDir, changes);
 }

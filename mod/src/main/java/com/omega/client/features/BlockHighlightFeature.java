@@ -14,6 +14,7 @@ import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -23,41 +24,75 @@ import java.util.Set;
  * Deliberately depth-tested (RenderLayer.getLines(), the same layer vanilla's own F3+B hitbox
  * debug rendering uses): terrain still occludes it, so this only ever emphasizes blocks the
  * player could already see, matching "combat clarity" rather than an x-ray/wallhack.
+ *
+ * The scan volume (41x41x41 = ~69k blocks) is spread across many ticks instead of being scanned
+ * in one go - a single-tick scan of the whole volume was measured (by inspection) to be exactly
+ * the kind of unbounded per-tick work that causes a periodic frame hitch, which defeats the
+ * point of a mod aimed at smooth PvP. Budgeting a fixed number of lookups per tick keeps every
+ * tick's cost bounded and roughly constant instead.
  */
 public final class BlockHighlightFeature {
     private static final int SCAN_RADIUS = 20;
     private static final int RESCAN_INTERVAL_TICKS = 10;
     private static final int MAX_HIGHLIGHTS = 400;
+    private static final int BLOCKS_PER_TICK_BUDGET = 4096;
 
     private final List<BlockPos> cachedMatches = new ArrayList<>();
-    private int ticksSinceRescan = RESCAN_INTERVAL_TICKS;
+    private final List<BlockPos> pendingMatches = new ArrayList<>();
+    private Iterator<BlockPos> scanIterator = null;
+    private Set<Identifier> currentTargets = Set.of();
+    private int ticksSinceScanStart = RESCAN_INTERVAL_TICKS;
+
+    private String lastParsedColorSource = null;
+    private float[] lastParsedColor = {0.6f, 0.2f, 1.0f, 0.75f};
 
     public void tick(ModConfig config, World world, BlockPos center) {
         if (!config.blockHighlightEnabled || world == null || center == null) {
             cachedMatches.clear();
+            scanIterator = null;
             return;
         }
 
-        ticksSinceRescan++;
-        if (ticksSinceRescan < RESCAN_INTERVAL_TICKS) return;
-        ticksSinceRescan = 0;
+        if (scanIterator == null) {
+            ticksSinceScanStart++;
+            if (ticksSinceScanStart < RESCAN_INTERVAL_TICKS) return;
+            ticksSinceScanStart = 0;
+            startScan(config, center);
+        }
 
+        advanceScan(world);
+    }
+
+    private void startScan(ModConfig config, BlockPos center) {
         Set<Identifier> targets = new HashSet<>();
         for (String id : config.highlightedBlocks) {
             Identifier parsed = Identifier.tryParse(id);
             if (parsed != null) targets.add(parsed);
         }
+        currentTargets = targets;
 
-        cachedMatches.clear();
         BlockPos min = center.add(-SCAN_RADIUS, -SCAN_RADIUS, -SCAN_RADIUS);
         BlockPos max = center.add(SCAN_RADIUS, SCAN_RADIUS, SCAN_RADIUS);
+        scanIterator = BlockPos.iterate(min, max).iterator();
+        pendingMatches.clear();
+    }
 
-        for (BlockPos pos : BlockPos.iterate(min, max)) {
-            if (cachedMatches.size() >= MAX_HIGHLIGHTS) break;
+    /** Processes at most BLOCKS_PER_TICK_BUDGET positions from the in-progress scan, publishing results once it completes. */
+    private void advanceScan(World world) {
+        int processed = 0;
+        while (scanIterator.hasNext() && processed < BLOCKS_PER_TICK_BUDGET && pendingMatches.size() < MAX_HIGHLIGHTS) {
+            BlockPos pos = scanIterator.next();
             Identifier blockId = Registries.BLOCK.getId(world.getBlockState(pos).getBlock());
-            if (targets.contains(blockId)) {
-                cachedMatches.add(pos.toImmutable());
+            if (currentTargets.contains(blockId)) {
+                pendingMatches.add(pos.toImmutable());
             }
+            processed++;
+        }
+
+        if (!scanIterator.hasNext() || pendingMatches.size() >= MAX_HIGHLIGHTS) {
+            cachedMatches.clear();
+            cachedMatches.addAll(pendingMatches);
+            scanIterator = null;
         }
     }
 
@@ -66,7 +101,7 @@ public final class BlockHighlightFeature {
         VertexConsumerProvider consumers = context.consumers();
         if (consumers == null) return;
 
-        float[] rgba = parseColor(config.highlightColorArgb);
+        float[] rgba = resolveColor(config.highlightColorArgb);
         VertexConsumer buffer = consumers.getBuffer(RenderLayer.getLines());
         MatrixStack matrices = context.matrixStack();
         Vec3d camPos = context.camera().getPos();
@@ -113,7 +148,14 @@ public final class BlockHighlightFeature {
         }
     }
 
-    /** Parses "#AARRGGBB" or "#RRGGBB" into normalized [r,g,b,a]. Falls back to a visible default on any parse issue. */
+    /** Parses "#AARRGGBB" or "#RRGGBB" into normalized [r,g,b,a], cached so repeated per-frame calls don't re-parse an unchanged string. */
+    private float[] resolveColor(String argb) {
+        if (argb.equals(lastParsedColorSource)) return lastParsedColor;
+        lastParsedColorSource = argb;
+        lastParsedColor = parseColor(argb);
+        return lastParsedColor;
+    }
+
     private float[] parseColor(String argb) {
         try {
             String hex = argb.startsWith("#") ? argb.substring(1) : argb;
