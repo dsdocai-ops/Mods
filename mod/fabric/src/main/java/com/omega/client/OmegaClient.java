@@ -7,6 +7,7 @@ import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.schematic.SchematicRenderFeature;
 import com.omega.client.schematic.SchematicSelection;
+import com.omega.client.session.SessionInfo;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -35,6 +36,7 @@ public class OmegaClient implements ClientModInitializer {
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
+    private final SessionInfo session = SessionInfoLoader.load();
 
     private KeyBinding menuKey;
     private KeyBinding zoomKey;
@@ -90,7 +92,7 @@ public class OmegaClient implements ClientModInitializer {
 
     private void onClientTick(MinecraftClient client) {
         while (menuKey.wasPressed()) {
-            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender));
+            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
         }
         while (pos1Key.wasPressed()) {
             setSelectionFromCrosshair(client, true);

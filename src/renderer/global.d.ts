@@ -54,6 +54,7 @@ export interface LauncherApi {
     stop(instanceId: string): Promise<boolean>;
     isRunning(instanceId: string): Promise<boolean>;
     onLog(callback: (event: LaunchLogEvent) => void): () => void;
+    onSwitchAccountRequested(callback: (instanceId: string) => void): () => void;
   };
 }
 

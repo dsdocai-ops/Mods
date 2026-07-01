@@ -8,6 +8,7 @@ import com.omega.client.forge.features.InfoHudFeature;
 import com.omega.client.forge.features.ToggleSprintFeature;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
+import com.omega.client.session.SessionInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -48,6 +49,7 @@ public class OmegaClientForge {
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
+    private final SessionInfo session = SessionInfoLoader.load();
 
     private final KeyMapping menuKey = new KeyMapping("key.omega-client.menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "key.categories.omega-client");
     private final KeyMapping zoomKey = new KeyMapping("key.omega-client.zoom", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.omega-client");
@@ -83,7 +85,7 @@ public class OmegaClientForge {
         Minecraft client = Minecraft.getInstance();
 
         while (menuKey.consumeClick()) {
-            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender));
+            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
         }
         while (pos1Key.consumeClick()) {
             setSelectionFromCrosshair(client, true);

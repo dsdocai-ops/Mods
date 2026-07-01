@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
 import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
@@ -6,7 +7,7 @@ import * as instances from "./instances";
 import * as mods from "./mods";
 import * as store from "./store";
 import * as javaModule from "./java";
-import { launchInstance } from "./launch";
+import { launchInstance, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import * as accounts from "./accountStore";
 
@@ -41,6 +42,21 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   const win = createWindow();
+
+  /** The companion mod's in-game "Switch Account" button writes this marker right before quitting - see launch.ts. */
+  function checkSwitchAccountRequest(instance: Instance) {
+    const runDir = path.dirname(instance.modsDir);
+    const markerPath = path.join(runDir, SWITCH_ACCOUNT_MARKER_NAME);
+    if (!fs.existsSync(markerPath)) return;
+    try {
+      fs.unlinkSync(markerPath);
+    } catch {
+      // Best-effort cleanup; leaving it behind just means it's ignored (already-consumed) next launch.
+    }
+    win.show();
+    win.focus();
+    win.webContents.send("launch:switchAccountRequested", instance.id);
+  }
 
   ipcMain.handle("instances:list", () => instances.listInstances());
   ipcMain.handle("instances:create", (_e, input: CreateInstanceInput) => instances.createInstance(input));
@@ -99,7 +115,10 @@ app.whenReady().then(() => {
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
-      handle.process.on("exit", () => runningProcesses.delete(instance.id));
+      handle.process.on("exit", () => {
+        runningProcesses.delete(instance.id);
+        checkSwitchAccountRequest(instance);
+      });
       instances.markLaunched(instance.id);
       return true;
     } catch (err) {

@@ -10,12 +10,12 @@ Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls scr
 
 ```
 mod/
-  common/    # SchematicData, SchematicBlockEntry - the ONLY code shared between loaders (see below)
+  common/    # SchematicData, SchematicBlockEntry, SessionInfo - the ONLY code shared between loaders (see below)
   fabric/    # Fabric build - mod id "omega-client"
   forge/     # Forge build - mod id "omega_client_forge" (Forge disallows hyphens in mod ids)
 ```
 
-Each loader module has its own full implementation of every feature (ModConfig, FullbrightFeature, the schematic tool, etc.) - **not** a single shared implementation. Here's why: Fabric mods are conventionally written against Yarn mappings (community-maintained names for Minecraft's classes), Forge mods against Mojang's own official mappings - different names for the same underlying game classes. Naively sharing source between a Yarn-mapped module and an officially-mapped one isn't safe without a remapping layer (that's literally what the Architectury Loom toolchain exists to solve). Since this project has no way to test-verify a Gradle setup that complex, the lower-risk choice was two independent, loader-idiomatic implementations, sharing only the two classes with zero Minecraft API surface at all (`SchematicData`, `SchematicBlockEntry` - plain data holders, safe to compile once and use from both). If you want true single-source multi-loader builds later, adopting Architectury for this project is the natural next step.
+Each loader module has its own full implementation of every feature (ModConfig, FullbrightFeature, the schematic tool, etc.) - **not** a single shared implementation. Here's why: Fabric mods are conventionally written against Yarn mappings (community-maintained names for Minecraft's classes), Forge mods against Mojang's own official mappings - different names for the same underlying game classes. Naively sharing source between a Yarn-mapped module and an officially-mapped one isn't safe without a remapping layer (that's literally what the Architectury Loom toolchain exists to solve). Since this project has no way to test-verify a Gradle setup that complex, the lower-risk choice was two independent, loader-idiomatic implementations, sharing only the classes with zero Minecraft API surface at all (`SchematicData`, `SchematicBlockEntry`, `SessionInfo` - plain data holders, safe to compile once and use from both). If you want true single-source multi-loader builds later, adopting Architectury for this project is the natural next step.
 
 One practical consequence: **the Forge module has never had any of its class/method name guesses checked against anything** (not even the "this pattern is well-established" confidence the Fabric side earned from being written first) - it carries meaningfully more unverified surface area. See "Building" below for the specific spots to check first.
 
@@ -66,6 +66,12 @@ A small WorldEdit/Litematica-style building tool: select a region, save it, then
 
 **The ghost preview is color-coded wireframe outlines, not real block textures.** Textured block rendering exists in the Minecraft client but calling it correctly is another spot this project can't compile-verify, so the preview reuses the same depth-tested wireframe technique as Block Highlight instead (each exact block state gets a consistent deterministic color, so different materials/orientations are still distinguishable) - see `SchematicRenderFeature.java` in each loader module.
 
+## Account switching
+
+The menu's header shows "Playing as: {username} ({microsoft|offline})", read from a small JSON session file (`omega-client-session.json`) the Omega Client launcher writes into the game directory right before spawning the game - see `SessionInfo.java` in `common/` and each loader's `SessionInfoLoader.java`.
+
+Minecraft has no API for hot-swapping a live account mid-session, so **"Switch Account" doesn't actually switch anything in-game** - clicking it (twice, to confirm) writes a marker file (`omega-client-switch-account.request`) into the game directory and then quits the client (`MinecraftClient.scheduleStop()` on Fabric, `Minecraft.stop()` on Forge - a clean, same-tick shutdown request, not `System.exit()`). The launcher watches for that marker file after its spawned game process exits and, if present, brings itself to the foreground and reopens its own account switcher automatically. Both sides only ever communicate through these two files - there's no socket or IPC channel between the launcher and a running game.
+
 ## Building
 
 This mod could not be compiled inside the sandboxed environment that generated it - `maven.fabricmc.net` (Fabric) and `maven.minecraftforge.net` (Forge) are both blocked by that environment's egress policy, and there's no way to launch/test a real Minecraft session there either. Every file passed a `javac` syntax check with no classpath (catches real syntax errors and internal cross-file mistakes, confirmed clean across all three modules), but **none of this has been compiled or run against real Minecraft/Fabric/Forge classes.** Treat it as a solid first draft, not a verified build - true of both loaders, but more so for Forge (see below).
@@ -92,6 +98,7 @@ Roughly in order of how likely they are to have drifted:
 - `NbtIo.readCompressed(InputStream)` in `LitematicaImporter.java` - some MC versions require an extra `NbtSizeTracker` argument.
 - `GameOptions.getGamma()` / `getFov()` in `FullbrightFeature.java` / `FovZoomFeature.java`.
 - `ClientPlayerEntity.sendMessage(Text, boolean)` in `OmegaClient.java`.
+- `MinecraftClient.scheduleStop()` in `ClickGuiScreen.java` (account switching) - this one's lower-risk than most of this list, it's a long-standing Yarn name with no known history of changing.
 
 Your IDE's autocomplete on `client.options.`, `player.sendMessage(`, `block.getStateManager().`, or `NbtIo.` will show the real signatures for your exact `yarn_mappings` build if any of these have drifted.
 
@@ -106,6 +113,7 @@ This list is longer than Fabric's because every file in `forge/` is a fresh, nev
 - **`BlockStateCodec.java`** - the same `Property.name()`/`parse()` moderate-confidence spot as Fabric's, plus fresh guesses at `BuiltInRegistries`, `StateDefinition`, `defaultBlockState()`, `setValue()`.
 - **`player.displayClientMessage(Component, boolean)`** in `OmegaClientForge.java` - the official-mappings equivalent of Fabric's `sendMessage(Text, boolean)`.
 - **`.bounds(x, y, w, h)`** on `Button.Builder` in `ClickGuiScreen.java`/`SchematicScreen.java` - a guess at the official-mappings equivalent of Yarn's convenience `.dimensions(...)` call.
+- **`Minecraft.stop()`** in `ClickGuiScreen.java` (account switching) - guessed as the official-mappings equivalent of Yarn's `MinecraftClient.scheduleStop()`; moderate confidence.
 
 Higher-confidence renames used throughout (less likely to be the problem, but listed for completeness): `MinecraftClient`→`Minecraft`, `World`→`Level`, `Identifier`→`ResourceLocation`, `Text`→`Component`, `DrawContext`→`GuiGraphics`, `MatrixStack`→`PoseStack`, `Vec3d`→`Vec3`, `RenderLayer`→`RenderType`, `VertexConsumerProvider`→`MultiBufferSource`, `NbtCompound`/`NbtList`→`CompoundTag`/`ListTag`.
 

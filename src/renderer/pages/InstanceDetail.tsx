@@ -4,6 +4,7 @@ import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
+import AccountSwitcher from "../components/AccountSwitcher";
 import { toast } from "../toast";
 
 interface Props {
@@ -14,11 +15,24 @@ interface Props {
   onStop: () => void;
   onInstanceChanged: () => void;
   onDeleted: () => void;
+  onOpenGlobalSettings: () => void;
+  /** Bumped when the game signals a switch-account request for this instance - see AccountSwitcher. */
+  accountSwitchOpenSignal: number;
 }
 
 type Tab = "mods" | "console" | "settings";
 
-export default function InstanceDetail({ instance, logLines, isRunning, onLaunch, onStop, onInstanceChanged, onDeleted }: Props) {
+export default function InstanceDetail({
+  instance,
+  logLines,
+  isRunning,
+  onLaunch,
+  onStop,
+  onInstanceChanged,
+  onDeleted,
+  onOpenGlobalSettings,
+  accountSwitchOpenSignal,
+}: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("mods");
@@ -36,6 +50,8 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
     setMods(list);
   };
 
+  const loadAccounts = () => window.api.accounts.list().then(setAccounts);
+
   useEffect(() => {
     loadMods();
     setDraft(instance);
@@ -43,8 +59,15 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
   }, [instance.id, instance.modsDir]);
 
   useEffect(() => {
-    window.api.accounts.list().then(setAccounts);
+    loadAccounts();
   }, []);
+
+  const quickSetAccount = async (accountId: string | undefined) => {
+    const updated = { ...instance, accountId };
+    await window.api.instances.update(updated);
+    setDraft((prev) => ({ ...prev, accountId }));
+    onInstanceChanged();
+  };
 
   const filteredMods = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -118,6 +141,14 @@ export default function InstanceDetail({ instance, logLines, isRunning, onLaunch
           </p>
         </div>
         <div className="instance-actions">
+          <AccountSwitcher
+            instance={instance}
+            accounts={accounts}
+            onAccountChange={quickSetAccount}
+            onAccountsChanged={loadAccounts}
+            onManageAccounts={onOpenGlobalSettings}
+            openSignal={accountSwitchOpenSignal}
+          />
           {isRunning ? (
             <button className="btn btn-danger" onClick={onStop}>
               Stop

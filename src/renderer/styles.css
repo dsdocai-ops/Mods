@@ -259,6 +259,90 @@ body {
   margin: 0 0 4px 0;
 }
 
+.instance-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-switcher {
+  position: relative;
+}
+
+.account-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 200px;
+}
+
+.account-switcher-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.account-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+  padding: 6px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: modal-in 0.12s var(--ease);
+}
+
+.account-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.account-switcher-item:hover {
+  background: var(--bg-panel-alt);
+}
+
+.account-switcher-item.active {
+  background: var(--bg-panel-alt);
+  box-shadow: inset 2px 0 0 var(--accent-2);
+}
+
+.account-switcher-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-switcher-badge {
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 1px 6px;
+  margin-left: auto;
+}
+
+.account-switcher-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
 .instance-subtitle {
   color: var(--text-dim);
   font-size: 13px;

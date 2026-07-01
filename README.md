@@ -73,7 +73,9 @@ Optional - skip this if offline play is all you need. Signing in requires your o
 5. Still on **Authentication**: set **"Allow public client flows"** to **Yes** → Save. (No client secret needed - a secret shipped in desktop app code isn't actually secret, so this app is registered as a public/native client using PKCE instead.)
 6. Copy the **Application (client) ID** from the **Overview** page.
 7. In the launcher: **Settings** → paste it into **"Microsoft sign-in client ID"** → **+ Add Microsoft Account** → sign in.
-8. In an instance's **Instance Settings** tab, set **Account** to the signed-in account instead of "Offline".
+8. In an instance's **Instance Settings** tab, set **Account** to the signed-in account instead of "Offline". A quicker account switcher (showing the active account, letting you sign in an additional account, or jump to **Settings**) also lives right next to the **Play** button on every instance.
+
+Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game menu can't switch accounts on its own either - its **Switch Account** button (double-click to confirm) just quits cleanly and signals the launcher, which pops back to the foreground with its account switcher already open so you can pick the next account and relaunch.
 
 ## Using it
 

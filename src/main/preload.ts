@@ -51,6 +51,11 @@ const api = {
       ipcRenderer.on("launch:log", listener);
       return () => ipcRenderer.removeListener("launch:log", listener);
     },
+    onSwitchAccountRequested: (callback: (instanceId: string) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, instanceId: string) => callback(instanceId);
+      ipcRenderer.on("launch:switchAccountRequested", listener);
+      return () => ipcRenderer.removeListener("launch:switchAccountRequested", listener);
+    },
   },
 };
 

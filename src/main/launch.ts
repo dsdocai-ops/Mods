@@ -8,6 +8,30 @@ import type { Instance, LaunchLogEvent } from "../shared/types";
 import { resolveVersion, findClientJar, resolveArgTokens, evaluateRules, mavenNameToPath, type LibraryEntry } from "./versionResolver";
 import { getValidAccessToken } from "./accountStore";
 
+/**
+ * File-based signaling convention with the companion mod's in-game "Switch Account" button:
+ * the launcher writes SESSION_FILE_NAME into the run directory right before launch so the mod can
+ * display who's currently playing, and after the game process exits the launcher checks for
+ * SWITCH_ACCOUNT_MARKER_NAME (written by the mod right before it quits) to know whether to pop the
+ * account switcher back open automatically. Both sides need to agree on these exact names - see
+ * mod/README.md.
+ */
+export const SESSION_FILE_NAME = "omega-client-session.json";
+export const SWITCH_ACCOUNT_MARKER_NAME = "omega-client-switch-account.request";
+
+function writeSessionInfo(runDir: string, auth: { username: string; uuid: string; userType: string }): void {
+  const sessionInfo = {
+    accountType: auth.userType === "msa" ? "microsoft" : "offline",
+    username: auth.username,
+    uuid: auth.uuid,
+  };
+  try {
+    fs.writeFileSync(path.join(runDir, SESSION_FILE_NAME), JSON.stringify(sessionInfo, null, 2), "utf-8");
+  } catch {
+    // Non-fatal: the mod's in-game account display just falls back to "unknown" if this is missing.
+  }
+}
+
 /** Aikar's-flags-style G1GC tuning: trades a bit of memory for far fewer GC-pause frame hitches, which matters most in PvP. */
 const SMOOTH_PVP_JVM_FLAGS = [
   "-XX:+UseG1GC",
@@ -118,6 +142,8 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
 
   const runDir = path.dirname(instance.modsDir);
   fs.mkdirSync(instance.modsDir, { recursive: true });
+
+  writeSessionInfo(runDir, auth);
 
   const nativesDir = path.join(os.tmpdir(), "omega-client", `natives-${instance.id}-${Date.now()}`);
   log(`Extracting natives to ${nativesDir}`);

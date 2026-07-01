@@ -15,6 +15,10 @@ export default function App() {
   const [showNewInstance, setShowNewInstance] = useState(false);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
+  const [switchAccountRequest, setSwitchAccountRequest] = useState<{ instanceId: string; token: number }>({
+    instanceId: "",
+    token: 0,
+  });
 
   const refreshInstances = async () => {
     const list = await window.api.instances.list();
@@ -43,7 +47,15 @@ export default function App() {
       }
     });
 
-    return () => unsubscribe();
+    const unsubscribeSwitchAccount = window.api.launch.onSwitchAccountRequested((instanceId: string) => {
+      setSwitchAccountRequest({ instanceId, token: Date.now() });
+      setView({ kind: "instance", id: instanceId });
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeSwitchAccount();
+    };
   }, []);
 
   const selectedInstance = useMemo(() => {
@@ -98,6 +110,8 @@ export default function App() {
             onLaunch={() => handleLaunch(selectedInstance)}
             onStop={() => handleStop(selectedInstance)}
             onInstanceChanged={refreshInstances}
+            onOpenGlobalSettings={() => setView({ kind: "settings" })}
+            accountSwitchOpenSignal={switchAccountRequest.instanceId === selectedInstance.id ? switchAccountRequest.token : 0}
             onDeleted={async () => {
               await window.api.instances.delete(selectedInstance.id);
               const list = await refreshInstances();
