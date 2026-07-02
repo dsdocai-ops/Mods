@@ -17,9 +17,8 @@ import java.util.Optional;
  * (both well-established, higher confidence), StateManager -> StateDefinition,
  * getDefaultState()/getStateManager() -> defaultBlockState()/getStateDefinition(),
  * state.getEntries() -> state.getValues(), state.with(...) -> state.setValue(...) (moderate
- * confidence), and property.name()/parse() carried over unchanged from the Fabric version since
- * no better official-mappings guess is available (same moderate confidence as there, see
- * mod/README.md).
+ * confidence), and property.getName(value)/getValue(text) - CI's first real compile corrected the
+ * original guess that Yarn's name()/parse() carried over unchanged.
  */
 public final class BlockStateCodec {
     private BlockStateCodec() {
@@ -67,12 +66,12 @@ public final class BlockStateCodec {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static String nameOf(Property property, Comparable value) {
-        return property.name(value);
+        return property.getName(value);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static BlockState withParsedValue(BlockState state, Property property, String valueText) {
-        Optional parsed = property.parse(valueText);
+        Optional parsed = property.getValue(valueText);
         if (parsed.isPresent()) {
             return state.setValue(property, (Comparable) parsed.get());
         }
