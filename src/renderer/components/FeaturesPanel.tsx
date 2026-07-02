@@ -107,6 +107,7 @@ export default function FeaturesPanel({ modsDir }: Props) {
         </label>
       </div>
       {boolRow("toggleSprintEnabled", "Toggle Sprint", "sprint without holding the key")}
+      {boolRow("showOmegaUsersEnabled", "Show Omega Users", "\u03a9 badge on nametags of other Omega players (needs server relay support)")}
 
       <h3 className="settings-subheading">HUD</h3>
       {boolRow("hudEnabled", "Info HUD")}

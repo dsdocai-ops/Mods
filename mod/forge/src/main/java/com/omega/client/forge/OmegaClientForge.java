@@ -6,6 +6,7 @@ import com.omega.client.forge.features.FovZoomFeature;
 import com.omega.client.forge.features.FullbrightFeature;
 import com.omega.client.forge.features.InfoHudFeature;
 import com.omega.client.forge.features.ToggleSprintFeature;
+import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
 import com.omega.client.session.SessionInfo;
@@ -63,6 +64,7 @@ public class OmegaClientForge {
         modEventBus.addListener(this::onRegisterKeyMappings);
         modEventBus.addListener(this::onRegisterGuiOverlays);
         MinecraftForge.EVENT_BUS.register(this);
+        PresenceNetworking.register(config);
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {

@@ -4,6 +4,7 @@
   "package": "com.omega.client.forge.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "EntityRendererMixin",
     "ParticleEngineMixin"
   ],
   "injectors": {

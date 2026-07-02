@@ -71,6 +71,7 @@ const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
   hudShowFps: true,
   hudShowKeystrokes: true,
   schematicPreviewEnabled: false,
+  showOmegaUsersEnabled: true,
   particlesMasterEnabled: true,
   blockParticlesEnabled: true,
   ambientParticlesEnabled: true,
