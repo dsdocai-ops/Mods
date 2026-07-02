@@ -46,8 +46,7 @@
       "output": "release"
     },
     "win": {
-      "target": ["portable", "nsis"],
-      "icon": "build/icon.ico"
+      "target": ["portable", "nsis"]
     },
     "nsis": {
       "oneClick": false,

@@ -1,0 +1,58 @@
+# Builds the two shippable artifacts this repo produces:
+#   - the Omega Client launcher as a Windows portable .exe + NSIS installer (electron-builder)
+#   - the companion mod jars for Fabric and Forge (Gradle)
+# The two jobs are independent on purpose - the mod compiling against real Minecraft classes for
+# the first time is expected to need iteration, and that must never block the launcher artifact.
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+
+jobs:
+  launcher-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omega-client-windows
+          path: |
+            release/*.exe
+          if-no-files-found: error
+
+  mod-jars:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.8"
+      - name: Build Fabric jar
+        working-directory: mod
+        run: gradle :fabric:build --no-daemon --stacktrace
+      - name: Build Forge jar
+        # if: always() so a Fabric compile failure still exercises the Forge build - they fail (and
+        # get fixed) independently.
+        if: always()
+        working-directory: mod
+        run: gradle :forge:build --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omega-client-mod-jars
+          path: |
+            mod/fabric/build/libs/*.jar
+            mod/forge/build/libs/*.jar
+          if-no-files-found: warn
