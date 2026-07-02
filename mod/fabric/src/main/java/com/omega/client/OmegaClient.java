@@ -5,6 +5,7 @@ import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
+import com.omega.client.network.PresenceNetworking;
 import com.omega.client.schematic.SchematicRenderFeature;
 import com.omega.client.schematic.SchematicSelection;
 import com.omega.client.session.SessionInfo;
@@ -84,6 +85,7 @@ public class OmegaClient implements ClientModInitializer {
                 "key.categories.omega-client"
         ));
 
+        PresenceNetworking.register(config);
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> schematicRender.render(context, config));

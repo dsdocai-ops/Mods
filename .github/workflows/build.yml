@@ -11,10 +11,23 @@ on:
     branches: [main, "claude/**"]
 
 jobs:
+  # Lunar-style: the launcher ships with the Omega mod jars inside it (electron-builder
+  # extraResources), so packaging depends on the mod build and stages its artifact first.
   launcher-windows:
+    needs: mod-jars
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: omega-client-mod-jars
+          path: staged-mods
+      - name: Stage bundled mod jars
+        shell: bash
+        run: |
+          mkdir -p bundled
+          find staged-mods -name '*.jar' ! -name '*-sources*' -exec cp {} bundled/ \;
+          ls -la bundled
       - uses: actions/setup-node@v4
         with:
           node-version: 20

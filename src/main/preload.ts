@@ -38,6 +38,7 @@ const api = {
   },
   modConfig: {
     find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),
+    ensureOmega: (modsDir: string): Promise<string> => ipcRenderer.invoke("modconfig:ensureOmega", modsDir),
     read: (filePath: string) => ipcRenderer.invoke("modconfig:read", filePath),
     write: (filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
       ipcRenderer.invoke("modconfig:write", filePath, format, data),

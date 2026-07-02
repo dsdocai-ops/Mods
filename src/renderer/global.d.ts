@@ -38,6 +38,7 @@ export interface LauncherApi {
   };
   modConfig: {
     find(modsDir: string, modId: string): Promise<string | null>;
+    ensureOmega(modsDir: string): Promise<string>;
     read(filePath: string): Promise<ModConfigFile>;
     write(filePath: string, format: ConfigFormat, data: Record<string, unknown>): Promise<void>;
   };

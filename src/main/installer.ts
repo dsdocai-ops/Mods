@@ -50,7 +50,7 @@ interface ManifestEntry {
   releaseTime: string;
 }
 
-async function fetchWithRetry(url: string): Promise<Response> {
+export async function fetchWithRetry(url: string): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
     try {

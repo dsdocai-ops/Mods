@@ -42,6 +42,13 @@
       "dist-renderer/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "bundled",
+        "to": "bundled",
+        "filter": ["*.jar"]
+      }
+    ],
     "directories": {
       "output": "release"
     },

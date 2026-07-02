@@ -48,6 +48,9 @@ public class ModConfig {
 
     public boolean schematicPreviewEnabled = false;
 
+    /** Show an Omega badge next to the nametag of players known to be on Omega Client. */
+    public boolean showOmegaUsersEnabled = true;
+
     public boolean particlesMasterEnabled = true;
     public boolean blockParticlesEnabled = true;
     public boolean ambientParticlesEnabled = true;

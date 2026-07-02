@@ -10,7 +10,8 @@ import * as javaModule from "./java";
 import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
-import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
+import { ensureOmegaConfig, findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
+import { ensureOmegaMods } from "./bundledMods";
 import * as accounts from "./accountStore";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -83,7 +84,13 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle("instances:list", () => instances.listInstances());
-  ipcMain.handle("instances:create", (_e, input: CreateInstanceInput) => instances.createInstance(input));
+  ipcMain.handle("instances:create", async (_e, input: CreateInstanceInput) => {
+    const instance = instances.createInstance(input);
+    // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance
+    // exists. ensureOmegaMods never throws (logs and moves on), so creation can't fail on network.
+    await ensureOmegaMods(instance, (line) => console.log(line));
+    return instance;
+  });
   ipcMain.handle("instances:update", (_e, instance: Instance) => instances.updateInstance(instance));
   ipcMain.handle("instances:delete", (_e, id: string) => instances.removeInstance(id));
   ipcMain.handle("instances:detectVersions", (_e, gameDir: string) => instances.detectInstalledVersions(gameDir));
@@ -121,6 +128,7 @@ app.whenReady().then(() => {
   );
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
+  ipcMain.handle("modconfig:ensureOmega", (_e, modsDir: string) => ensureOmegaConfig(path.dirname(modsDir)));
   ipcMain.handle("modconfig:read", (_e, filePath: string) => readModConfigFile(filePath));
   ipcMain.handle("modconfig:write", (_e, filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
     writeModConfigFile(filePath, format, data)
@@ -174,6 +182,8 @@ app.whenReady().then(() => {
     pendingLaunches.add(instance.id);
     const onLog = (event: LaunchLogEvent) => sendToRenderer("launch:log", event);
     try {
+      // Keep the preinstalled Omega mod current on every launch (also self-heals a deleted jar).
+      await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);

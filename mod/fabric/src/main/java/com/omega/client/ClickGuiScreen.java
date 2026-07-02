@@ -41,7 +41,7 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        headerY = this.height / 2 - (ROW_HEIGHT * 7) - 34;
+        headerY = this.height / 2 - (ROW_HEIGHT * 8) - 34;
         int y = headerY + 34;
 
         addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
@@ -53,6 +53,8 @@ public class ClickGuiScreen extends Screen {
         addToggleRow(startX, y, "Toggle Sprint", () -> config.toggleSprintEnabled, v -> config.toggleSprintEnabled = v);
         y += ROW_HEIGHT;
         addToggleRow(startX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
+        y += ROW_HEIGHT;
+        addToggleRow(startX, y, "Show Omega Users (\u03a9 badge)", () -> config.showOmegaUsersEnabled, v -> config.showOmegaUsersEnabled = v);
         y += ROW_HEIGHT;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {
