@@ -19,7 +19,7 @@ Each loader module has its own full implementation of every feature (ModConfig, 
 
 This mod is otherwise **zero-Mixin by design** - every other feature reads/writes plain client-option fields or hooks a documented Fabric API / Forge event, deliberately avoiding the extra fragility of bytecode-injection tooling in a project with no way to compile-verify it. Particle control (see below) is the one place that turned out to be genuinely impossible without it, and is called out everywhere it matters.
 
-One practical consequence: **the Forge module has never had any of its class/method name guesses checked against anything** (not even the "this pattern is well-established" confidence the Fabric side earned from being written first) - it carries meaningfully more unverified surface area. See "Building" below for the specific spots to check first.
+Both modules now **compile clean against real Minecraft classes in CI** (see "Building" below) - the Fabric module on its first attempt, the Forge module after two rounds of corrections that all landed on pre-flagged spots. Compiling isn't the same as runtime-tested, but the "wild guess" phase of the Forge port is over.
 
 ## What it does - and deliberately doesn't
 
@@ -93,7 +93,9 @@ On the Fabric side, adding this Mixin needed no extra Gradle wiring - Fabric Loo
 
 ## Building
 
-This mod could not be compiled inside the sandboxed environment that generated it - `maven.fabricmc.net` (Fabric) and `maven.minecraftforge.net` (Forge) are both blocked by that environment's egress policy, and there's no way to launch/test a real Minecraft session there either. Every file passed a `javac` syntax check with no classpath (catches real syntax errors and internal cross-file mistakes, confirmed clean across all three modules), but **none of this has been compiled or run against real Minecraft/Fabric/Forge classes.** Treat it as a solid first draft, not a verified build - true of both loaders, but more so for Forge (see below).
+**Both loader modules now compile clean against real Minecraft/Fabric/Forge classes** - verified by the repo's GitHub Actions workflow (`.github/workflows/build.yml`), which produces both jars as downloadable artifacts on every push. The Fabric module compiled on its very first real-classpath attempt; Forge needed two rounds of fixes, every one landing on a spot the lists below had pre-flagged (the particle Mixin's method signature/refmap wiring, `Options.gamma`/`fov` accessors, `Property.getName`/`getValue`).
+
+What remains genuinely unverified is **runtime behavior**: compiling proves the API names and signatures are right, not that a feature behaves correctly in a live game session (rendering looks right, keybinds feel right, the Litematica importer parses real files). The "spots to check" lists below are kept for that reason - they're now ranked evidence of what was risky, and the remaining runtime-only risks (especially `LitematicaImporter.java`) still stand.
 
 Build one or both:
 

@@ -55,6 +55,10 @@ npm run dev        # starts Vite + Electron in dev mode with hot reload
 
 ## Building a Windows .exe
 
+**No local build needed**: every push runs the GitHub Actions "Build" workflow (`.github/workflows/build.yml`), which packages the Windows launcher (portable .exe + NSIS installer) and both companion-mod jars as downloadable artifacts - open the run on the repo's Actions tab and grab them from the Artifacts section.
+
+To build locally instead:
+
 ```bash
 npm run build       # compiles renderer (Vite) + main process (tsc)
 npm run dist:win     # packages via electron-builder -> release/ (portable .exe + NSIS installer)
