@@ -56,3 +56,26 @@ jobs:
             mod/fabric/build/libs/*.jar
             mod/forge/build/libs/*.jar
           if-no-files-found: warn
+
+  # Publishes everything to a rolling "latest-build" GitHub Release - the repo's Releases page
+  # shows plain download links, unlike run artifacts which GitHub's mobile app/site often hides.
+  release:
+    needs: [launcher-windows, mod-jars]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - name: Create/update latest-build release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create latest-build --repo "$GITHUB_REPOSITORY" \
+            --title "Omega Client - latest CI build" \
+            --notes "Rolling release updated by CI on every successful build. Launcher: portable .exe (just run it) or Setup .exe (installer). Mod: the -fabric / -forge jars (skip -sources)." \
+            --prerelease || true
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' \))
+          gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
