@@ -50,3 +50,45 @@ export function writeModConfigFile(filePath: string, format: ConfigFormat, data:
   const content = format === "toml" ? stringifyToml(data as TomlTable) : JSON.stringify(data, null, 2);
   fs.writeFileSync(filePath, content, "utf-8");
 }
+
+/**
+ * Field-for-field mirror of the companion mod's ModConfig.java defaults (both loaders share the
+ * same file name and shape). The launcher's Features tab needs a file to edit before the mod's
+ * first run has created one - and since Gson keeps Java-side defaults for any field a JSON omits,
+ * writing the full default set here is always safe.
+ */
+const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
+  fullbrightEnabled: false,
+  blockHighlightEnabled: false,
+  highlightedBlocks: ["minecraft:obsidian", "minecraft:respawn_anchor", "minecraft:crying_obsidian"],
+  highlightColorArgb: "#803B9CFF",
+  customFovEnabled: false,
+  customFov: 90,
+  zoomFov: 30,
+  toggleSprintEnabled: false,
+  hudEnabled: true,
+  hudShowCoords: true,
+  hudShowFps: true,
+  hudShowKeystrokes: true,
+  schematicPreviewEnabled: false,
+  particlesMasterEnabled: true,
+  blockParticlesEnabled: true,
+  ambientParticlesEnabled: true,
+  totemParticlesEnabled: true,
+  critParticlesEnabled: true,
+  explosionParticlesEnabled: true,
+  portalParticlesEnabled: true,
+  particleBlacklist: [],
+  particleDensity: 1.0,
+};
+
+/** Returns the path to the instance's Omega mod config, creating it with defaults if it doesn't exist yet. */
+export function ensureOmegaConfig(runDir: string): string {
+  const configDir = path.join(runDir, "config");
+  fs.mkdirSync(configDir, { recursive: true });
+  const filePath = path.join(configDir, "omega-client.json");
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, JSON.stringify(OMEGA_CONFIG_DEFAULTS, null, 2), "utf-8");
+  }
+  return filePath;
+}

@@ -1,0 +1,144 @@
+import fs from "node:fs";
+import path from "node:path";
+import { app } from "electron";
+import type { Instance } from "../shared/types";
+import { fetchWithRetry } from "./installer";
+import { resolveVersion } from "./versionResolver";
+
+/**
+ * Lunar-style "the client IS the mods": the Omega companion mod ships inside the launcher and is
+ * (re)installed into every instance automatically on creation and before every launch, so its
+ * features are just *launcher features* - no manual jar wrangling. The jars come from three
+ * sources, tried in order:
+ *
+ *  1. The packaged app's extraResources (process.resourcesPath/bundled) - CI stages the freshly
+ *     built jars there before electron-builder runs.
+ *  2. A repo-root bundled/ dir - dev-mode equivalent, populated by hand or a downloaded artifact.
+ *  3. The repo's rolling "latest-build" GitHub Release - dev fallback so a plain git clone still
+ *     self-provisions, cached in userData.
+ *
+ * The Fabric build of the mod depends on Fabric API, which we don't own and don't bundle -
+ * it's fetched from Modrinth (the platform built exactly for this) and cached per-MC-version.
+ * This is the one deliberate exception to the launcher's original "never downloads third-party
+ * mod jars" rule, and only ever happens for instances the user points the launcher at.
+ */
+
+const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/latest-build";
+const MODRINTH_API = "https://api.modrinth.com/v2";
+
+type OmegaLoader = "fabric" | "forge";
+
+function cacheDir(): string {
+  return path.join(app.getPath("userData"), "mod-cache");
+}
+
+/** Where CI-staged (packaged) or hand-staged (dev) bundled jars live, if anywhere. */
+function bundledDirs(): string[] {
+  const dirs: string[] = [];
+  if (process.resourcesPath) dirs.push(path.join(process.resourcesPath, "bundled"));
+  dirs.push(path.join(app.getAppPath(), "bundled"));
+  return dirs;
+}
+
+function findBundledJar(loader: OmegaLoader): string | null {
+  for (const dir of bundledDirs()) {
+    if (!fs.existsSync(dir)) continue;
+    const match = fs
+      .readdirSync(dir)
+      .find((f) => f.startsWith(`omega-client-${loader}`) && f.endsWith(".jar") && !f.includes("-sources"));
+    if (match) return path.join(dir, match);
+  }
+  return null;
+}
+
+async function downloadToCache(url: string, fileName: string): Promise<string> {
+  const dest = path.join(cacheDir(), fileName);
+  if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return dest;
+  const response = await fetchWithRetry(url);
+  if (!response.ok) {
+    throw new Error(`Download failed (${response.status}) for ${url}`);
+  }
+  fs.mkdirSync(cacheDir(), { recursive: true });
+  fs.writeFileSync(dest, Buffer.from(await response.arrayBuffer()));
+  return dest;
+}
+
+/** Bundled jar if present, else the rolling release (dev fallback), cached. */
+async function omegaJarFor(loader: OmegaLoader): Promise<string> {
+  const bundled = findBundledJar(loader);
+  if (bundled) return bundled;
+  // Version-specific file name in the release; 0.1.0 matches gradle.properties' mod_version.
+  const releaseName = `omega-client-${loader}-0.1.0.jar`;
+  return downloadToCache(`${RELEASE_JAR_BASE}/${releaseName}`, releaseName);
+}
+
+/**
+ * Copies a jar into the instance's mods dir under a stable name. If the user has explicitly
+ * disabled it (the .disabled variant exists), the disabled file is updated instead - "preinstalled"
+ * must not mean "un-disableable".
+ */
+function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
+  fs.mkdirSync(modsDir, { recursive: true });
+  const enabledPath = path.join(modsDir, stableName);
+  const disabledPath = `${enabledPath}.disabled`;
+  const dest = fs.existsSync(disabledPath) ? disabledPath : enabledPath;
+  fs.copyFileSync(sourceJar, dest);
+}
+
+/** True if any file that looks like the given mod id is already in the mods dir (enabled or not). */
+function hasModLike(modsDir: string, prefix: string): boolean {
+  if (!fs.existsSync(modsDir)) return false;
+  return fs.readdirSync(modsDir).some((f) => f.toLowerCase().startsWith(prefix) && f.includes(".jar"));
+}
+
+/** Latest Fabric API release for an MC version, from Modrinth. */
+async function fabricApiUrl(minecraftVersion: string): Promise<{ url: string; fileName: string }> {
+  const query = `${MODRINTH_API}/project/fabric-api/version?game_versions=${encodeURIComponent(
+    JSON.stringify([minecraftVersion])
+  )}&loaders=${encodeURIComponent(JSON.stringify(["fabric"]))}`;
+  const response = await fetchWithRetry(query);
+  if (!response.ok) {
+    throw new Error(`Modrinth query failed (${response.status})`);
+  }
+  const versions = (await response.json()) as any[];
+  const release = versions.find((v) => v.version_type === "release") ?? versions[0];
+  if (!release) {
+    throw new Error(`No Fabric API build on Modrinth for Minecraft ${minecraftVersion}.`);
+  }
+  const file = release.files.find((f: any) => f.primary) ?? release.files[0];
+  return { url: file.url, fileName: file.filename };
+}
+
+/**
+ * Makes sure the Omega mod (and its dependencies) are present in an instance's mods folder.
+ * Never throws: a network hiccup here must not block instance creation or launching - the game
+ * just runs without the companion mod that round, and the next create/launch retries.
+ */
+export async function ensureOmegaMods(instance: Instance, log: (line: string) => void): Promise<void> {
+  const loader = instance.loader === "fabric" || instance.loader === "quilt" ? "fabric" : instance.loader === "forge" ? "forge" : null;
+  if (!loader) return; // vanilla/neoforge instances: nothing to preinstall (yet)
+
+  try {
+    const jar = await omegaJarFor(loader);
+    placeJar(jar, instance.modsDir, `omega-client-${loader}.jar`);
+    log(`[launcher] Omega ${loader} mod installed/updated in mods folder`);
+  } catch (err) {
+    log(`[launcher] warning: couldn't provision the Omega ${loader} mod: ${err instanceof Error ? err.message : String(err)}`);
+    return; // Without our own jar there's no point fetching its dependency.
+  }
+
+  if (loader === "fabric" && !hasModLike(instance.modsDir, "fabric-api")) {
+    try {
+      // The vanilla root of the version chain is the actual MC version (e.g. "1.20.1"), even when
+      // the instance's own version id is a fabric-loader profile.
+      const resolved = resolveVersion(instance.gameDir, instance.versionId);
+      const minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
+      const { url, fileName } = await fabricApiUrl(minecraftVersion);
+      const cached = await downloadToCache(url, fileName);
+      placeJar(cached, instance.modsDir, fileName);
+      log(`[launcher] Fabric API (${fileName}) installed from Modrinth`);
+    } catch (err) {
+      log(`[launcher] warning: couldn't fetch Fabric API from Modrinth: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+}

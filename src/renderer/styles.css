@@ -882,6 +882,21 @@ body {
   margin: 6px 0 0 0;
 }
 
+.feature-row {
+  padding: 4px 0;
+}
+
+.feature-hint {
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.feature-numbers {
+  max-width: 340px;
+  margin-left: 26px;
+}
+
 .empty-hint {
   color: var(--text-dim);
   font-size: 13px;
