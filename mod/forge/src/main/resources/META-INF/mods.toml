@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="${forge_loader_range}"
+license="MIT"
+
+# Registers the mod's one Mixin (particle spawn filtering - see mod/README.md's "Particle control"
+# section). Forge has bundled Mixin support since ~1.16.5 and this is the standard way to declare a
+# config for it; unverified against a real build like everything else Forge-Mixin-related here.
+[[mixins]]
+config="omega_client_forge.mixins.json"
+
+[[mods]]
+modId="omega_client_forge"
+version="${version}"
+displayName="Omega Client"
+authors="Omega Client"
+description='''The last client you will ever need. Visual/QoL toggles for smooth PvP play: fullbright, combat-clarity block highlighting, FOV/zoom, toggle-sprint, an info HUD, and a WorldEdit-style schematic selection/ghost-preview tool. All settings, no automation or reveal-through-walls. Configurable in-game (default keybind: Right Shift).'''
+
+[[dependencies.omega_client_forge]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_loader_range}"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.omega_client_forge]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="CLIENT"

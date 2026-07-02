@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "omega-client",
+  "version": "${version}",
+  "name": "Omega Client",
+  "description": "The last client you will ever need. Visual/QoL toggles for smooth PvP play: fullbright, combat-clarity block highlighting, FOV/zoom, toggle-sprint, an info HUD, and a WorldEdit-style schematic selection/ghost-preview tool. All settings, no automation or reveal-through-walls. Configurable in-game (default keybind: Right Shift) or from the Omega Client launcher.",
+  "authors": ["Omega Client"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.omega.client.OmegaClient"]
+  },
+  "mixins": ["omega-client.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
+  }
+}

@@ -1,0 +1,65 @@
+// Standard ForgeGradle MDK-template shape (the official Forge project template's structure has
+// been stable across many Minecraft versions) - the exact plugin version range is the one spot
+// here I'd double check first if this doesn't resolve, same spirit as the moderate-confidence
+// spots flagged in mod/README.md.
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+base {
+    archivesName = "${project.archives_base_name}-forge"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - added directly as
+// a source directory for the same reason the fabric module does this instead of depending on a
+// separately-built jar.
+sourceSets.main.java.srcDir project(':common').file('src/main/java')
+
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                omega_client_forge {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    // Only needed for the Mixin annotation processor dependency below - see the particle-control
+    // Mixin in mod/README.md's "Particle control" section.
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.forge_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("META-INF/mods.toml") {
+        expand "version": project.version, "forge_loader_range": project.forge_loader_range
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    // Forge 1.20.1 runs against official (Mojang) mappings in both dev and production, so there's
+    // no SRG-obfuscated production name for a generated refmap to remap *to* - disabling refmap
+    // enforcement makes Mixin match its @Mixin targets directly against the names already compiled
+    // into the class files, instead of requiring a generated refmap json this project has no way to
+    // verify the exact Gradle incantation for. If this guess is wrong, the mod fails loudly at
+    // startup (mixin config is "required": true) rather than silently doing nothing.
+    options.compilerArgs += ['-Amixin.env.disableRefMap=true']
+}

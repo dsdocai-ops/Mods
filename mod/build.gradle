@@ -1,0 +1,6 @@
+// Root build - just shared coordinates. Each subproject (common/fabric/forge) configures its own
+// toolchain (or none, for common) in its own build.gradle.
+allprojects {
+    version = project.mod_version
+    group = project.maven_group
+}
