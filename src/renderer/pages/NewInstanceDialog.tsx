@@ -1,18 +1,37 @@
-import { useState } from "react";
-import type { DetectedVersion, Instance } from "@shared/types";
+import { useEffect, useState } from "react";
+import type { DetectedVersion, InstallableVersion, Instance } from "@shared/types";
+import { toast } from "../toast";
 
 interface Props {
   onClose: () => void;
   onCreated: (instance: Instance) => void;
 }
 
+type Mode = "existing" | "install";
+type InstallLoader = "vanilla" | "fabric" | "forge";
+
 export default function NewInstanceDialog({ onClose, onCreated }: Props) {
   const [gameDir, setGameDir] = useState("");
+  const [mode, setMode] = useState<Mode>("existing");
   const [versions, setVersions] = useState<DetectedVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<DetectedVersion | null>(null);
   const [name, setName] = useState("");
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [releases, setReleases] = useState<InstallableVersion[]>([]);
+  const [installVersion, setInstallVersion] = useState("");
+  const [installLoader, setInstallLoader] = useState<InstallLoader>("fabric");
+  const [installing, setInstalling] = useState(false);
+  const [installStatus, setInstallStatus] = useState("");
+  const [installPct, setInstallPct] = useState<number | null>(null);
+
+  useEffect(() => {
+    return window.api.install.onProgress((progress) => {
+      setInstallStatus(progress.detail);
+      setInstallPct(progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : null);
+    });
+  }, []);
 
   const pickGameDir = async () => {
     const dir = await window.api.dialog.pickDirectory();
@@ -24,12 +43,51 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
       const found = await window.api.instances.detectVersions(dir);
       setVersions(found);
       if (found.length === 0) {
-        setError('No installed versions found in that folder. Pick the folder that contains "versions", "libraries" and "assets" (your .minecraft directory).');
+        // An empty folder isn't an error anymore - it's the "install fresh" starting point.
+        setMode("install");
+        loadReleases();
       }
     } catch (err) {
       setError(`Couldn't scan that folder: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const loadReleases = async () => {
+    if (releases.length > 0) return;
+    try {
+      const list = await window.api.install.listVersions();
+      setReleases(list);
+      if (list.length > 0) setInstallVersion(list[0].id);
+    } catch (err) {
+      setError(`Couldn't fetch the Minecraft version list: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError(null);
+    if (next === "install") loadReleases();
+  };
+
+  const runInstall = async () => {
+    if (!gameDir || !installVersion || installing) return;
+    setInstalling(true);
+    setError(null);
+    setInstallStatus("Starting...");
+    setInstallPct(null);
+    try {
+      const newVersionId = await window.api.install.start(gameDir, installVersion, installLoader);
+      const found = await window.api.instances.detectVersions(gameDir);
+      setVersions(found);
+      setSelectedVersion(found.find((v) => v.versionId === newVersionId) ?? null);
+      setMode("existing");
+      toast(`Installed ${newVersionId}`, "success");
+    } catch (err) {
+      setError(`Install failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setInstalling(false);
     }
   };
 
@@ -51,24 +109,53 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={installing ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>New Instance</h2>
 
         <label className="field">
-          <span>Minecraft install folder</span>
+          <span>Minecraft folder</span>
           <div className="field-row">
-            <input className="input" value={gameDir} readOnly placeholder="Pick your .minecraft (or MultiMC instance) folder" />
-            <button className="btn btn-secondary" onClick={pickGameDir}>
+            <input
+              className="input"
+              value={gameDir}
+              readOnly
+              placeholder="Pick your .minecraft folder - or any empty folder to install into"
+            />
+            <button className="btn btn-secondary" disabled={installing} onClick={pickGameDir}>
               Browse
             </button>
           </div>
         </label>
 
         {scanning && <p className="empty-hint">Scanning for installed versions...</p>}
+
+        {gameDir && !scanning && (
+          <div className="mode-toggle">
+            <button
+              className={`btn btn-chip ${mode === "existing" ? "active" : ""}`}
+              disabled={installing}
+              onClick={() => switchMode("existing")}
+            >
+              Use installed version ({versions.length})
+            </button>
+            <button
+              className={`btn btn-chip ${mode === "install" ? "active" : ""}`}
+              disabled={installing}
+              onClick={() => switchMode("install")}
+            >
+              Install new version
+            </button>
+          </div>
+        )}
+
         {error && <p className="error-text">{error}</p>}
 
-        {versions.length > 0 && (
+        {mode === "existing" && versions.length === 0 && gameDir && !scanning && (
+          <p className="empty-hint">Nothing installed in that folder yet - switch to "Install new version".</p>
+        )}
+
+        {mode === "existing" && versions.length > 0 && (
           <label className="field">
             <span>Installed version</span>
             <select
@@ -88,6 +175,58 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
           </label>
         )}
 
+        {mode === "install" && gameDir && (
+          <>
+            <div className="field-row">
+              <label className="field">
+                <span>Minecraft version</span>
+                <select
+                  className="input"
+                  disabled={installing || releases.length === 0}
+                  value={installVersion}
+                  onChange={(e) => setInstallVersion(e.target.value)}
+                >
+                  {releases.length === 0 && <option value="">Loading versions&hellip;</option>}
+                  {releases.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Mod loader</span>
+                <select
+                  className="input"
+                  disabled={installing}
+                  value={installLoader}
+                  onChange={(e) => setInstallLoader(e.target.value as InstallLoader)}
+                >
+                  <option value="fabric">Fabric (recommended for the Omega mod)</option>
+                  <option value="forge">Forge</option>
+                  <option value="vanilla">Vanilla (no mods)</option>
+                </select>
+              </label>
+            </div>
+
+            {installing && (
+              <div className="install-progress">
+                <div className="progress-track">
+                  <div
+                    className={`progress-fill ${installPct === null ? "indeterminate" : ""}`}
+                    style={installPct !== null ? { width: `${installPct}%` } : undefined}
+                  />
+                </div>
+                <p className="install-status">{installStatus}</p>
+              </div>
+            )}
+
+            <button className="btn btn-primary" disabled={installing || !installVersion} onClick={runInstall}>
+              {installing ? "Installing..." : `Install ${installVersion || ""} ${installLoader !== "vanilla" ? `+ ${installLoader}` : ""}`}
+            </button>
+          </>
+        )}
+
         <label className="field">
           <span>Instance name</span>
           <input
@@ -99,10 +238,10 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
         </label>
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" onClick={onClose}>
+          <button className="btn btn-ghost" disabled={installing} onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" disabled={!selectedVersion} onClick={create}>
+          <button className="btn btn-primary" disabled={!selectedVersion || installing} onClick={create}>
             Create Instance
           </button>
         </div>

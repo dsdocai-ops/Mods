@@ -8,6 +8,12 @@ pluginManagement {
             name = "MinecraftForge"
             url = "https://maven.minecraftforge.net/"
         }
+        maven {
+            // MixinGradle (org.spongepowered.mixin) - refmap generation for the Forge module's
+            // particle Mixin, see forge/build.gradle.
+            name = "SpongePowered"
+            url = "https://repo.spongepowered.org/repository/maven-public/"
+        }
         mavenCentral()
         gradlePluginPortal()
     }

@@ -4,6 +4,11 @@
 // spots flagged in mod/README.md.
 plugins {
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    // Official MixinGradle: generates the SRG refmap the particle Mixin needs to apply in
+    // production. Forge 1.20.1 runs SRG names at runtime (only dev uses official mappings), so a
+    // refmap is genuinely required - an earlier attempt to skip it with a compiler flag was wrong,
+    // and CI's annotation processor said so explicitly.
+    id 'org.spongepowered.mixin' version '0.7.+'
 }
 
 base {
@@ -46,6 +51,11 @@ dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
+mixin {
+    add sourceSets.main, 'omega_client_forge.refmap.json'
+    config 'omega_client_forge.mixins.json'
+}
+
 processResources {
     inputs.property "version", project.version
     filesMatching("META-INF/mods.toml") {
@@ -55,11 +65,4 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
-    // Forge 1.20.1 runs against official (Mojang) mappings in both dev and production, so there's
-    // no SRG-obfuscated production name for a generated refmap to remap *to* - disabling refmap
-    // enforcement makes Mixin match its @Mixin targets directly against the names already compiled
-    // into the class files, instead of requiring a generated refmap json this project has no way to
-    // verify the exact Gradle incantation for. If this guess is wrong, the mod fails loudly at
-    // startup (mixin config is "required": true) rather than silently doing nothing.
-    options.compilerArgs += ['-Amixin.env.disableRefMap=true']
 }
