@@ -107,12 +107,18 @@ export default function FeaturesPanel({ modsDir }: Props) {
         </label>
       </div>
       {boolRow("toggleSprintEnabled", "Toggle Sprint", "sprint without holding the key")}
+      {boolRow("noHurtCamEnabled", "No Hurt Camera", "no screen shake when taking damage")}
+      {boolRow("noFogEnabled", "No Fog", "removes terrain, water and nether fog")}
+      {boolRow("clearWeatherEnabled", "Clear Weather", "visual only - never see or hear rain")}
       {boolRow("showOmegaUsersEnabled", "Show Omega Users", "\u03a9 badge on nametags of other Omega players (needs server relay support)")}
 
       <h3 className="settings-subheading">HUD</h3>
       {boolRow("hudEnabled", "Info HUD")}
       {boolRow("hudShowCoords", "Show coordinates")}
       {boolRow("hudShowFps", "Show FPS")}
+      {boolRow("hudShowPing", "Show ping", "hidden in singleplayer")}
+      {boolRow("hudShowDirection", "Show facing direction")}
+      {boolRow("hudShowCps", "Show CPS", "left | right clicks per second")}
       {boolRow("hudShowKeystrokes", "Show keystrokes")}
 
       <h3 className="settings-subheading">Particles</h3>

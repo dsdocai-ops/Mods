@@ -40,21 +40,31 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     protected void init() {
+        // Two columns of toggle rows: the feature list outgrew a single column - at vanilla's
+        // "auto" GUI scale on 1080p the scaled screen is only ~270px tall, and nine stacked rows
+        // plus the nav buttons would push "Done" off-screen.
+        int toggleRows = 5;
+        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 2 + 8 + ROW_HEIGHT + 8 + 20;
+        headerY = Math.max(6, (this.height - contentHeight) / 2);
+        int leftX = this.width / 2 - ROW_WIDTH - 4;
+        int rightX = this.width / 2 + 4;
         int startX = this.width / 2 - ROW_WIDTH / 2;
-        headerY = this.height / 2 - (ROW_HEIGHT * 8) - 34;
-        int y = headerY + 34;
+        int topY = headerY + 34;
+        int y = topY;
 
-        addToggleRow(startX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
+        addToggleRow(leftX, y, "Fullbright", () -> config.fullbrightEnabled, v -> config.fullbrightEnabled = v);
+        addToggleRow(rightX, y, "Show Omega Users (\u03a9 badge)", () -> config.showOmegaUsersEnabled, v -> config.showOmegaUsersEnabled = v);
         y += ROW_HEIGHT;
-        addToggleRow(startX, y, "Block Highlight (combat clarity)", () -> config.blockHighlightEnabled, v -> config.blockHighlightEnabled = v);
+        addToggleRow(leftX, y, "Block Highlight (combat clarity)", () -> config.blockHighlightEnabled, v -> config.blockHighlightEnabled = v);
+        addToggleRow(rightX, y, "No Hurt Camera", () -> config.noHurtCamEnabled, v -> config.noHurtCamEnabled = v);
         y += ROW_HEIGHT;
-        addToggleRow(startX, y, "Custom FOV", () -> config.customFovEnabled, v -> config.customFovEnabled = v);
+        addToggleRow(leftX, y, "Custom FOV", () -> config.customFovEnabled, v -> config.customFovEnabled = v);
+        addToggleRow(rightX, y, "No Fog", () -> config.noFogEnabled, v -> config.noFogEnabled = v);
         y += ROW_HEIGHT;
-        addToggleRow(startX, y, "Toggle Sprint", () -> config.toggleSprintEnabled, v -> config.toggleSprintEnabled = v);
+        addToggleRow(leftX, y, "Toggle Sprint", () -> config.toggleSprintEnabled, v -> config.toggleSprintEnabled = v);
+        addToggleRow(rightX, y, "Clear Weather (visual)", () -> config.clearWeatherEnabled, v -> config.clearWeatherEnabled = v);
         y += ROW_HEIGHT;
-        addToggleRow(startX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
-        y += ROW_HEIGHT;
-        addToggleRow(startX, y, "Show Omega Users (\u03a9 badge)", () -> config.showOmegaUsersEnabled, v -> config.showOmegaUsersEnabled = v);
+        addToggleRow(leftX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
         y += ROW_HEIGHT;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {

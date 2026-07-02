@@ -51,6 +51,10 @@ export interface LauncherApi {
     start(gameDir: string, versionId: string, loader: "vanilla" | "fabric" | "forge"): Promise<string>;
     onProgress(callback: (progress: InstallProgress) => void): () => void;
   };
+  updates: {
+    install(): Promise<boolean>;
+    onReady(callback: (version: string) => void): () => void;
+  };
   settings: {
     get(): Promise<AppSettings>;
     set(settings: AppSettings): Promise<AppSettings>;

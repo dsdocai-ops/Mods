@@ -12,6 +12,7 @@ import { installFabric, installForge, installVanilla, listInstallableVersions } 
 import type { InstallProgress } from "../shared/types";
 import { ensureOmegaConfig, findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods } from "./bundledMods";
+import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -66,6 +67,8 @@ app.whenReady().then(() => {
   function sendToRenderer(channel: string, payload: unknown) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
   }
+
+  setupAutoUpdater(sendToRenderer);
 
   /** The companion mod's in-game "Switch Account" button writes this marker right before quitting - see launch.ts. */
   function checkSwitchAccountRequest(instance: Instance) {

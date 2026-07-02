@@ -56,7 +56,9 @@ npm run dev        # starts Vite + Electron in dev mode with hot reload
 
 ## Building a Windows .exe
 
-**No local build needed**: every push runs the GitHub Actions "Build" workflow (`.github/workflows/build.yml`), which packages the Windows launcher (portable .exe + NSIS installer) and both companion-mod jars as downloadable artifacts - open the run on the repo's Actions tab and grab them from the Artifacts section.
+**No local build needed**: every push runs the GitHub Actions "Build" workflow (`.github/workflows/build.yml`), which packages the Windows launcher (`OmegaClient-Portable.exe` + `OmegaClient-Setup.exe` installer) and both companion-mod jars, and publishes them to the rolling [`latest-build` release](https://github.com/dsdocai-ops/Mods/releases/tag/latest-build).
+
+**Auto-updates**: launchers installed via `OmegaClient-Setup.exe` check the rolling release on startup (electron-updater, generic provider - CI stamps each build `0.1.<run number>` and regenerates `latest.yml`), download the new build in the background, and apply it on the next restart (a banner offers "Restart now"). The portable exe can't replace itself in place - portable users just re-download.
 
 To build locally instead:
 
@@ -99,7 +101,7 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 - **Microsoft auth is opt-in, not required.** Offline play with no network calls at launch is still the default for every instance; signing in only affects the instances where you explicitly pick an account. The OAuth/Xbox/Minecraft token chain in `msAuth.ts` is a public, stable, well-documented REST flow (the PKCE code-challenge step is verified against the official RFC 7636 test vector), so it's higher-confidence than most of the mod-side work in this project - but it has not been exercised against a real Microsoft account, since that needs a live login this environment can't perform. Tokens are encrypted at rest via Electron's `safeStorage` (OS keychain/DPAPI/libsecret) and refreshed automatically before each launch.
 - **Mods folder = instance run directory's `mods/`.** Each instance's effective "game directory" passed to the JVM is the parent of its mods folder, so per-instance isolation falls out naturally if you ever point an instance's mods folder outside the shared install (not yet exposed in the UI, but the launch engine already supports it).
 - **The config editor doesn't preserve comments.** Saving through the UI regenerates the file from parsed data (JSON round-trips exactly; the TOML writer doesn't keep hand-written `#` comments). The UI warns about this before you save a TOML file.
-- **The companion mod is visual/QoL only, by design.** Fullbright, block highlighting, FOV/zoom, toggle-sprint, the info HUD, and the schematic tool - nothing that reveals info through walls (highlighting/preview are depth-tested) and nothing that automates combat input (no reach/velocity/aim changes). See [`mod/README.md`](mod/README.md) for the reasoning and exact feature list.
+- **The companion mod is visual/QoL only, by design.** Fullbright, block highlighting, FOV/zoom, toggle-sprint, no-hurt-cam, no-fog, clear weather, the info HUD (coords/FPS/ping/direction/CPS/keystrokes), and the schematic tool - nothing that reveals info through walls (highlighting/preview are depth-tested) and nothing that automates combat input (no reach/velocity/aim changes; the CPS counter reads clicks, never makes them). See [`mod/README.md`](mod/README.md) for the reasoning and exact feature list.
 - **Presets are a tag→mods mapping, not a mod source.** "Crystal PvP", "UHC", "Bedwars", etc. only ever act on mods you've imported; the launcher recognizes them via keyword-based auto-tagging (`modMetadata.ts`), which is a heuristic and won't catch every mod's real purpose - check a mod's tags after importing it if a preset doesn't pick it up as expected.
 
 ## Monetization

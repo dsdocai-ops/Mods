@@ -5,6 +5,9 @@
   "compatibilityLevel": "JAVA_17",
   "client": [
     "EntityRendererMixin",
+    "FogRendererMixin",
+    "GameRendererMixin",
+    "LevelMixin",
     "ParticleEngineMixin"
   ],
   "injectors": {
