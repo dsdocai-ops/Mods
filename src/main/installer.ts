@@ -33,6 +33,13 @@ const FORGE_MAVEN_URL = "https://maven.minecraftforge.net/net/minecraftforge/for
 
 /** Parallel downloads for the many-small-files phases (asset objects, libraries). */
 const DOWNLOAD_CONCURRENCY = 12;
+/**
+ * Attempts per request. Across the hundreds of CDN connections an install makes, an occasional
+ * ETIMEDOUT/reset is normal, not fatal - the smoke test's very first real run proved it by dying
+ * on exactly one - and a user on imperfect WiFi hits the same thing. Connection errors and 5xx
+ * retry with backoff; 4xx is permanent and fails immediately.
+ */
+const FETCH_ATTEMPTS = 3;
 
 export type ProgressCallback = (progress: InstallProgress) => void;
 
@@ -43,8 +50,27 @@ interface ManifestEntry {
   releaseTime: string;
 }
 
+async function fetchWithRetry(url: string): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.status >= 500) {
+        throw new Error(`Server error (${response.status}) for ${url}`);
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < FETCH_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 async function fetchJson(url: string): Promise<any> {
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
   if (!response.ok) {
     throw new Error(`Request failed (${response.status}) for ${url}`);
   }
@@ -64,7 +90,7 @@ async function downloadFile(url: string, destPath: string, expectedSha1?: string
     // Wrong content on disk (partial download from a previous crash?) - re-fetch below.
   }
 
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url);
   if (!response.ok) {
     throw new Error(`Download failed (${response.status}) for ${url}`);
   }
