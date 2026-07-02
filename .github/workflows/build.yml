@@ -110,9 +110,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTES="Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe (just run it) or OmegaClient-Setup.exe (installer, auto-updates itself from here). Mod: the -fabric / -forge jars (skip -sources). latest.yml/.blockmap are auto-update metadata - ignore them."
           gh release create latest-build --repo "$GITHUB_REPOSITORY" \
             --title "Omega Client - latest CI build" \
-            --notes "Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe (just run it) or OmegaClient-Setup.exe (installer, auto-updates itself from here). Mod: the -fabric / -forge jars (skip -sources). latest.yml/.blockmap are auto-update metadata - ignore them." \
+            --notes "$NOTES" \
             --prerelease || true
+          # `gh release create` only sets the notes the first time; keep them current on reruns.
+          gh release edit latest-build --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
+          # --clobber only replaces same-name assets - when a build renames its artifacts, the old
+          # names would linger on the release page forever. Purge anything this build didn't produce.
+          for asset in $(gh release view latest-build --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'); do
+            if [ -z "$(find dist -type f -name "$asset" -print -quit)" ]; then
+              gh release delete-asset latest-build "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+          done
           mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' \))
           gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
