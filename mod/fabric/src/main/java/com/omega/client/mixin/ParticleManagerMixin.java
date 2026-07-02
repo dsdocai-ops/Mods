@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * The one deliberate exception to this mod's normal zero-Mixin approach - see "Particle control"
@@ -31,16 +32,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(ParticleManager.class)
 public abstract class ParticleManagerMixin {
+    // Returns @Nullable Particle, not void - CI's Mixin annotation processor proved the void
+    // descriptor doesn't exist on this class ("Cannot find target method"). Cancelling therefore
+    // goes through setReturnValue(null), which is exactly the "nothing spawned" value vanilla's
+    // own callers already null-check for.
     @Inject(
-            method = "addParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)V",
+            method = "addParticle(Lnet/minecraft/particle/ParticleEffect;DDDDDD)Lnet/minecraft/client/particle/Particle;",
             at = @At("HEAD"),
             cancellable = true
     )
     private void omega$filterParticle(ParticleEffect parameters, double x, double y, double z,
-                                       double velocityX, double velocityY, double velocityZ, CallbackInfo ci) {
+                                       double velocityX, double velocityY, double velocityZ,
+                                       CallbackInfoReturnable<Particle> cir) {
         Identifier id = Registries.PARTICLE_TYPE.getId(parameters.getType());
         if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id)) {
-            ci.cancel();
+            cir.setReturnValue(null);
         }
     }
 
