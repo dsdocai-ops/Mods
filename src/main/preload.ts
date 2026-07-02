@@ -1,5 +1,15 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag, PublicAccount } from "../shared/types";
+import type {
+  AppSettings,
+  ConfigFormat,
+  CreateInstanceInput,
+  InstallableVersion,
+  InstallProgress,
+  Instance,
+  LaunchLogEvent,
+  ModTag,
+  PublicAccount,
+} from "../shared/types";
 
 const api = {
   instances: {
@@ -35,6 +45,16 @@ const api = {
   java: {
     detect: (gameDir?: string) => ipcRenderer.invoke("java:detect", gameDir),
     verify: (javaPath: string) => ipcRenderer.invoke("java:verify", javaPath),
+  },
+  install: {
+    listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),
+    start: (gameDir: string, versionId: string, loader: "vanilla" | "fabric" | "forge"): Promise<string> =>
+      ipcRenderer.invoke("install:start", gameDir, versionId, loader),
+    onProgress: (callback: (progress: InstallProgress) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, progress: InstallProgress) => callback(progress);
+      ipcRenderer.on("install:progress", listener);
+      return () => ipcRenderer.removeListener("install:progress", listener);
+    },
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke("settings:get"),

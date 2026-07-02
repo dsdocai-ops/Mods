@@ -100,6 +100,21 @@ export interface DetectedVersion {
   jsonPath: string;
 }
 
+/** A Minecraft release the installer can download, from Mojang's version manifest. */
+export interface InstallableVersion {
+  id: string;
+  type: string;
+  releaseTime: string;
+}
+
+/** Progress events streamed while the installer downloads a version - see main/installer.ts. */
+export interface InstallProgress {
+  phase: "manifest" | "version-json" | "client-jar" | "libraries" | "assets" | "fabric-profile" | "forge-installer";
+  done: number;
+  total: number;
+  detail: string;
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   stream: "stdout" | "stderr" | "status" | "exit";

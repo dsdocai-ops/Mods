@@ -57,10 +57,25 @@ jobs:
             mod/forge/build/libs/*.jar
           if-no-files-found: warn
 
+  # Runs the compiled install engine against Mojang's real endpoints (manifest, client jar,
+  # libraries; asset objects skipped for time) - the only environment where that network path can
+  # actually execute, since the dev sandbox blocks these hosts.
+  installer-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:electron
+      - run: node scripts/install-smoke.cjs
+
   # Publishes everything to a rolling "latest-build" GitHub Release - the repo's Releases page
   # shows plain download links, unlike run artifacts which GitHub's mobile app/site often hides.
   release:
-    needs: [launcher-windows, mod-jars]
+    needs: [launcher-windows, mod-jars, installer-smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write

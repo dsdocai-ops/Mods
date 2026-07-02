@@ -8,6 +8,8 @@ import * as mods from "./mods";
 import * as store from "./store";
 import * as javaModule from "./java";
 import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
+import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
+import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import * as accounts from "./accountStore";
 
@@ -126,6 +128,34 @@ app.whenReady().then(() => {
 
   ipcMain.handle("java:detect", (_e, gameDir?: string) => javaModule.detectJavaCandidates(gameDir));
   ipcMain.handle("java:verify", (_e, javaPath: string) => javaModule.verifyJava(javaPath));
+
+  ipcMain.handle("install:listVersions", () => listInstallableVersions());
+
+  // One install at a time: two concurrent installs into the same gameDir would race on the same
+  // files, and the single progress channel couldn't tell them apart anyway.
+  let installInFlight = false;
+  ipcMain.handle("install:start", async (_e, gameDir: string, versionId: string, loader: "vanilla" | "fabric" | "forge") => {
+    if (installInFlight) {
+      throw new Error("Another install is already running - wait for it to finish.");
+    }
+    installInFlight = true;
+    const onProgress = (progress: InstallProgress) => sendToRenderer("install:progress", progress);
+    try {
+      if (loader === "fabric") {
+        return await installFabric(gameDir, versionId, onProgress);
+      }
+      if (loader === "forge") {
+        // The Forge installer is a Java program; prefer the user's configured Java, fall back to
+        // whatever detection finds, then to PATH.
+        const javaPath = store.getSettings().defaultJvm.javaPath || javaModule.detectJavaCandidates(gameDir)[0] || "java";
+        return await installForge(gameDir, versionId, javaPath, onProgress);
+      }
+      await installVanilla(gameDir, versionId, onProgress);
+      return versionId;
+    } finally {
+      installInFlight = false;
+    }
+  });
 
   ipcMain.handle("settings:get", () => store.getSettings());
   ipcMain.handle("settings:set", (_e, settings: AppSettings) => store.saveSettings(settings));

@@ -2,15 +2,16 @@
 
 *The last client you will ever need.*
 
-A lightweight, offline-first Minecraft launcher focused on **smooth performance**, **PvP**, and **one-click mod toggling**, with optional Microsoft sign-in when you need it. No launcher-hosted backend of any kind — it drives a Minecraft install you already have, manages mods as simple on/off switches, and talks to Microsoft/Xbox/Mojang's own servers directly only if and when you link an account.
+A lightweight, offline-first Minecraft launcher focused on **smooth performance**, **PvP**, and **one-click mod toggling**, with optional Microsoft sign-in when you need it. No launcher-hosted backend of any kind — it installs Minecraft (vanilla/Fabric/Forge) straight from Mojang's and the loaders' own servers or drives an install you already have, manages mods as simple on/off switches, and talks to Microsoft/Xbox/Mojang's own servers directly only if and when you link an account.
 
 ## Why this exists
 
-Most launchers either lock you into vanilla, or require full manual `mods/` folder surgery to A/B test a modpack. This launcher assumes you already have Minecraft (vanilla, Forge, Fabric, Quilt, or NeoForge) installed somewhere with the standard `versions/` / `libraries/` / `assets/` layout — the official launcher, MultiMC, Prism, or a manual install all work — and layers instance management + mod toggles + PvP-tuned JVM flags on top of it, without downloading or re-hosting anything itself.
+Most launchers either lock you into vanilla, or require full manual `mods/` folder surgery to A/B test a modpack. This launcher works with any standard `versions/` / `libraries/` / `assets/` layout — an install you already have (official launcher, MultiMC, Prism, manual) or a fresh one it downloads itself from Mojang's own CDNs — and layers instance management + mod toggles + PvP-tuned JVM flags on top. Everything comes straight from Mojang's/the loaders' own servers; nothing is re-hosted.
 
 ## Features
 
 - **Instances**: point at any existing Minecraft install folder, auto-detects installed versions and their loader (vanilla/Forge/Fabric/Quilt/NeoForge) by reading the version JSON.
+- **Built-in installer**: or start from an empty folder — the New Instance dialog downloads any Minecraft release straight from Mojang, with one-click Fabric (via Fabric's meta API) or Forge (via the official installer, run headlessly) on top. Live progress, sha1-verified downloads, resumable/idempotent.
 - **Mod toggles**: import your own mod `.jar`s and flip them on/off per-instance with a switch. Disabling renames `mod.jar` → `mod.jar.disabled`, which every loader already ignores — no destructive moves, nothing leaves the folder.
 - **Automatic mod metadata**: reads `fabric.mod.json`, `quilt.mod.json`, Forge's `META-INF/mods.toml` / `neoforge.mods.toml`, and legacy `mcmod.info` straight out of the jar to show real names/versions/descriptions, and auto-tags mods (`performance`, `pvp`, `visual`, `library`, ...) by keyword.
 - **Presets**: one click to bulk-switch mods by category - Smooth PvP, Crystal PvP, UHC, Bedwars, Survival, or Visual/HUD-only - driven by a single tag→preset map (`MOD_TAG_PRESETS` in `shared/types.ts`), so adding another preset is a one-line change, not new UI code.
@@ -84,7 +85,7 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 ## Using it
 
 1. **Settings** → set a default Java path (or leave blank to use `java` on PATH) and default RAM.
-2. **New Instance** → browse to your existing Minecraft folder (the one with `versions/`, `libraries/`, `assets/` — this is `%APPDATA%\.minecraft` by default on Windows). The launcher scans it and lists every installed version + detected loader.
+2. **New Instance** → browse to your existing Minecraft folder (`%APPDATA%\.minecraft` by default on Windows) to use what's already installed — or pick any empty folder and use **Install new version** to download a fresh Minecraft + Fabric/Forge right there.
 3. Pick a version, name the instance, create it.
 4. In the instance's **Mods** tab, click **Import your mods** and select the `.jar` files from your existing mods collection — they show up immediately as toggle rows with parsed name/version/tags.
 5. Flip mods on/off, or use a preset button (Smooth PvP, Crystal PvP, UHC, Bedwars, Survival, Visual/HUD only) to bulk-switch by tag - presets only affect mods you've actually imported and tagged; the launcher doesn't ship any mods itself.
@@ -94,7 +95,7 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 ## Design notes / constraints
 
 - **No bundled mods.** The launcher never ships or downloads third-party mod jars — you bring your own. This keeps it clear of any mod's own license/distribution terms.
-- **No installer/downloader for Minecraft itself (yet).** The launcher still expects an install you already have (via the official launcher or MultiMC-style tools) - it doesn't download the vanilla client/libraries/assets or run Forge/Fabric installers itself. This is a planned follow-up (see "Possible next steps"), not a permanent constraint.
+- **Built-in installer, three paths with different mechanics.** Vanilla installs are pure HTTP against Mojang's own piston-meta/resources CDNs (sha1-verified); Fabric rides its meta API's ready-made profile JSON; Forge has no HTTP-only path (its installer runs binary patchers), so the launcher downloads the official Forge installer and runs it headlessly with your Java - the same approach every third-party launcher takes. The vanilla download path is runtime-verified by CI on every push (`scripts/install-smoke.cjs` installs a real copy of 1.20.1 on GitHub's runners); the Fabric/Forge paths follow the same documented, stable endpoints but haven't been exercised end-to-end yet.
 - **Microsoft auth is opt-in, not required.** Offline play with no network calls at launch is still the default for every instance; signing in only affects the instances where you explicitly pick an account. The OAuth/Xbox/Minecraft token chain in `msAuth.ts` is a public, stable, well-documented REST flow (the PKCE code-challenge step is verified against the official RFC 7636 test vector), so it's higher-confidence than most of the mod-side work in this project - but it has not been exercised against a real Microsoft account, since that needs a live login this environment can't perform. Tokens are encrypted at rest via Electron's `safeStorage` (OS keychain/DPAPI/libsecret) and refreshed automatically before each launch.
 - **Mods folder = instance run directory's `mods/`.** Each instance's effective "game directory" passed to the JVM is the parent of its mods folder, so per-instance isolation falls out naturally if you ever point an instance's mods folder outside the shared install (not yet exposed in the UI, but the launch engine already supports it).
 - **The config editor doesn't preserve comments.** Saving through the UI regenerates the file from parsed data (JSON round-trips exactly; the TOML writer doesn't keep hand-written `#` comments). The UI warns about this before you save a TOML file.
@@ -109,7 +110,6 @@ This is the only monetization built so far; it needs no backend and doesn't touc
 
 ## Possible next steps
 
-- **A real installer**: download vanilla (Mojang's version manifest + assets + libraries) and Fabric (Fabric's meta API) directly; for Forge, download and invoke the official installer jar headlessly rather than reimplementing its processor pipeline.
 - **NeoForge support**: `mod/` now covers Fabric + Forge; NeoForge (a fork of Forge with a similar but not identical API) would be a third module following the same pattern.
 - Per-instance isolated `mods`/`saves`/`config` folders exposed in the New Instance UI (the launch engine already supports arbitrary `modsDir`).
 - Drag-and-drop mod import onto the mod list.

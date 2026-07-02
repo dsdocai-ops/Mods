@@ -3,6 +3,8 @@ import type {
   ConfigFormat,
   CreateInstanceInput,
   DetectedVersion,
+  InstallableVersion,
+  InstallProgress,
   Instance,
   LaunchLogEvent,
   ModConfigFile,
@@ -42,6 +44,11 @@ export interface LauncherApi {
   java: {
     detect(gameDir?: string): Promise<string[]>;
     verify(javaPath: string): Promise<{ ok: boolean; version: string }>;
+  };
+  install: {
+    listVersions(): Promise<InstallableVersion[]>;
+    start(gameDir: string, versionId: string, loader: "vanilla" | "fabric" | "forge"): Promise<string>;
+    onProgress(callback: (progress: InstallProgress) => void): () => void;
   };
   settings: {
     get(): Promise<AppSettings>;
