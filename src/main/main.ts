@@ -7,7 +7,7 @@ import * as instances from "./instances";
 import * as mods from "./mods";
 import * as store from "./store";
 import * as javaModule from "./java";
-import { launchInstance, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
+import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import * as accounts from "./accountStore";
 
@@ -45,6 +45,9 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // Clean up natives dirs leaked by a previous crash/hard-kill (normal exits delete their own).
+  sweepStaleNativesDirs();
+
   // `let`, not `const`: on macOS the window can be closed while the app (and any running game
   // process) stays alive, and "activate" then creates a fresh window. Every closure below reads
   // this binding at call time, so reassigning it on activate is what keeps dialogs, log streaming,

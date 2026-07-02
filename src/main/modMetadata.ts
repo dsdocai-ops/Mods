@@ -92,7 +92,20 @@ interface CacheEntry {
 // listMods() would otherwise redo for every jar on every single toggle/import/remove, since it
 // re-scans the whole mods directory each time. Keyed by path + mtime + size so an untouched jar
 // is never re-parsed, while a jar that actually changed (re-imported, updated) always is.
+//
+// LRU-capped: rename/remove evict their own entries, but jars from deleted *instances* would
+// otherwise sit here for the whole session. Map iterates in insertion order, so refreshing an
+// entry's position on every hit (delete + re-set) makes keys().next() the least-recently-used.
+const METADATA_CACHE_MAX = 512;
 const metadataCache = new Map<string, CacheEntry>();
+
+function cacheSet(jarPath: string, entry: CacheEntry): void {
+  metadataCache.delete(jarPath);
+  metadataCache.set(jarPath, entry);
+  if (metadataCache.size > METADATA_CACHE_MAX) {
+    metadataCache.delete(metadataCache.keys().next().value as string);
+  }
+}
 
 /**
  * Toggling a mod on/off renames its jar (adds/removes ".disabled"), and removing one deletes it -
@@ -106,7 +119,7 @@ export function noteModMetadataRenamed(oldPath: string, newPath: string): void {
   const cached = metadataCache.get(oldPath);
   if (!cached) return;
   metadataCache.delete(oldPath);
-  metadataCache.set(newPath, cached);
+  cacheSet(newPath, cached);
 }
 
 export function forgetModMetadata(jarPath: string): void {
@@ -120,6 +133,7 @@ export function readModMetadata(jarPath: string, fallbackName: string): ParsedMo
     stat = fs.statSync(jarPath);
     const cached = metadataCache.get(jarPath);
     if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+      cacheSet(jarPath, cached); // Refresh LRU position on hit.
       return cached.metadata;
     }
   } catch {
@@ -128,7 +142,7 @@ export function readModMetadata(jarPath: string, fallbackName: string): ParsedMo
 
   const metadata = parseModMetadata(jarPath, fallbackName);
   if (stat) {
-    metadataCache.set(jarPath, { mtimeMs: stat.mtimeMs, size: stat.size, metadata });
+    cacheSet(jarPath, { mtimeMs: stat.mtimeMs, size: stat.size, metadata });
   }
   return metadata;
 }

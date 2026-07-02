@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent } from "@shared/types";
 import Sidebar from "./components/Sidebar";
 import InstanceDetail from "./pages/InstanceDetail";
@@ -6,6 +6,7 @@ import SettingsPage from "./pages/Settings";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
 import Welcome from "./pages/Welcome";
 import ToastHost from "./components/ToastHost";
+import { toast } from "./toast";
 
 type View = { kind: "instance"; id: string } | { kind: "settings" } | { kind: "welcome" };
 
@@ -98,12 +99,15 @@ export default function App() {
     setRunningIds((prev) => new Set(prev).add(instance.id));
     try {
       await window.api.launch.start(instance);
-    } catch {
+    } catch (err) {
       setRunningIds((prev) => {
         const next = new Set(prev);
         next.delete(instance.id);
         return next;
       });
+      // Also surface it as a toast - the full error already lands in the Console tab, but that's
+      // invisible if you hit Play from the Mods tab and nothing appears to happen.
+      toast(`Launch failed: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
     refreshInstances();
   };
@@ -117,20 +121,26 @@ export default function App() {
     });
   };
 
+  // Stable references so the memoized Sidebar doesn't re-render on every log flush (App re-renders
+  // ~30x/s while a game streams output; the sidebar's props don't actually change then).
+  const handleSelect = useCallback((id: string) => setView({ kind: "instance", id }), []);
+  const handleNewInstance = useCallback(() => setShowNewInstance(true), []);
+  const handleOpenSettings = useCallback(() => setView({ kind: "settings" }), []);
+
   return (
     <div className="app-shell">
       <ToastHost />
       <Sidebar
         instances={instances}
         selectedId={view.kind === "instance" ? view.id : null}
-        onSelect={(id) => setView({ kind: "instance", id })}
-        onNewInstance={() => setShowNewInstance(true)}
-        onSettings={() => setView({ kind: "settings" })}
+        onSelect={handleSelect}
+        onNewInstance={handleNewInstance}
+        onSettings={handleOpenSettings}
         runningIds={runningIds}
       />
 
       <main className="main-area">
-        {view.kind === "welcome" && <Welcome onNewInstance={() => setShowNewInstance(true)} />}
+        {view.kind === "welcome" && <Welcome onNewInstance={handleNewInstance} />}
         {view.kind === "settings" && <SettingsPage />}
         {view.kind === "instance" && selectedInstance && (
           <InstanceDetail
@@ -141,7 +151,7 @@ export default function App() {
             onLaunch={() => handleLaunch(selectedInstance)}
             onStop={() => handleStop(selectedInstance)}
             onInstanceChanged={refreshInstances}
-            onOpenGlobalSettings={() => setView({ kind: "settings" })}
+            onOpenGlobalSettings={handleOpenSettings}
             accountSwitchOpenSignal={switchAccountRequest.instanceId === selectedInstance.id ? switchAccountRequest.token : 0}
             onDeleted={async () => {
               await window.api.instances.delete(selectedInstance.id);

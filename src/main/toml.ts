@@ -19,7 +19,13 @@ function parseScalar(raw: string): TomlValue {
     if (inner.length === 0) return [];
     return splitTopLevel(inner).map((item) => parseScalar(item.trim()));
   }
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    // TOML basic strings support backslash escapes; \" and \\ are the two that matter for
+    // round-tripping what stringifyToml writes.
+    return trimmed.slice(1, -1).replace(/\\(["\\])/g, "$1");
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    // TOML literal strings: no escapes by spec.
     return trimmed.slice(1, -1);
   }
   return trimmed;
@@ -29,11 +35,18 @@ function splitTopLevel(text: string): string[] {
   const parts: string[] = [];
   let depth = 0;
   let inQuote: string | null = null;
+  let escaped = false;
   let current = "";
   for (const ch of text) {
     if (inQuote) {
       current += ch;
-      if (ch === inQuote) inQuote = null;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\" && inQuote === '"') {
+        escaped = true;
+      } else if (ch === inQuote) {
+        inQuote = null;
+      }
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -60,6 +73,12 @@ function stripInlineComment(value: string): string {
   for (let i = 0; i < value.length; i++) {
     const ch = value[i];
     if (inQuote) {
+      // Backslash escapes only exist in double-quoted (basic) strings - an escaped \" must not
+      // close the string. Single-quoted (literal) strings have no escapes by spec.
+      if (ch === "\\" && inQuote === '"') {
+        i++;
+        continue;
+      }
       if (ch === inQuote) inQuote = null;
       continue;
     }
@@ -115,7 +134,10 @@ export function parseToml(text: string): TomlTable {
 function serializeScalar(value: TomlValue): string {
   if (typeof value === "boolean" || typeof value === "number") return String(value);
   if (Array.isArray(value)) return `[${value.map(serializeScalar).join(", ")}]`;
-  return `"${String(value).replace(/"/g, '\\"')}"`;
+  // Backslashes first, then quotes - the other order would double-escape the backslash that the
+  // quote replacement just inserted. Without the backslash escape at all, a value containing "\"
+  // (Windows paths!) wrote invalid TOML that then round-tripped wrong.
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 function isTable(value: TomlValue | TomlTable): value is TomlTable {

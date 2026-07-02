@@ -24,12 +24,15 @@ public class ParticleScreen extends Screen {
     private static final int MAX_VISIBLE_BLACKLIST_ROWS = 5;
 
     private final ModConfig config;
+    /** The menu screen to return to on Back/Esc - closing to nothing made every sub-screen exit feel like a dead end. */
+    private final Screen parent;
     private EditBox blacklistField;
     private String statusMessage = "";
 
-    public ParticleScreen(ModConfig config) {
+    public ParticleScreen(ModConfig config, Screen parent) {
         super(Component.literal("Omega Particles"));
         this.config = config;
+        this.parent = parent;
     }
 
     @Override
@@ -62,8 +65,12 @@ public class ParticleScreen extends Screen {
                 .build());
         y += ROW_HEIGHT + 8;
 
+        // init() reruns on window resize (and via the clearWidgets()+init() refresh pattern),
+        // rebuilding every widget - carry the half-typed id across instead of silently wiping it.
+        String previousText = blacklistField != null ? blacklistField.getValue() : "";
         blacklistField = new EditBox(this.font, startX, y, 150, 20, Component.literal("Particle id, e.g. minecraft:soul"));
         blacklistField.setMaxLength(64);
+        blacklistField.setValue(previousText);
         this.addRenderableWidget(blacklistField);
         this.addRenderableWidget(Button.builder(Component.literal("Add"), b -> addBlacklistEntry())
                 .bounds(startX + 156, y, ROW_WIDTH - 156, 20)
@@ -157,5 +164,11 @@ public class ParticleScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    public void onClose() {
+        config.save();
+        if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 }

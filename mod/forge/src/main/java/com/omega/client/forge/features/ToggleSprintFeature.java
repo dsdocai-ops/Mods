@@ -19,7 +19,7 @@ public final class ToggleSprintFeature {
         if (player == null) return;
 
         boolean movingForward = client.options.keyUp.isDown();
-        if (movingForward && !player.isShiftKeyDown() && player.getFoodData().getFoodLevel() > 6) {
+        if (movingForward && !player.isSprinting() && !player.isShiftKeyDown() && player.getFoodData().getFoodLevel() > 6) {
             player.setSprinting(true);
         }
     }

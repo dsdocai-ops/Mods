@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
@@ -82,30 +82,41 @@ export default function InstanceDetail({
     setMods(updated);
   };
 
-  const handleToggle = async (mod: ModInfo, enabled: boolean) => {
-    setMods((prev) => prev.map((m) => (m.id === mod.id ? { ...m, enabled } : m)));
-    const updated = await window.api.mods.setEnabled(instance.modsDir, mod.id, enabled);
-    setMods(updated);
-  };
+  // useCallback-stable and shared by every row - together with ModRow's memo(), rows skip
+  // re-rendering while unrelated parent state changes (log streaming, filter typing).
+  const handleToggle = useCallback(
+    async (mod: ModInfo, enabled: boolean) => {
+      setMods((prev) => prev.map((m) => (m.id === mod.id ? { ...m, enabled } : m)));
+      const updated = await window.api.mods.setEnabled(instance.modsDir, mod.id, enabled);
+      setMods(updated);
+    },
+    [instance.modsDir]
+  );
 
-  const handleRemove = async (mod: ModInfo) => {
-    const updated = await window.api.mods.remove(instance.modsDir, mod.id);
-    setMods(updated);
-  };
+  const handleRemove = useCallback(
+    async (mod: ModInfo) => {
+      const updated = await window.api.mods.remove(instance.modsDir, mod.id);
+      setMods(updated);
+    },
+    [instance.modsDir]
+  );
 
-  const openConfig = async (mod: ModInfo) => {
-    const path = await window.api.modConfig.find(instance.modsDir, mod.modId);
-    if (!path) {
-      toast(`No config file found for ${mod.name} yet - it may need to run once, or doesn't use JSON/TOML config.`, "info");
-      return;
-    }
-    try {
-      const file = await window.api.modConfig.read(path);
-      setConfigTarget({ modName: mod.name, filePath: file.path, format: file.format, data: file.data });
-    } catch (err) {
-      toast(`Couldn't read config for ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
-    }
-  };
+  const openConfig = useCallback(
+    async (mod: ModInfo) => {
+      const path = await window.api.modConfig.find(instance.modsDir, mod.modId);
+      if (!path) {
+        toast(`No config file found for ${mod.name} yet - it may need to run once, or doesn't use JSON/TOML config.`, "info");
+        return;
+      }
+      try {
+        const file = await window.api.modConfig.read(path);
+        setConfigTarget({ modName: mod.name, filePath: file.path, format: file.format, data: file.data });
+      } catch (err) {
+        toast(`Couldn't read config for ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+      }
+    },
+    [instance.modsDir]
+  );
 
   const applyPreset = async (tags: ModTag[]) => {
     const updated = await window.api.mods.applyPreset(instance.modsDir, tags);
@@ -210,13 +221,7 @@ export default function InstanceDetail({
               </p>
             )}
             {filteredMods.map((mod) => (
-              <ModRow
-                key={mod.id}
-                mod={mod}
-                onToggle={(enabled) => handleToggle(mod, enabled)}
-                onRemove={() => handleRemove(mod)}
-                onConfigure={() => openConfig(mod)}
-              />
+              <ModRow key={mod.id} mod={mod} onToggle={handleToggle} onRemove={handleRemove} onConfigure={openConfig} />
             ))}
           </div>
         </div>

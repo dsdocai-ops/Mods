@@ -54,6 +54,66 @@ const SMOOTH_PVP_JVM_FLAGS = [
   "-XX:MaxTenuringThreshold=1",
 ];
 
+/**
+ * Splits a user-supplied "extra JVM args" string into argv tokens, honoring single/double quotes
+ * so values with spaces work (-Dfoo="a b" stays one token, quotes stripped). No backslash-escape
+ * support - none of the JVM flags people actually paste here use them, and pretending to be a full
+ * shell would be worse than a documented simple rule.
+ */
+export function tokenizeArgs(input: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+  let inQuote: string | null = null;
+  let hasContent = false;
+
+  for (const ch of input) {
+    if (inQuote) {
+      if (ch === inQuote) {
+        inQuote = null;
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inQuote = ch;
+      hasContent = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (hasContent || current.length > 0) tokens.push(current);
+      current = "";
+      hasContent = false;
+      continue;
+    }
+    current += ch;
+  }
+  if (hasContent || current.length > 0) tokens.push(current);
+  return tokens;
+}
+
+/**
+ * Natives dirs are normally deleted when their game process exits - but a launcher crash or hard
+ * kill leaks them in the OS temp dir. Called once at startup: anything under our namespace older
+ * than a day can't belong to a still-running session we know about, so it's safe to sweep.
+ */
+export function sweepStaleNativesDirs(): void {
+  const root = path.join(os.tmpdir(), "omega-client");
+  const maxAgeMs = 24 * 60 * 60 * 1000;
+  fs.readdir(root, (err, entries) => {
+    if (err) return;
+    for (const entry of entries) {
+      const full = path.join(root, entry);
+      fs.stat(full, (statErr, stat) => {
+        if (statErr) return;
+        if (Date.now() - stat.mtimeMs > maxAgeMs) {
+          fs.rm(full, { recursive: true, force: true }, () => undefined);
+        }
+      });
+    }
+  });
+}
+
 function offlineUuid(username: string): string {
   const digest = crypto.createHash("md5").update(`OfflinePlayer:${username}`, "utf8").digest();
   digest[6] = (digest[6] & 0x0f) | 0x30;
@@ -88,7 +148,9 @@ function extractNatives(gameDir: string, libraries: LibraryEntry[], destDir: str
       for (const entry of zip.getEntries()) {
         if (entry.isDirectory) continue;
         if (exclude.some((ex) => entry.entryName.startsWith(ex))) continue;
-        zip.extractEntryTo(entry, destDir, false, true);
+        // maintainEntryPath=true: preserve the jar's internal structure like the vanilla launcher
+        // does - flattening would collide same-named files from different subdirectories.
+        zip.extractEntryTo(entry, destDir, true, true);
       }
     } catch (err) {
       log(`[launcher] warning: failed to extract natives from ${jarPath}: ${String(err)}`);
@@ -189,7 +251,7 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
   const templatedJvmArgs = resolveArgTokens(resolved.jvmArgTokens, features, placeholderValues);
   const gameArgs = resolveArgTokens(resolved.gameArgTokens, features, placeholderValues);
 
-  const userExtraArgs = instance.jvm.extraArgs.trim().length > 0 ? instance.jvm.extraArgs.trim().split(/\s+/) : [];
+  const userExtraArgs = tokenizeArgs(instance.jvm.extraArgs);
 
   const jvmArgs = [
     `-Xms${instance.jvm.minRamMb}M`,

@@ -26,15 +26,18 @@ public class SchematicScreen extends Screen {
     private final ModConfig config;
     private final SchematicSelection selection;
     private final SchematicRenderFeature renderFeature;
+    /** The menu screen to return to on Back/Esc - closing to nothing made every sub-screen exit feel like a dead end. */
+    private final Screen parent;
 
     private EditBox nameField;
     private String statusMessage = "";
 
-    public SchematicScreen(ModConfig config, SchematicSelection selection, SchematicRenderFeature renderFeature) {
+    public SchematicScreen(ModConfig config, SchematicSelection selection, SchematicRenderFeature renderFeature, Screen parent) {
         super(Component.literal("Omega Schematics"));
         this.config = config;
         this.selection = selection;
         this.renderFeature = renderFeature;
+        this.parent = parent;
     }
 
     @Override
@@ -42,8 +45,12 @@ public class SchematicScreen extends Screen {
         int centerX = this.width / 2;
         int y = 46;
 
+        // init() reruns on window resize (and via the clearWidgets()+init() refresh pattern),
+        // rebuilding every widget - carry the half-typed name across instead of silently wiping it.
+        String previousName = nameField != null ? nameField.getValue() : "";
         nameField = new EditBox(this.font, centerX - 150, y, 190, 20, Component.literal("Schematic name"));
         nameField.setMaxLength(64);
+        nameField.setValue(previousName);
         this.addRenderableWidget(nameField);
         this.addRenderableWidget(Button.builder(Component.literal("Save Selection"), b -> saveSelection())
                 .bounds(centerX + 45, y, 110, 20)
@@ -206,5 +213,10 @@ public class SchematicScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    public void onClose() {
+        if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 }

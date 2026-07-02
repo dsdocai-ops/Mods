@@ -60,14 +60,14 @@ public class ClickGuiScreen extends Screen {
         y += ROW_HEIGHT;
 
         this.addRenderableWidget(Button.builder(Component.literal("Schematics..."), b -> {
-                    if (this.minecraft != null) this.minecraft.setScreen(new SchematicScreen(config, selection, schematicRender));
+                    if (this.minecraft != null) this.minecraft.setScreen(new SchematicScreen(config, selection, schematicRender, this));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());
         y += ROW_HEIGHT;
 
         this.addRenderableWidget(Button.builder(Component.literal("Particles..."), b -> {
-                    if (this.minecraft != null) this.minecraft.setScreen(new ParticleScreen(config));
+                    if (this.minecraft != null) this.minecraft.setScreen(new ParticleScreen(config, this));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());

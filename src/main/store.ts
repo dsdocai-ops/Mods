@@ -92,7 +92,10 @@ export function deleteInstance(id: string): void {
 }
 
 export function getSettings(): AppSettings {
-  return { ...getStore().settings };
+  // Deep copy, not spread: settings.defaultJvm is nested, and a shallow copy would hand callers a
+  // live reference into the cache - safe with today's callers (they copy before mutating), but a
+  // silent-corruption footgun for any future one that doesn't.
+  return structuredClone(getStore().settings);
 }
 
 export function saveSettings(settings: AppSettings): AppSettings {

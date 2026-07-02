@@ -1,10 +1,14 @@
+import { memo } from "react";
 import type { ModInfo } from "@shared/types";
 
 interface Props {
   mod: ModInfo;
-  onToggle: (enabled: boolean) => void;
-  onRemove: () => void;
-  onConfigure: () => void;
+  // Handlers take the mod as an argument (rather than closing over it) so InstanceDetail can pass
+  // the same useCallback-stable functions to every row - that's what lets memo() below actually
+  // skip re-rendering unchanged rows while the parent re-renders (log streaming, filter typing).
+  onToggle: (mod: ModInfo, enabled: boolean) => void;
+  onRemove: (mod: ModInfo) => void;
+  onConfigure: (mod: ModInfo) => void;
 }
 
 const TAG_LABELS: Record<string, string> = {
@@ -21,11 +25,11 @@ const TAG_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-export default function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) {
+function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) {
   return (
     <div className={`mod-row ${mod.enabled ? "" : "mod-row-disabled"}`}>
       <label className="switch">
-        <input type="checkbox" checked={mod.enabled} onChange={(e) => onToggle(e.target.checked)} />
+        <input type="checkbox" checked={mod.enabled} onChange={(e) => onToggle(mod, e.target.checked)} />
         <span className="slider" />
       </label>
 
@@ -46,13 +50,15 @@ export default function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) 
       </div>
 
       <div className="mod-row-actions">
-        <button className="btn btn-chip" title="Edit this mod's config" onClick={onConfigure}>
+        <button className="btn btn-chip" title="Edit this mod's config" onClick={() => onConfigure(mod)}>
           Configure
         </button>
-        <button className="btn btn-ghost btn-danger" title="Remove mod" onClick={onRemove}>
+        <button className="btn btn-ghost btn-danger" title="Remove mod" onClick={() => onRemove(mod)}>
           ✕
         </button>
       </div>
     </div>
   );
 }
+
+export default memo(ModRow);

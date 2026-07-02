@@ -18,7 +18,7 @@ public final class ToggleSprintFeature {
         if (player == null) return;
 
         boolean movingForward = client.options.forwardKey.isPressed();
-        if (movingForward && !player.isSneaking() && player.getHungerManager().getFoodLevel() > 6) {
+        if (movingForward && !player.isSprinting() && !player.isSneaking() && player.getHungerManager().getFoodLevel() > 6) {
             player.setSprinting(true);
         }
     }

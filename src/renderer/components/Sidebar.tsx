@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Instance } from "@shared/types";
 
 interface Props {
@@ -9,7 +10,9 @@ interface Props {
   runningIds: Set<string>;
 }
 
-export default function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, runningIds }: Props) {
+// Memoized: App re-renders on every batched log flush while a game is running, but none of the
+// sidebar's props change then (App passes useCallback-stable handlers to keep this effective).
+function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, runningIds }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -55,3 +58,5 @@ export default function Sidebar({ instances, selectedId, onSelect, onNewInstance
     </aside>
   );
 }
+
+export default memo(Sidebar);

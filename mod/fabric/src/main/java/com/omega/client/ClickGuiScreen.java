@@ -56,14 +56,14 @@ public class ClickGuiScreen extends Screen {
         y += ROW_HEIGHT;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {
-                    if (this.client != null) this.client.setScreen(new SchematicScreen(config, selection, schematicRender));
+                    if (this.client != null) this.client.setScreen(new SchematicScreen(config, selection, schematicRender, this));
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());
         y += ROW_HEIGHT;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Particles..."), b -> {
-                    if (this.client != null) this.client.setScreen(new ParticleScreen(config));
+                    if (this.client != null) this.client.setScreen(new ParticleScreen(config, this));
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());
