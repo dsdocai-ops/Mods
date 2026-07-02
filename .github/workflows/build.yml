@@ -33,12 +33,21 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Stamp build version
+        # The auto-updater compares semver: the rolling release always carries 0.1.<run number>,
+        # so every CI build is "newer" than any installed one. package.json's committed version
+        # stays 0.1.0 - this stamp exists only inside the packaged exe + latest.yml.
+        shell: bash
+        run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version
       - run: npm run dist:win
       - uses: actions/upload-artifact@v4
         with:
           name: omega-client-windows
+          # latest.yml + .blockmap are what installed launchers poll for auto-updates.
           path: |
             release/*.exe
+            release/*.blockmap
+            release/latest.yml
           if-no-files-found: error
 
   mod-jars:
@@ -103,7 +112,7 @@ jobs:
         run: |
           gh release create latest-build --repo "$GITHUB_REPOSITORY" \
             --title "Omega Client - latest CI build" \
-            --notes "Rolling release updated by CI on every successful build. Launcher: portable .exe (just run it) or Setup .exe (installer). Mod: the -fabric / -forge jars (skip -sources)." \
+            --notes "Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe (just run it) or OmegaClient-Setup.exe (installer, auto-updates itself from here). Mod: the -fabric / -forge jars (skip -sources). latest.yml/.blockmap are auto-update metadata - ignore them." \
             --prerelease || true
-          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' \))
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' \))
           gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"

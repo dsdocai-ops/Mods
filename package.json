@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.5.16",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
@@ -46,19 +47,32 @@
       {
         "from": "bundled",
         "to": "bundled",
-        "filter": ["*.jar"]
+        "filter": [
+          "*.jar"
+        ]
       }
     ],
     "directories": {
       "output": "release"
     },
     "win": {
-      "target": ["portable", "nsis"],
+      "target": [
+        "portable",
+        "nsis"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "OmegaClient-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "OmegaClient-Portable.exe"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://github.com/dsdocai-ops/Mods/releases/download/latest-build"
     }
   }
 }

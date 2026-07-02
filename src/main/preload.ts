@@ -57,6 +57,14 @@ const api = {
       return () => ipcRenderer.removeListener("install:progress", listener);
     },
   },
+  updates: {
+    install: (): Promise<boolean> => ipcRenderer.invoke("updates:install"),
+    onReady: (callback: (version: string) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, version: string) => callback(version);
+      ipcRenderer.on("updates:ready", listener);
+      return () => ipcRenderer.removeListener("updates:ready", listener);
+    },
+  },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke("settings:get"),
     set: (settings: AppSettings) => ipcRenderer.invoke("settings:set", settings),

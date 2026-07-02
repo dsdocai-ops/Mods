@@ -20,6 +20,11 @@ export default function App() {
     instanceId: "",
     token: 0,
   });
+  // Set when the auto-updater has finished downloading a new build in the background (packaged
+  // installer builds only - dev runs and the portable exe never emit this event).
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+
+  useEffect(() => window.api.updates.onReady(setUpdateVersion), []);
 
   const refreshInstances = async () => {
     const list = await window.api.instances.list();
@@ -130,6 +135,19 @@ export default function App() {
   return (
     <div className="app-shell">
       <ToastHost />
+      {updateVersion && (
+        <div className="update-banner">
+          <span>
+            Update <strong>v{updateVersion}</strong> downloaded &mdash; it also applies automatically on next quit.
+          </span>
+          <button className="btn btn-primary" onClick={() => window.api.updates.install()}>
+            Restart now
+          </button>
+          <button className="btn" onClick={() => setUpdateVersion(null)}>
+            Later
+          </button>
+        </div>
+      )}
       <Sidebar
         instances={instances}
         selectedId={view.kind === "instance" ? view.id : null}

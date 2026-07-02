@@ -44,6 +44,17 @@ public class ModConfig {
     public boolean hudShowCoords = true;
     public boolean hudShowFps = true;
     public boolean hudShowKeystrokes = true;
+    public boolean hudShowPing = true;
+    public boolean hudShowDirection = true;
+    /** Off by default - a CPS readout is a PvP-niche stat most players don't want on screen. */
+    public boolean hudShowCps = false;
+
+    /** Suppress the camera tilt/shake when taking damage. */
+    public boolean noHurtCamEnabled = false;
+    /** Push the fog planes out to infinity - terrain, water and nether fog alike. */
+    public boolean noFogEnabled = false;
+    /** Client-visual only: render (and hear) clear skies even while the server says rain/thunder. */
+    public boolean clearWeatherEnabled = false;
 
     public boolean schematicPreviewEnabled = false;
 

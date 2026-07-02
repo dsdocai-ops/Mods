@@ -4,8 +4,11 @@
   "package": "com.omega.client.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "BackgroundRendererMixin",
     "EntityRendererMixin",
-    "ParticleManagerMixin"
+    "GameRendererMixin",
+    "ParticleManagerMixin",
+    "WorldMixin"
   ],
   "injectors": {
     "defaultRequire": 1
