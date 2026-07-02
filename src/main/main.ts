@@ -38,7 +38,12 @@ function createWindow(): BrowserWindow {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.join(__dirname, "../dist-renderer/index.html"));
+    // Resolve from the app root (project dir in dev, app.asar when packaged), NOT relative to
+    // __dirname: main.js compiles to dist-electron/main/, so a "../dist-renderer" hop landed on
+    // dist-electron/dist-renderer - a path that doesn't exist. Dev mode always loads the Vite dev
+    // server, so the first time this branch ever actually ran was the first packaged .exe, which
+    // opened an empty window (a failed loadFile renders as a blank page).
+    win.loadFile(path.join(app.getAppPath(), "dist-renderer", "index.html"));
   }
 
   return win;
