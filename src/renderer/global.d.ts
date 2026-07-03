@@ -60,7 +60,7 @@ export interface LauncherApi {
   };
   updates: {
     install(): Promise<boolean>;
-    checkNow(): Promise<"unsupported" | "ready" | "checked" | "error">;
+    checkNow(): Promise<"unsupported" | "ready" | "downloading" | "checked" | "error">;
     onReady(callback: (version: string) => void): () => void;
   };
   settings: {

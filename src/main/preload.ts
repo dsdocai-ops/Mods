@@ -68,7 +68,7 @@ const api = {
   },
   updates: {
     install: (): Promise<boolean> => ipcRenderer.invoke("updates:install"),
-    checkNow: (): Promise<"unsupported" | "ready" | "checked" | "error"> => ipcRenderer.invoke("updates:checkNow"),
+    checkNow: (): Promise<"unsupported" | "ready" | "downloading" | "checked" | "error"> => ipcRenderer.invoke("updates:checkNow"),
     onReady: (callback: (version: string) => void) => {
       const listener = (_e: Electron.IpcRendererEvent, version: string) => callback(version);
       ipcRenderer.on("updates:ready", listener);

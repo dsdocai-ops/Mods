@@ -91,9 +91,13 @@ app.whenReady().then(() => {
   ipcMain.handle("instances:create", async (_e, input: CreateInstanceInput) => {
     const instance = instances.createInstance(input);
     // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance
-    // exists. ensureOmegaMods never throws (logs and moves on), so creation can't fail on network.
-    await ensureOmegaMods(instance, (line) => console.log(line));
-    await ensureShaderSupport(instance, (line) => console.log(line));
+    // exists. Neither call ever throws (each logs and moves on), and they touch disjoint jars, so
+    // running them concurrently instead of one-after-the-other roughly halves the network time on
+    // a fresh instance (each is a separate Modrinth round trip + download the first time around).
+    await Promise.all([
+      ensureOmegaMods(instance, (line) => console.log(line)),
+      ensureShaderSupport(instance, (line) => console.log(line)),
+    ]);
     return instance;
   });
   ipcMain.handle("instances:update", (_e, instance: Instance) => instances.updateInstance(instance));
@@ -198,9 +202,12 @@ app.whenReady().then(() => {
     pendingLaunches.add(instance.id);
     const onLog = (event: LaunchLogEvent) => sendToRenderer("launch:log", event);
     try {
-      // Keep the preinstalled Omega mod current on every launch (also self-heals a deleted jar).
-      await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
-      await ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
+      // Keep the preinstalled Omega mod (and shader loader) current on every launch - also
+      // self-heals a deleted jar. Run concurrently: see the instances:create handler above for why.
+      await Promise.all([
+        ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
+        ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
+      ]);
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
