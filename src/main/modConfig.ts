@@ -17,10 +17,17 @@ function candidateFileNames(modId: string): string[] {
 /** Looks for a config file matching a mod's internal id under `<runDir>/config`, the conventional location for both Forge and most Fabric mods. */
 export function findModConfigPath(runDir: string, modId: string): string | null {
   if (!modId || modId === "unknown") return null;
+  // modId isn't just a UI-typed string - it's read straight out of an imported mod jar's own
+  // manifest (fabric.mod.json's "id" / mods.toml's "modId", see modMetadata.ts) with no format
+  // validation there. A crafted jar could declare an id containing "../" segments; path.basename
+  // strips those before they ever reach path.join, the same guard mods.ts/shaders.ts already apply
+  // to renderer-supplied file names for the same reason.
+  const safeModId = path.basename(modId);
+  if (!safeModId || safeModId === "unknown") return null;
   const configDir = path.join(runDir, "config");
   if (!fs.existsSync(configDir)) return null;
 
-  for (const fileName of candidateFileNames(modId)) {
+  for (const fileName of candidateFileNames(safeModId)) {
     const candidate = path.join(configDir, fileName);
     if (fs.existsSync(candidate)) return candidate;
   }

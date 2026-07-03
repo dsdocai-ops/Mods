@@ -96,8 +96,11 @@ public class ModConfig {
             if (loaded == null) return new ModConfig();
             // Same null-guards as the Fabric twin: Gson overrides field defaults with null when the
             // JSON explicitly contains null, and these lists get iterated on hot paths.
+            // highlightColorArgb is the same story: BlockHighlightFeature.resolveColor() calls
+            // argb.equals(...) on it unconditionally every frame the feature is on.
             if (loaded.highlightedBlocks == null) loaded.highlightedBlocks = new ArrayList<>();
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
+            if (loaded.highlightColorArgb == null) loaded.highlightColorArgb = "#803B9CFF";
             return loaded;
         } catch (IOException e) {
             return new ModConfig();

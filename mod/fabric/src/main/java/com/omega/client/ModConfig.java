@@ -96,9 +96,12 @@ public class ModConfig {
             // Gson overrides field defaults with null when the JSON explicitly contains null (a
             // hand-edit, or a bad save through the launcher's generic config editor) - and these
             // lists get iterated on hot paths (every particle spawn / every highlight scan), where
-            // a null would crash the game instead of just misbehaving.
+            // a null would crash the game instead of just misbehaving. highlightColorArgb is the
+            // same story despite not being a list: BlockHighlightFeature.resolveColor() calls
+            // argb.equals(...) on it unconditionally every frame the feature is on.
             if (loaded.highlightedBlocks == null) loaded.highlightedBlocks = new ArrayList<>();
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
+            if (loaded.highlightColorArgb == null) loaded.highlightColorArgb = "#803B9CFF";
             return loaded;
         } catch (IOException e) {
             return new ModConfig();

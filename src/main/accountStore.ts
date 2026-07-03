@@ -110,6 +110,14 @@ export async function addMicrosoftAccount(clientId: string, parentWindow: Browse
   return toPublic(stored);
 }
 
+// Coalesces concurrent refreshes for the same account - two instances configured with the same
+// Microsoft account, launched within moments of each other while the cached token is expired,
+// would otherwise both read the same about-to-be-stale refresh token, both call refreshAccount()
+// independently, and race to writeAll() - whichever finishes last silently discards the other's
+// persisted result (and, if Microsoft has already rotated/invalidated the refresh token by then,
+// the loser's call can simply fail with a spurious error on that instance's launch).
+const inFlightRefreshes = new Map<string, Promise<{ accessToken: string; uuid: string; username: string }>>();
+
 /**
  * Returns a currently-valid Minecraft access token for an account, silently refreshing it first
  * if it's expired or about to expire. This is what launch.ts calls right before starting the game.
@@ -126,18 +134,36 @@ export async function getValidAccessToken(clientId: string, accountId: string): 
     return { accessToken: decryptFromBlob(account.accessTokenBlob), uuid: account.uuid, username: account.username };
   }
 
-  const refreshToken = decryptFromBlob(account.refreshTokenBlob);
-  const refreshed = await refreshAccount(clientId, refreshToken);
+  const existing = inFlightRefreshes.get(accountId);
+  if (existing) return existing;
 
-  accounts[index] = {
-    ...account,
-    username: refreshed.username,
-    uuid: refreshed.uuid,
-    refreshTokenBlob: encryptToBlob(refreshed.msRefreshToken),
-    accessTokenBlob: encryptToBlob(refreshed.mcAccessToken),
-    accessTokenExpiresAt: refreshed.mcAccessTokenExpiresAt,
-  };
-  writeAll(accounts);
+  const refreshPromise = (async () => {
+    const refreshToken = decryptFromBlob(account.refreshTokenBlob);
+    const refreshed = await refreshAccount(clientId, refreshToken);
 
-  return { accessToken: refreshed.mcAccessToken, uuid: refreshed.uuid, username: refreshed.username };
+    // Re-read rather than reuse the outer `accounts`/`index` - a concurrent removeAccount() could
+    // have changed the list while the network round trip above was in flight.
+    const current = readAll();
+    const currentIndex = current.findIndex((a) => a.id === accountId);
+    if (currentIndex >= 0) {
+      current[currentIndex] = {
+        ...current[currentIndex],
+        username: refreshed.username,
+        uuid: refreshed.uuid,
+        refreshTokenBlob: encryptToBlob(refreshed.msRefreshToken),
+        accessTokenBlob: encryptToBlob(refreshed.mcAccessToken),
+        accessTokenExpiresAt: refreshed.mcAccessTokenExpiresAt,
+      };
+      writeAll(current);
+    }
+
+    return { accessToken: refreshed.mcAccessToken, uuid: refreshed.uuid, username: refreshed.username };
+  })();
+
+  inFlightRefreshes.set(accountId, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    inFlightRefreshes.delete(accountId);
+  }
 }

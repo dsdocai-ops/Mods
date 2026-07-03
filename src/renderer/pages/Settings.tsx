@@ -22,9 +22,13 @@ export default function SettingsPage() {
   if (!settings) return <div className="settings-panel">Loading&hellip;</div>;
 
   const save = async () => {
-    await window.api.settings.set(settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    try {
+      await window.api.settings.set(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err) {
+      toast(`Couldn't save settings: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const addMicrosoftAccount = async () => {
@@ -46,9 +50,13 @@ export default function SettingsPage() {
   };
 
   const removeAccount = async (account: PublicAccount) => {
-    await window.api.accounts.remove(account.id);
-    toast(`Removed ${account.username}`, "info");
-    loadAccounts();
+    try {
+      await window.api.accounts.remove(account.id);
+      toast(`Removed ${account.username}`, "info");
+      loadAccounts();
+    } catch (err) {
+      toast(`Couldn't remove ${account.username}: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const checkForUpdates = async () => {
