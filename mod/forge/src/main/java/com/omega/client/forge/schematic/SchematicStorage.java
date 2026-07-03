@@ -2,6 +2,7 @@ package com.omega.client.forge.schematic;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 import com.omega.client.schematic.SchematicData;
 import net.minecraftforge.fml.loading.FMLPaths;
 
@@ -9,8 +10,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -64,17 +67,62 @@ public final class SchematicStorage {
         return schematicsDir().resolve(sanitize(name) + EXTENSION);
     }
 
+    /**
+     * Same fix as the Fabric twin: sanitize() collapses many distinct raw names onto the same
+     * filename (every disallowed character becomes "_", most filesystems are also
+     * case-insensitive), so saving under a name that only *looks* new after sanitizing would
+     * otherwise silently truncate and overwrite a completely different saved schematic.
+     * Re-saving the same schematic under its own name is still a normal in-place overwrite; only
+     * a collision with a name that reads back as something *different* gets a numeric suffix.
+     */
+    private static Path resolveSaveTarget(String rawName) {
+        Path candidate = fileFor(rawName);
+        if (!Files.exists(candidate) || belongsToSameSchematic(candidate, rawName)) return candidate;
+
+        int suffix = 2;
+        Path disambiguated;
+        do {
+            disambiguated = schematicsDir().resolve(sanitize(rawName) + "_" + suffix + EXTENSION);
+            suffix++;
+        } while (Files.exists(disambiguated) && !belongsToSameSchematic(disambiguated, rawName));
+        return disambiguated;
+    }
+
+    private static boolean belongsToSameSchematic(Path file, String rawName) {
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            SchematicData existing = GSON.fromJson(reader, SchematicData.class);
+            return existing != null && rawName.equals(existing.name);
+        } catch (IOException | JsonParseException e) {
+            return false;
+        }
+    }
+
     public static void save(SchematicData data) throws IOException {
-        Path file = fileFor(data.name);
-        try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+        Path file = resolveSaveTarget(data.name);
+        // Write-then-atomic-rename, not a direct write - see the Fabric twin's comment for why
+        // (a direct write truncates the real target immediately, so a crash mid-write permanently
+        // destroys whatever good save was there before).
+        Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
+        try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
             GSON.toJson(data, writer);
+        }
+        try {
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
     public static SchematicData load(String name) throws IOException {
         Path file = fileFor(name);
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            SchematicData data = GSON.fromJson(reader, SchematicData.class);
+            SchematicData data;
+            try {
+                data = GSON.fromJson(reader, SchematicData.class);
+            } catch (JsonParseException e) {
+                // Unchecked - see the Fabric twin's comment for why this needs wrapping.
+                throw new IOException("Schematic file is corrupted: " + file, e);
+            }
             if (data == null) throw new IOException("Schematic file is empty or invalid: " + file);
             // Gson overrides the field default with null if a hand-edited file explicitly contains
             // "blocks": null - and the ghost renderer iterates this list every frame.

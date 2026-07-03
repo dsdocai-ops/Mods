@@ -85,6 +85,23 @@ async function postJson(url: string, body: unknown): Promise<any> {
   return json;
 }
 
+/**
+ * Xbox Live/XSTS responses are otherwise indexed blindly (response.DisplayClaims.xui[0].uhs) -
+ * a 2xx response with an unexpected shape (Xbox Live having a bad day, some rare account states
+ * that don't map to a clean 401+XErr) threw a raw "Cannot read properties of undefined" instead of
+ * a clear error. Worse, inside authenticateXsts that blind index happened inside the same try block
+ * as the real request, so the TypeError got caught by the XErr-handling catch, failed the
+ * `instanceof HttpJsonError` check, and rethrew as-is - completely bypassing the XSTS_ERROR_MESSAGES
+ * table this file otherwise goes out of its way to provide.
+ */
+function extractUserHash(response: any, context: string): string {
+  const uhs = response?.DisplayClaims?.xui?.[0]?.uhs;
+  if (typeof uhs !== "string" || !response?.Token) {
+    throw new Error(`${context} returned an unexpected response - Xbox Live may be having issues right now, try again in a bit.`);
+  }
+  return uhs;
+}
+
 /** Opens a modal sign-in window and resolves with the OAuth authorization code once Microsoft redirects back. */
 // Microsoft's login page actively detects and blocks Electron's default embedded-browser user
 // agent ("this browser or app may not be secure"), so the auth window has to present itself as a
@@ -133,6 +150,19 @@ function captureAuthorizationCode(authUrl: string, expectedState: string, parent
 
     authWindow.webContents.on("will-redirect", (_event, url) => tryHandleUrl(url));
     authWindow.webContents.on("did-navigate", (_event, url) => tryHandleUrl(url));
+    // Without this, a page load that fails before any redirect happens (DNS hiccup, TLS error, a
+    // Microsoft-side outage, no network) leaves the window sitting on a browser error page with
+    // nothing surfaced - the user's only way out is closing it manually, which then reports the
+    // generic "sign-in was cancelled" below and gives no hint that it was actually a network issue.
+    // -3 is Chromium's ERR_ABORTED, which fires on plenty of *normal* navigations (e.g. this
+    // window's own redirect racing this same handler) - excluded so a real in-progress sign-in
+    // doesn't get rejected out from under itself.
+    authWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+      if (settled || errorCode === -3) return;
+      settled = true;
+      reject(new Error(`Couldn't load the Microsoft sign-in page (${errorDescription || errorCode}) - check your network connection and try again.`));
+      authWindow.close();
+    });
     authWindow.on("closed", () => {
       if (!settled) {
         settled = true;
@@ -154,7 +184,7 @@ async function authenticateXboxLive(msAccessToken: string): Promise<{ token: str
     RelyingParty: "http://auth.xboxlive.com",
     TokenType: "JWT",
   });
-  return { token: response.Token, userHash: response.DisplayClaims.xui[0].uhs };
+  return { token: response.Token, userHash: extractUserHash(response, "Xbox Live sign-in") };
 }
 
 async function authenticateXsts(xblToken: string): Promise<{ token: string; userHash: string }> {
@@ -167,7 +197,7 @@ async function authenticateXsts(xblToken: string): Promise<{ token: string; user
       RelyingParty: "rp://api.minecraftservices.com/",
       TokenType: "JWT",
     });
-    return { token: response.Token, userHash: response.DisplayClaims.xui[0].uhs };
+    return { token: response.Token, userHash: extractUserHash(response, "XSTS sign-in") };
   } catch (err) {
     if (err instanceof HttpJsonError && err.status === 401 && err.body?.XErr) {
       const message = XSTS_ERROR_MESSAGES[String(err.body.XErr)];
