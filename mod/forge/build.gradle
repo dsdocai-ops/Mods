@@ -81,6 +81,16 @@ processResources {
     }
 }
 
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// withSourcesJar() above must run first - it's what registers the sourcesJar task the block below
+// configures (this ordering bug was round 1 of the common-module fix: fabric's identical mistake
+// failed first since Gradle configures :common then :fabric before :forge in this multi-project
+// build).
 shadowJar {
     exclude "architectury.common.json"
     configurations = [project.configurations.shadowCommon]
@@ -102,12 +112,6 @@ components.java {
     withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
         skip()
     }
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType(JavaCompile).configureEach {

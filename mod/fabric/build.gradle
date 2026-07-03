@@ -55,6 +55,15 @@ processResources {
     }
 }
 
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// withSourcesJar() above must run first - it's what registers the sourcesJar task the block below
+// configures. Same for shadowJar/remapJar needing the shadow plugin's task already registered by
+// the time this file reaches them, which the plugin application at the top of this file covers.
 shadowJar {
     exclude "architectury.common.json"
     configurations = [project.configurations.shadowCommon]
@@ -76,12 +85,6 @@ components.java {
     withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
         skip()
     }
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType(JavaCompile).configureEach {
