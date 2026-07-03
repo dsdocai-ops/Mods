@@ -1,8 +1,11 @@
-# Builds the two shippable artifacts this repo produces:
-#   - the Omega Client launcher as a Windows portable .exe + NSIS installer (electron-builder)
+# Builds the shippable artifacts this repo produces:
+#   - the Omega Client launcher: Windows (portable .exe + NSIS installer), macOS (dmg + zip),
+#     Linux (AppImage) - all via electron-builder
 #   - the companion mod jars for Fabric and Forge (Gradle)
-# The two jobs are independent on purpose - the mod compiling against real Minecraft classes for
-# the first time is expected to need iteration, and that must never block the launcher artifact.
+# Windows is the flagship, most-tested target and gates the release; mac/linux are newer, best-effort
+# additions (unsigned - macOS Gatekeeper and nothing-yet on Linux distro trust - see README) that
+# publish alongside Windows when they succeed but never block it, same treatment as mod-jars below:
+# any one of these needing iteration must never block the others from shipping.
 name: Build
 
 on:
@@ -67,6 +70,83 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
+  # Best-effort - see the top-of-file comment for why this never blocks the Windows build. Unsigned
+  # (no Apple Developer account), so the dmg/zip will hit Gatekeeper's "unidentified developer"
+  # block on a fresh install; right-click -> Open past it once, same tradeoff as Windows SmartScreen.
+  launcher-mac:
+    needs: mod-jars
+    if: ${{ !cancelled() }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: omega-client-mod-jars
+          path: staged-mods
+      - name: Stage bundled mod jars
+        shell: bash
+        run: |
+          mkdir -p bundled
+          find staged-mods -name '*.jar' ! -name '*-sources*' -exec cp {} bundled/ \;
+          ls -la bundled
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Stamp build version
+        shell: bash
+        run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version
+      - run: npm run dist:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omega-client-mac
+          # latest-mac.yml + .blockmap are what installed launchers poll for auto-updates.
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/latest-mac.yml
+          if-no-files-found: warn
+
+  # Best-effort, same treatment as launcher-mac above. Unsigned AppImage - most distros will warn
+  # or require marking it executable (chmod +x) before it'll run, no code-signing equivalent exists
+  # to fix that on Linux the way it does on Windows/macOS.
+  launcher-linux:
+    needs: mod-jars
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: omega-client-mod-jars
+          path: staged-mods
+      - name: Stage bundled mod jars
+        shell: bash
+        run: |
+          mkdir -p bundled
+          find staged-mods -name '*.jar' ! -name '*-sources*' -exec cp {} bundled/ \;
+          ls -la bundled
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Stamp build version
+        shell: bash
+        run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version
+      - run: npm run dist:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omega-client-linux
+          # latest-linux.yml + .blockmap are what installed launchers poll for auto-updates.
+          path: |
+            release/*.AppImage
+            release/*.blockmap
+            release/latest-linux.yml
+          if-no-files-found: warn
+
   mod-jars:
     runs-on: ubuntu-latest
     steps:
@@ -122,10 +202,11 @@ jobs:
   # The explicit if: checks launcher-windows/installer-smoke directly instead of leaving the
   # default success()-of-all-needs gating in place - that default would also require mod-jars to
   # succeed, which reintroduces the same "Fabric-only failure blocks everything" problem
-  # launcher-windows's own if: above exists to avoid. mod-jars is deliberately not in this
-  # condition: whatever mod jars did build still get published alongside the launcher exe.
+  # launcher-windows's own if: above exists to avoid. mod-jars/launcher-mac/launcher-linux are
+  # deliberately not in this condition: whatever they did produce still gets published alongside
+  # the (gating) Windows launcher build.
   release:
-    needs: [launcher-windows, mod-jars, installer-smoke]
+    needs: [launcher-windows, launcher-mac, launcher-linux, mod-jars, installer-smoke]
     if: ${{ needs.launcher-windows.result == 'success' && needs.installer-smoke.result == 'success' && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -138,20 +219,27 @@ jobs:
       - name: Create/update latest-build release
         env:
           GH_TOKEN: ${{ github.token }}
+          # Stale-asset purging (below) only runs when every platform actually succeeded this run -
+          # otherwise a merely-flaky mac/linux leg (both best-effort, expected to need iteration
+          # like mod-jars) would delete a previously-good download from the release page just
+          # because this particular run didn't produce it.
+          ALL_PLATFORMS_OK: ${{ needs.launcher-windows.result == 'success' && needs.launcher-mac.result == 'success' && needs.launcher-linux.result == 'success' && needs.mod-jars.result == 'success' }}
         run: |
-          NOTES="Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe (just run it) or OmegaClient-Setup.exe (installer, auto-updates itself from here). Mod: the -fabric / -forge jars (skip -sources). latest.yml/.blockmap are auto-update metadata - ignore them."
+          NOTES="Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe / OmegaClient-Setup.exe (Windows), OmegaClient-*.dmg / .zip (macOS, unsigned - right-click > Open past Gatekeeper), OmegaClient-*.AppImage (Linux, unsigned - chmod +x it). Mod: the -fabric / -forge jars (skip -sources). latest*.yml/.blockmap are auto-update metadata - ignore them."
           gh release create latest-build --repo "$GITHUB_REPOSITORY" \
             --title "Omega Client - latest CI build" \
             --notes "$NOTES" \
             --prerelease || true
           # `gh release create` only sets the notes the first time; keep them current on reruns.
           gh release edit latest-build --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
-          # --clobber only replaces same-name assets - when a build renames its artifacts, the old
-          # names would linger on the release page forever. Purge anything this build didn't produce.
-          for asset in $(gh release view latest-build --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'); do
-            if [ -z "$(find dist -type f -name "$asset" -print -quit)" ]; then
-              gh release delete-asset latest-build "$asset" --repo "$GITHUB_REPOSITORY" --yes
-            fi
-          done
-          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' \))
+          if [ "$ALL_PLATFORMS_OK" = "true" ]; then
+            # --clobber only replaces same-name assets - when a build renames its artifacts, the old
+            # names would linger on the release page forever. Purge anything this build didn't produce.
+            for asset in $(gh release view latest-build --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'); do
+              if [ -z "$(find dist -type f -name "$asset" -print -quit)" ]; then
+                gh release delete-asset latest-build "$asset" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done
+          fi
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \))
           gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"

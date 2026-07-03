@@ -55,20 +55,24 @@ npm install
 npm run dev        # starts Vite + Electron in dev mode with hot reload
 ```
 
-## Building a Windows .exe
+## Building
 
-**No local build needed**: every push runs the GitHub Actions "Build" workflow (`.github/workflows/build.yml`), which packages the Windows launcher (`OmegaClient-Portable.exe` + `OmegaClient-Setup.exe` installer) and both companion-mod jars, and publishes them to the rolling [`latest-build` release](https://github.com/dsdocai-ops/Mods/releases/tag/latest-build).
+**No local build needed**: every push runs the GitHub Actions "Build" workflow (`.github/workflows/build.yml`), which packages the launcher for **Windows** (`OmegaClient-Portable.exe` + `OmegaClient-Setup.exe` installer), **macOS** (`OmegaClient-*.dmg` + `.zip`), and **Linux** (`OmegaClient-*.AppImage`), builds both companion-mod jars, and publishes everything to the rolling [`latest-build` release](https://github.com/dsdocai-ops/Mods/releases/tag/latest-build).
 
-**Auto-updates**: launchers installed via `OmegaClient-Setup.exe` check the rolling release on startup (electron-updater, generic provider - CI stamps each build `0.1.<run number>` and regenerates `latest.yml`), download the new build in the background, and apply it on the next restart (a banner offers "Restart now"). The portable exe can't replace itself in place - portable users just re-download. The startup check is configurable in **Settings → Updates** (on by default); a "Check for updates now" button there works regardless of the toggle.
+Windows is the flagship, most-tested target and gates the release; macOS/Linux are newer, best-effort additions that publish alongside Windows when they succeed but never block it (same "must never block the others" treatment the mod-jars build already gets - see the workflow file's top comment). None of the three are code-signed: Windows shows a SmartScreen warning, macOS's Gatekeeper blocks a fresh install (right-click → Open past it once), and the AppImage needs `chmod +x` before it'll run on most distros.
+
+**Auto-updates**: launchers installed via `OmegaClient-Setup.exe` (Windows) or the macOS/Linux builds check the rolling release on startup (electron-updater, generic provider - CI stamps each build `0.1.<run number>` and regenerates the platform-specific `latest*.yml`), download the new build in the background, and apply it on the next restart (a banner offers "Restart now"). The Windows portable exe can't replace itself in place - portable users just re-download. The startup check is configurable in **Settings → Updates** (on by default); a "Check for updates now" button there works regardless of the toggle.
 
 To build locally instead:
 
 ```bash
-npm run build       # compiles renderer (Vite) + main process (tsc)
-npm run dist:win     # packages via electron-builder -> release/ (portable .exe + NSIS installer)
+npm run build        # compiles renderer (Vite) + main process (tsc)
+npm run dist:win      # -> release/ (portable .exe + NSIS installer)
+npm run dist:mac      # -> release/ (dmg + zip) - must run on macOS (dmg creation needs hdiutil)
+npm run dist:linux    # -> release/ (AppImage)
 ```
 
-`dist:win` must be run on (or cross-compiled for) Windows for a fully signed/native build; electron-builder can cross-package from Linux/macOS for basic portable builds but a native Windows run is recommended for the final release artifact.
+Each target should run on (or, for the simpler ones, be cross-compiled for) its own platform for the most reliable result - `dist:mac` in particular needs to run on real macOS, since dmg creation shells out to `hdiutil`.
 
 ## Microsoft sign-in setup
 
