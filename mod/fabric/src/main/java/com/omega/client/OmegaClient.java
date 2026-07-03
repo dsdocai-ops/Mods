@@ -112,7 +112,7 @@ public class OmegaClient implements ClientModInitializer {
             }
         }
 
-        fullbright.tick(config);
+        fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config, zoomKey.isPressed());
         toggleSprint.tick(config);
         infoHud.tick(config, client);

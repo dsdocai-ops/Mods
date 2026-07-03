@@ -1,9 +1,9 @@
 package com.omega.client.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.omega.client.features.FullbrightFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
 import com.omega.client.forge.features.FovZoomFeature;
-import com.omega.client.forge.features.FullbrightFeature;
 import com.omega.client.forge.features.InfoHudFeature;
 import com.omega.client.forge.features.ToggleSprintFeature;
 import com.omega.client.forge.network.PresenceNetworking;
@@ -105,7 +105,7 @@ public class OmegaClientForge {
             }
         }
 
-        fullbright.tick(config);
+        fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config, zoomKey.isDown());
         toggleSprint.tick(config);
         infoHud.tick(config, client);
