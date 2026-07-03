@@ -10,10 +10,22 @@ interface Props {
   onClose: () => void;
 }
 
-type JsonValue = string | number | boolean | JsonValue[] | { [key: string]: JsonValue };
+// TOML-sourced data can contain this shape for a number a plain JS `number` can't losslessly
+// round-trip (a whole-number float, or one beyond safe-integer precision) - see toml.ts. JSON
+// configs never produce it, so handling it here doesn't change JSON's behavior at all.
+interface TomlNumberLiteral {
+  __tomlType: "number";
+  raw: string;
+}
+
+type JsonValue = string | number | boolean | TomlNumberLiteral | JsonValue[] | { [key: string]: JsonValue };
+
+function isTomlNumberLiteral(value: unknown): value is TomlNumberLiteral {
+  return typeof value === "object" && value !== null && (value as { __tomlType?: unknown }).__tomlType === "number";
+}
 
 function isPlainObject(value: unknown): value is Record<string, JsonValue> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value) && !isTomlNumberLiteral(value);
 }
 
 function setAtPath(root: Record<string, unknown>, path: string[], value: unknown): Record<string, unknown> {
@@ -36,14 +48,19 @@ function ConfigField({ label, value, onChange }: { label: string; value: JsonVal
     );
   }
 
-  if (typeof value === "number") {
+  if (typeof value === "number" || isTomlNumberLiteral(value)) {
+    // Editing always writes back a plain number, not a re-wrapped TomlNumberLiteral - once the
+    // user has touched the field, some representation change is expected (and for a value beyond
+    // safe-integer precision, unavoidable: an HTML number input can't hold more precision than a
+    // JS double in the first place). Only an *untouched* field's exact source text survives.
+    const numeric = typeof value === "number" ? value : Number(value.raw);
     return (
       <label className="field config-field">
         <span>{label}</span>
         <input
           className="input"
           type="number"
-          value={value}
+          value={numeric}
           onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
         />
       </label>
@@ -51,7 +68,7 @@ function ConfigField({ label, value, onChange }: { label: string; value: JsonVal
   }
 
   if (Array.isArray(value)) {
-    const asText = value.map((v) => String(v)).join(", ");
+    const asText = value.map((v) => (isTomlNumberLiteral(v) ? v.raw : String(v))).join(", ");
     return (
       <label className="field config-field">
         <span>{label} (comma-separated)</span>
