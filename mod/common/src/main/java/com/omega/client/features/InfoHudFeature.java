@@ -1,12 +1,11 @@
 package com.omega.client.features;
 
-import com.omega.client.ModConfig;
 import com.omega.client.hud.CpsTracker;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -20,6 +19,9 @@ import org.lwjgl.glfw.GLFW;
  * GC churn every single frame for numbers that only meaningfully change 20 times a second. The
  * one exception is the CPS tracker's button sampling, which runs per-frame by design: clicks can
  * be shorter than a tick, and 20 Hz sampling would undercount fast clickers (see CpsTracker).
+ *
+ * Compiles once here against official mappings, remapped per-platform (see FullbrightFeature's
+ * javadoc for the general pattern).
  */
 public final class InfoHudFeature {
     private static final int TEXT_COLOR = 0xFFFFFF;
@@ -32,70 +34,70 @@ public final class InfoHudFeature {
     private String cachedFps = "";
     private String cachedPing = "";
     private String cachedDirection = "";
-    private KeyBinding[] keyBindings;
+    private KeyMapping[] keyBindings;
     private final CpsTracker cps = new CpsTracker();
 
-    public void tick(ModConfig config, MinecraftClient client) {
-        if (!config.hudEnabled) return;
+    public void tick(HudSettings settings, Minecraft client) {
+        if (!settings.enabled()) return;
 
-        if (config.hudShowCoords && client.player != null) {
-            ClientPlayerEntity p = client.player;
+        if (settings.showCoords() && client.player != null) {
+            LocalPlayer p = client.player;
             cachedCoords = String.format("%.1f, %.1f, %.1f", p.getX(), p.getY(), p.getZ());
         }
-        if (config.hudShowFps) {
-            cachedFps = client.getCurrentFps() + " fps";
+        if (settings.showFps()) {
+            cachedFps = client.getFps() + " fps";
         }
-        if (config.hudShowPing && client.player != null && client.getNetworkHandler() != null) {
-            PlayerListEntry self = client.getNetworkHandler().getPlayerListEntry(client.player.getUuid());
+        if (settings.showPing() && client.player != null && client.getConnection() != null) {
+            PlayerInfo self = client.getConnection().getPlayerInfo(client.player.getUUID());
             // In singleplayer (or before the tab-list entry arrives) there's no meaningful latency
             // to show - drop the line instead of rendering a fake 0 ms.
             int latency = self != null ? self.getLatency() : 0;
             cachedPing = latency > 0 ? latency + " ms" : "";
         }
-        if (config.hudShowDirection && client.player != null) {
-            cachedDirection = "Facing: " + prettyDirection(client.player.getHorizontalFacing().getName());
+        if (settings.showDirection() && client.player != null) {
+            cachedDirection = "Facing: " + prettyDirection(client.player.getDirection().getName());
         }
     }
 
-    public void render(DrawContext context, ModConfig config) {
-        if (!config.hudEnabled) return;
+    public void render(GuiGraphics context, HudSettings settings) {
+        if (!settings.enabled()) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         int x = 6;
         int y = 6;
-        int lineHeight = client.textRenderer.fontHeight + 2;
+        int lineHeight = client.font.lineHeight + 2;
 
-        if (config.hudShowCoords && client.player != null) {
-            context.drawTextWithShadow(client.textRenderer, cachedCoords, x, y, TEXT_COLOR);
+        if (settings.showCoords() && client.player != null) {
+            context.drawString(client.font, cachedCoords, x, y, TEXT_COLOR, true);
             y += lineHeight;
         }
 
-        if (config.hudShowFps) {
-            context.drawTextWithShadow(client.textRenderer, cachedFps, x, y, TEXT_COLOR);
+        if (settings.showFps()) {
+            context.drawString(client.font, cachedFps, x, y, TEXT_COLOR, true);
             y += lineHeight;
         }
 
-        if (config.hudShowPing && !cachedPing.isEmpty()) {
-            context.drawTextWithShadow(client.textRenderer, cachedPing, x, y, TEXT_COLOR);
+        if (settings.showPing() && !cachedPing.isEmpty()) {
+            context.drawString(client.font, cachedPing, x, y, TEXT_COLOR, true);
             y += lineHeight;
         }
 
-        if (config.hudShowDirection && !cachedDirection.isEmpty()) {
-            context.drawTextWithShadow(client.textRenderer, cachedDirection, x, y, TEXT_COLOR);
+        if (settings.showDirection() && !cachedDirection.isEmpty()) {
+            context.drawString(client.font, cachedDirection, x, y, TEXT_COLOR, true);
             y += lineHeight;
         }
 
-        if (config.hudShowCps) {
-            long window = client.getWindow().getHandle();
+        if (settings.showCps()) {
+            long window = client.getWindow().getWindow();
             cps.update(
                     GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS,
                     GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
             );
-            context.drawTextWithShadow(client.textRenderer, cps.leftCps() + " | " + cps.rightCps() + " cps", x, y, TEXT_COLOR);
+            context.drawString(client.font, cps.leftCps() + " | " + cps.rightCps() + " cps", x, y, TEXT_COLOR, true);
             y += lineHeight;
         }
 
-        if (config.hudShowKeystrokes) {
+        if (settings.showKeystrokes()) {
             renderKeystrokes(context, client, x, y);
         }
     }
@@ -104,24 +106,24 @@ public final class InfoHudFeature {
         return name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
-    private void renderKeystrokes(DrawContext context, MinecraftClient client, int x, int y) {
+    private void renderKeystrokes(GuiGraphics context, Minecraft client, int x, int y) {
         if (keyBindings == null) {
-            keyBindings = new KeyBinding[]{
-                    client.options.forwardKey,
-                    client.options.leftKey,
-                    client.options.backKey,
-                    client.options.rightKey,
-                    client.options.jumpKey,
-                    client.options.attackKey,
+            keyBindings = new KeyMapping[]{
+                    client.options.keyUp,
+                    client.options.keyLeft,
+                    client.options.keyDown,
+                    client.options.keyRight,
+                    client.options.keyJump,
+                    client.options.keyAttack,
             };
         }
 
         for (int i = 0; i < keyBindings.length; i++) {
             int keyX = x + i * (KEY_BOX_SIZE + KEY_BOX_GAP);
-            boolean held = keyBindings[i].isPressed();
+            boolean held = keyBindings[i].isDown();
             int color = held ? 0xFF3B9CFF : SHADOW_BG;
             context.fill(keyX, y, keyX + KEY_BOX_SIZE, y + KEY_BOX_SIZE, color);
-            context.drawCenteredTextWithShadow(client.textRenderer, KEY_LABELS[i], keyX + KEY_BOX_SIZE / 2, y + KEY_BOX_SIZE / 2 - 4, TEXT_COLOR);
+            context.drawCenteredString(client.font, KEY_LABELS[i], keyX + KEY_BOX_SIZE / 2, y + KEY_BOX_SIZE / 2 - 4, TEXT_COLOR);
         }
     }
 }

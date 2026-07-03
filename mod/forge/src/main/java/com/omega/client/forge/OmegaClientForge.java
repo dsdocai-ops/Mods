@@ -3,9 +3,10 @@ package com.omega.client.forge;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.HudSettings;
+import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
-import com.omega.client.forge.features.InfoHudFeature;
 import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
@@ -77,7 +78,7 @@ public class OmegaClientForge {
     }
 
     private void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
-        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> infoHud.render(guiGraphics, config));
+        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> infoHud.render(guiGraphics, hudSettings()));
     }
 
     @SubscribeEvent
@@ -108,7 +109,7 @@ public class OmegaClientForge {
         fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isDown());
         toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(config, client);
+        infoHud.tick(hudSettings(), client);
 
         if (client.player != null && client.level != null) {
             blockHighlight.tick(config, client.level, client.player.blockPosition());
@@ -145,5 +146,17 @@ public class OmegaClientForge {
                     true
             );
         }
+    }
+
+    private HudSettings hudSettings() {
+        return new HudSettings(
+                config.hudEnabled,
+                config.hudShowCoords,
+                config.hudShowFps,
+                config.hudShowPing,
+                config.hudShowDirection,
+                config.hudShowCps,
+                config.hudShowKeystrokes
+        );
     }
 }

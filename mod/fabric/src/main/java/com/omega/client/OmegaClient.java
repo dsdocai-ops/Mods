@@ -3,6 +3,7 @@ package com.omega.client;
 import com.omega.client.features.BlockHighlightFeature;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.HudSettings;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.network.PresenceNetworking;
@@ -89,7 +90,7 @@ public class OmegaClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> schematicRender.render(context, config));
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> infoHud.render(drawContext, config));
+        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> infoHud.render(drawContext, hudSettings()));
     }
 
     private void onClientTick(MinecraftClient client) {
@@ -115,7 +116,7 @@ public class OmegaClient implements ClientModInitializer {
         fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isPressed());
         toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(config, client);
+        infoHud.tick(hudSettings(), client);
 
         if (client.player != null && client.world != null) {
             blockHighlight.tick(config, client.world, client.player.getBlockPos());
@@ -136,5 +137,17 @@ public class OmegaClient implements ClientModInitializer {
                     true
             );
         }
+    }
+
+    private HudSettings hudSettings() {
+        return new HudSettings(
+                config.hudEnabled,
+                config.hudShowCoords,
+                config.hudShowFps,
+                config.hudShowPing,
+                config.hudShowDirection,
+                config.hudShowCps,
+                config.hudShowKeystrokes
+        );
     }
 }
