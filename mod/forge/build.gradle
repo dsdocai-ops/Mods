@@ -35,8 +35,12 @@ repositories {
 }
 
 dependencies {
-    // Architectury Loom's Forge-specific dependency configuration - replaces ForgeGradle's
-    // `minecraft "net.minecraftforge:forge:..."` notation.
+    // `minecraft`/`mappings` establish the base Loom target the same way fabric/build.gradle does
+    // (official mappings here, not Yarn) - the `forge(...)` dependency config below only exists
+    // once these are declared; omitting them was the first CI round's actual failure ("Could not
+    // find method forge()"), since Loom hadn't initialized its Forge dependency extension yet.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
     forge "net.minecraftforge:forge:${project.forge_version}"
 }
 
