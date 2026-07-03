@@ -30,6 +30,17 @@ export interface ModInfo {
   importedAt: number;
 }
 
+/**
+ * A `.zip` shaderpack sitting in an instance's `shaderpacks/` folder. Unlike ModInfo there's no
+ * `enabled` flag - Iris/Oculus pick the one active pack via their own in-game Video Settings
+ * screen, not a launcher toggle - so this is just enough to render an import/remove list.
+ */
+export interface ShaderPackInfo {
+  fileName: string;
+  sizeBytes: number;
+  importedAt: number;
+}
+
 export interface JvmSettings {
   javaPath: string;
   minRamMb: number;
@@ -126,6 +137,8 @@ export interface AppSettings {
   defaultOfflineUsername: string;
   /** Azure AD "Application (client) ID" for Microsoft sign-in - see README for how to register one. Empty until you provide your own. */
   msaClientId: string;
+  /** Background-check the rolling release for a newer build on startup and download it silently. On by default; portable installs ignore this (they can't self-update either way). */
+  autoUpdateEnabled: boolean;
 }
 
 export const DEFAULT_JVM: JvmSettings = {

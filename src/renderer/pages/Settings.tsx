@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
   const [signingIn, setSigningIn] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const loadAccounts = () => window.api.accounts.list().then(setAccounts);
 
@@ -48,6 +49,24 @@ export default function SettingsPage() {
     await window.api.accounts.remove(account.id);
     toast(`Removed ${account.username}`, "info");
     loadAccounts();
+  };
+
+  const checkForUpdates = async () => {
+    setCheckingUpdate(true);
+    try {
+      const result = await window.api.updates.checkNow();
+      if (result === "unsupported") {
+        toast("Auto-update isn't available in this build (dev run or portable exe) - re-download from the Releases page instead.", "info");
+      } else if (result === "ready") {
+        toast("Update downloaded - a restart banner will appear.", "success");
+      } else if (result === "checked") {
+        toast("You're on the latest build.", "success");
+      } else {
+        toast("Couldn't check for updates - check your network connection.", "error");
+      }
+    } finally {
+      setCheckingUpdate(false);
+    }
   };
 
   return (
@@ -152,6 +171,27 @@ export default function SettingsPage() {
         />
         <span>Enable smooth-PvP GC tuning by default</span>
       </label>
+
+      <h3 className="settings-subheading">Updates</h3>
+      <p className="instance-subtitle">
+        Only applies to <code>OmegaClient-Setup.exe</code> installs - the portable exe can't replace itself in place,
+        so re-download it manually instead.
+      </p>
+
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.autoUpdateEnabled}
+          onChange={(e) => setSettings({ ...settings, autoUpdateEnabled: e.target.checked })}
+        />
+        <span>Automatically check for updates on startup</span>
+      </label>
+
+      <div className="settings-actions">
+        <button className="btn btn-secondary" disabled={checkingUpdate} onClick={checkForUpdates}>
+          {checkingUpdate ? "Checking..." : "Check for updates now"}
+        </button>
+      </div>
 
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={save}>
