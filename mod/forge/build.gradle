@@ -7,12 +7,14 @@
 // - Loom auto-detects the *.mixins.json under src/main/resources and generates the refmap itself,
 // driven by the same META-INF/mods.toml `[[mixins]]` entry that already declared it at runtime.
 // This module went through two rounds of real-compiler correction the first time it targeted
-// Forge's official mappings (see mod/README.md) - this toolchain switch is new and unverified
-// against a real compile in the same way, so the first CI run here is the actual test.
-plugins {
-    id 'architectury-plugin' version "${architectury_plugin_version}"
-    id 'dev.architectury.loom' version "${architectury_loom_version}"
-}
+// Forge's official mappings (see mod/README.md) - this toolchain switch needed three rounds of its
+// own before landing on the right shape, all around how the plugins themselves get applied (see the
+// root build.gradle's comment) rather than anything Forge-specific.
+
+// Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - see the root
+// build.gradle's comment for why.
+apply plugin: 'architectury-plugin'
+apply plugin: 'dev.architectury.loom'
 
 base {
     archivesName = "${project.archives_base_name}-forge"
@@ -35,14 +37,15 @@ repositories {
 }
 
 dependencies {
-    // No separate forge() dependency config exists in this Loom line (confirmed by two straight CI
-    // failures on "Could not find method forge()", the second one even with minecraft/mappings
-    // declared alongside it) - Forge reuses the `minecraft` config for the Forge-patched artifact
-    // coordinate itself, the same way ForgeGradle's `minecraft "net.minecraftforge:forge:..."`
-    // always worked, just with mappings now declared as their own explicit Loom dependency instead
-    // of ForgeGradle's `mappings channel: 'official'` block.
+    // minecraft(...) always resolves its GAV's version segment as a literal vanilla Minecraft
+    // version to fetch from piston-meta - it can never take the Forge-patched coordinate directly
+    // (confirmed: passing net.minecraftforge:forge:1.20.1-47.2.0 here made Loom try and fail to
+    // look up a vanilla release literally named "1.20.1-47.2.0"). forge(...) is the correct,
+    // separate config for that - it just needed `architectury-plugin`/`dev.architectury.loom`
+    // applied the way the root build.gradle now does for the method to actually exist.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
-    minecraft "net.minecraftforge:forge:${project.forge_version}"
+    forge "net.minecraftforge:forge:${project.forge_version}"
 }
 
 processResources {

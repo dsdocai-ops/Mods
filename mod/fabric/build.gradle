@@ -1,8 +1,12 @@
 plugins {
-    id 'architectury-plugin' version "${architectury_plugin_version}"
-    id 'dev.architectury.loom' version "${architectury_loom_version}"
     id 'maven-publish'
 }
+
+// Applied via the classic `apply plugin:` mechanism, not this file's own `plugins { ... version }`
+// block - versions are pinned once in the root build.gradle with `apply false`. See its comment for
+// why (three CI rounds' worth of "Could not find method forge()" before this was the actual fix).
+apply plugin: 'architectury-plugin'
+apply plugin: 'dev.architectury.loom'
 
 base {
     archivesName = "${project.archives_base_name}-fabric"
