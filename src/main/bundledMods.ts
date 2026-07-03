@@ -79,7 +79,10 @@ async function omegaJarFor(loader: OmegaLoader): Promise<string> {
  */
 function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
   fs.mkdirSync(modsDir, { recursive: true });
-  const enabledPath = path.join(modsDir, stableName);
+  // Most callers pass a hardcoded name, but the Fabric API / Iris / Oculus / Sodium call sites
+  // pass a filename read straight out of a Modrinth API response - path.basename keeps a
+  // compromised/MITM'd response from writing outside modsDir, same guard as mods.ts/shaders.ts.
+  const enabledPath = path.join(modsDir, path.basename(stableName));
   const disabledPath = `${enabledPath}.disabled`;
   const dest = fs.existsSync(disabledPath) ? disabledPath : enabledPath;
   fs.copyFileSync(sourceJar, dest);

@@ -80,12 +80,30 @@ export function rulesAllow(rules: Rule[] | undefined, features: Record<string, b
   return allowed;
 }
 
+/**
+ * Strips any ".."/"."/empty path segment out of a library-relative path before it's ever joined
+ * against the shared libraries/ root. Every caller that builds a download destination or a
+ * classpath/natives-extraction source from a library path (installer.ts, launch.ts) runs its
+ * result through this - the path can come from two untrusted places: mavenNameToPath below (only
+ * sanitizes the group segment, so a crafted coordinate like "com.example:..:..:1.0" still leaves
+ * literal ".." in the artifact/version segments) or a version JSON's own "path" field, read
+ * verbatim (nothing here verifies the JSON's authenticity, only the downloaded *bytes* are
+ * sha1-checked - and a user can point gameDir at any directory, including a hand-crafted or
+ * imported third-party modpack's).
+ */
+export function safeLibraryPath(relPath: string): string {
+  return relPath
+    .split(/[\\/]/)
+    .filter((segment) => segment && segment !== "." && segment !== "..")
+    .join("/");
+}
+
 /** Converts a Maven coordinate like "net.fabricmc:fabric-loader:0.15.7" (optionally with a classifier) into its repo-relative jar path. */
 export function mavenNameToPath(name: string): string {
   const [group, artifact, version, classifier] = name.split(":");
   const groupPath = group.replace(/\./g, "/");
   const fileName = classifier ? `${artifact}-${version}-${classifier}.jar` : `${artifact}-${version}.jar`;
-  return `${groupPath}/${artifact}/${version}/${fileName}`;
+  return safeLibraryPath(`${groupPath}/${artifact}/${version}/${fileName}`);
 }
 
 function loadVersionJson(gameDir: string, versionId: string): RawVersionJson {

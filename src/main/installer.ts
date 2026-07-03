@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { InstallableVersion, InstallProgress } from "../shared/types";
-import { rulesAllow, mavenNameToPath, type LibraryEntry } from "./versionResolver";
+import { rulesAllow, mavenNameToPath, safeLibraryPath, type LibraryEntry } from "./versionResolver";
 
 /**
  * Downloads/installs Minecraft versions into a standard vanilla-launcher-shaped game directory
@@ -40,6 +40,14 @@ const DOWNLOAD_CONCURRENCY = 12;
  * retry with backoff; 4xx is permanent and fails immediately.
  */
 const FETCH_ATTEMPTS = 3;
+/**
+ * Per-attempt cap. Plain fetch() has no default timeout - a connection that stalls after opening
+ * (rather than failing outright) hangs forever, and since runPool's Promise.all waits on every
+ * worker, one stuck download blocks the whole install permanently. Worse, main.ts's installInFlight
+ * guard only clears in a finally that a promise which never settles also never reaches, so a single
+ * stalled connection would brick every future install attempt until the app restarts.
+ */
+const FETCH_TIMEOUT_MS = 30_000;
 
 export type ProgressCallback = (progress: InstallProgress) => void;
 
@@ -54,7 +62,7 @@ export async function fetchWithRetry(url: string): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (response.status >= 500) {
         throw new Error(`Server error (${response.status}) for ${url}`);
       }
@@ -165,13 +173,13 @@ export async function installVanilla(
     if (artifact?.url) {
       downloads.push({
         url: artifact.url,
-        dest: path.join(gameDir, "libraries", artifact.path ?? mavenNameToPath(lib.name)),
+        dest: path.join(gameDir, "libraries", safeLibraryPath(artifact.path ?? mavenNameToPath(lib.name))),
         sha1: artifact.sha1,
       });
     }
     for (const classified of Object.values(lib.downloads?.classifiers ?? {})) {
       if (classified?.url && classified.path) {
-        downloads.push({ url: classified.url, dest: path.join(gameDir, "libraries", classified.path), sha1: classified.sha1 });
+        downloads.push({ url: classified.url, dest: path.join(gameDir, "libraries", safeLibraryPath(classified.path)), sha1: classified.sha1 });
       }
     }
   }

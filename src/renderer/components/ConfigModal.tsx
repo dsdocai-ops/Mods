@@ -130,7 +130,7 @@ export default function ConfigModal({ modName, filePath, format, initialData, on
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={saving ? undefined : onClose}>
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <h2>{modName} config</h2>
         <p className="instance-subtitle config-path">{filePath}</p>
@@ -143,7 +143,7 @@ export default function ConfigModal({ modName, filePath, format, initialData, on
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" onClick={onClose}>
+          <button className="btn btn-ghost" disabled={saving} onClick={onClose}>
             Cancel
           </button>
           <button className="btn btn-primary" disabled={saving} onClick={save}>

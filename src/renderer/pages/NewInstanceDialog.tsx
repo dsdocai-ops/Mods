@@ -25,6 +25,7 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
   const [installing, setInstalling] = useState(false);
   const [installStatus, setInstallStatus] = useState("");
   const [installPct, setInstallPct] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     return window.api.install.onProgress((progress) => {
@@ -92,7 +93,8 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
   };
 
   const create = async () => {
-    if (!selectedVersion) return;
+    if (!selectedVersion || creating) return;
+    setCreating(true);
     try {
       const instance = await window.api.instances.create({
         name: name.trim() || selectedVersion.versionId,
@@ -105,11 +107,13 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
       // Without this, a main-process failure (e.g. the mods folder can't be created in a read-only
       // install dir) rejects silently and the dialog just appears to do nothing.
       setError(`Couldn't create the instance: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCreating(false);
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={installing ? undefined : onClose}>
+    <div className="modal-backdrop" onClick={installing || creating ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>New Instance</h2>
 
@@ -122,7 +126,7 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
               readOnly
               placeholder="Pick your .minecraft folder - or any empty folder to install into"
             />
-            <button className="btn btn-secondary" disabled={installing} onClick={pickGameDir}>
+            <button className="btn btn-secondary" disabled={installing || scanning} onClick={pickGameDir}>
               Browse
             </button>
           </div>
@@ -238,11 +242,11 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
         </label>
 
         <div className="modal-actions">
-          <button className="btn btn-ghost" disabled={installing} onClick={onClose}>
+          <button className="btn btn-ghost" disabled={installing || creating} onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" disabled={!selectedVersion || installing} onClick={create}>
-            Create Instance
+          <button className="btn btn-primary" disabled={!selectedVersion || installing || creating} onClick={create}>
+            {creating ? "Creating..." : "Create Instance"}
           </button>
         </div>
       </div>

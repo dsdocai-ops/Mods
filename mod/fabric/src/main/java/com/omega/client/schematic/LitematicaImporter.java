@@ -57,10 +57,15 @@ public final class LitematicaImporter {
         int sizeY = size.getInt("y");
         int sizeZ = size.getInt("z");
 
-        int absSizeX = Math.abs(sizeX);
-        int absSizeY = Math.abs(sizeY);
-        int absSizeZ = Math.abs(sizeZ);
-        long volume = (long) absSizeX * absSizeY * absSizeZ;
+        // Math.abs(int) overflows on exactly Integer.MIN_VALUE (returns the same negative value,
+        // the classic Java gotcha) - a corrupted/crafted file with a Size of -2147483648 would
+        // silently pass the volume guard below (a negative product is never > MAX_VOLUME) and hand
+        // back a SchematicData with negative width/height/length, which callers weren't written to
+        // expect. Casting to long before abs() sidesteps the overflow entirely.
+        long absSizeX = Math.abs((long) sizeX);
+        long absSizeY = Math.abs((long) sizeY);
+        long absSizeZ = Math.abs((long) sizeZ);
+        long volume = absSizeX * absSizeY * absSizeZ;
         if (volume > MAX_VOLUME) {
             throw new IOException("Region is too large (" + volume + " blocks, max " + MAX_VOLUME + ").");
         }
@@ -71,9 +76,11 @@ public final class LitematicaImporter {
 
         SchematicData data = new SchematicData();
         data.name = schematicName;
-        data.width = absSizeX;
-        data.height = absSizeY;
-        data.length = absSizeZ;
+        // Safe to narrow back to int here - the volume guard above already bounds each dimension
+        // well under Integer.MAX_VALUE (a volume <= 250,000 can't have any single side larger).
+        data.width = (int) absSizeX;
+        data.height = (int) absSizeY;
+        data.length = (int) absSizeZ;
 
         // Litematica's region Position/Size can encode negative growth (the region extends
         // backward from Position); we only need the size magnitude since we re-anchor to our own
