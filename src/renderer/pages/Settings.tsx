@@ -59,6 +59,8 @@ export default function SettingsPage() {
         toast("Auto-update isn't available in this build (dev run or portable exe) - re-download from the Releases page instead.", "info");
       } else if (result === "ready") {
         toast("Update downloaded - a restart banner will appear.", "success");
+      } else if (result === "downloading") {
+        toast("Update found - downloading in the background, a restart banner will appear when it's ready.", "info");
       } else if (result === "checked") {
         toast("You're on the latest build.", "success");
       } else {

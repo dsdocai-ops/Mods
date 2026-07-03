@@ -13,8 +13,7 @@ import { autoUpdater } from "electron-updater";
  * once the update is ready, and even if the user ignores it, electron-updater installs on the
  * next normal quit (autoInstallOnAppQuit). Errors are logged and swallowed - an offline launcher
  * must behave exactly like an up-to-date one.
- */
-/**
+ *
  * `autoCheckEnabled` mirrors AppSettings.autoUpdateEnabled, read once at startup (Settings ->
  * Launcher Updates) - it only gates the automatic startup check below. The Settings page's
  * "Check for updates" button always calls `updates:checkNow` regardless of the toggle, since a
@@ -35,11 +34,17 @@ export function setupAutoUpdater(sendToRenderer: (channel: string, payload: unkn
   // portable users update by re-downloading, same as before.
   const updatable = app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR;
 
-  ipcMain.handle("updates:checkNow", async (): Promise<"unsupported" | "ready" | "checked" | "error"> => {
+  ipcMain.handle("updates:checkNow", async (): Promise<"unsupported" | "ready" | "downloading" | "checked" | "error"> => {
     if (!updatable) return "unsupported";
     try {
-      await autoUpdater.checkForUpdates();
-      return updateReady ? "ready" : "checked";
+      const result = await autoUpdater.checkForUpdates();
+      if (updateReady) return "ready";
+      // checkForUpdates() resolves once the version-check step finishes, not once the (autoDownload)
+      // download completes - that only happens later, via the update-downloaded listener below. A
+      // truthy downloadPromise means a newer version was found and a download just started in the
+      // background; without this check a found-but-still-downloading update was reported as
+      // "checked" (i.e. "you're up to date"), which is simply wrong.
+      return result?.downloadPromise ? "downloading" : "checked";
     } catch (err) {
       console.warn("[updater] manual check failed: " + (err instanceof Error ? err.message : String(err)));
       return "error";
