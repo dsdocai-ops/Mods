@@ -80,8 +80,12 @@ export default function InstanceDetail({
   const handleImport = async () => {
     const paths = await window.api.dialog.pickJarFiles();
     if (paths.length === 0) return;
-    const updated = await window.api.mods.import(instance.modsDir, paths);
-    setMods(updated);
+    try {
+      const updated = await window.api.mods.import(instance.modsDir, paths);
+      setMods(updated);
+    } catch (err) {
+      toast(`Couldn't import mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   // useCallback-stable and shared by every row - together with ModRow's memo(), rows skip
@@ -89,16 +93,27 @@ export default function InstanceDetail({
   const handleToggle = useCallback(
     async (mod: ModInfo, enabled: boolean) => {
       setMods((prev) => prev.map((m) => (m.id === mod.id ? { ...m, enabled } : m)));
-      const updated = await window.api.mods.setEnabled(instance.modsDir, mod.id, enabled);
-      setMods(updated);
+      try {
+        const updated = await window.api.mods.setEnabled(instance.modsDir, mod.id, enabled);
+        setMods(updated);
+      } catch (err) {
+        // The optimistic flip above is now out of sync with disk - resync instead of leaving a
+        // toggle showing a state that silently failed to actually apply.
+        loadMods();
+        toast(`Couldn't ${enabled ? "enable" : "disable"} ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+      }
     },
     [instance.modsDir]
   );
 
   const handleRemove = useCallback(
     async (mod: ModInfo) => {
-      const updated = await window.api.mods.remove(instance.modsDir, mod.id);
-      setMods(updated);
+      try {
+        const updated = await window.api.mods.remove(instance.modsDir, mod.id);
+        setMods(updated);
+      } catch (err) {
+        toast(`Couldn't remove ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+      }
     },
     [instance.modsDir]
   );
@@ -121,25 +136,42 @@ export default function InstanceDetail({
   );
 
   const applyPreset = async (tags: ModTag[]) => {
-    const updated = await window.api.mods.applyPreset(instance.modsDir, tags);
-    setMods(updated);
+    try {
+      const updated = await window.api.mods.applyPreset(instance.modsDir, tags);
+      setMods(updated);
+    } catch (err) {
+      toast(`Couldn't apply preset: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const enableAll = async () => {
     const changes = Object.fromEntries(mods.filter((m) => !m.enabled).map((m) => [m.id, true]));
-    const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
-    setMods(updated);
+    try {
+      const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
+      setMods(updated);
+    } catch (err) {
+      toast(`Couldn't enable all mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const disableAll = async () => {
     const changes = Object.fromEntries(mods.filter((m) => m.enabled).map((m) => [m.id, false]));
-    const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
-    setMods(updated);
+    try {
+      const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
+      setMods(updated);
+    } catch (err) {
+      toast(`Couldn't disable all mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const saveDraft = async () => {
-    await window.api.instances.update(draft);
-    onInstanceChanged();
+    try {
+      await window.api.instances.update(draft);
+      onInstanceChanged();
+      toast("Instance settings saved", "success");
+    } catch (err) {
+      toast(`Couldn't save instance settings: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const enabledCount = mods.filter((m) => m.enabled).length;

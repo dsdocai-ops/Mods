@@ -118,12 +118,26 @@ export default function App() {
   };
 
   const handleStop = async (instance: Instance) => {
-    await window.api.launch.stop(instance.id);
-    setRunningIds((prev) => {
-      const next = new Set(prev);
-      next.delete(instance.id);
-      return next;
-    });
+    try {
+      await window.api.launch.stop(instance.id);
+      setRunningIds((prev) => {
+        const next = new Set(prev);
+        next.delete(instance.id);
+        return next;
+      });
+    } catch (err) {
+      // Without this, a rejected stop() left the Play/Stop button permanently stuck on "Stop"
+      // with no explanation - reconcile against the main process's actual view of what's running
+      // rather than guessing, since the failure could mean "still running" or "already exited".
+      const stillRunning = await window.api.launch.isRunning(instance.id);
+      setRunningIds((prev) => {
+        const next = new Set(prev);
+        if (stillRunning) next.add(instance.id);
+        else next.delete(instance.id);
+        return next;
+      });
+      toast(`Couldn't stop ${instance.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   // Stable references so the memoized Sidebar doesn't re-render on every log flush (App re-renders
@@ -172,9 +186,13 @@ export default function App() {
             onOpenGlobalSettings={handleOpenSettings}
             accountSwitchOpenSignal={switchAccountRequest.instanceId === selectedInstance.id ? switchAccountRequest.token : 0}
             onDeleted={async () => {
-              await window.api.instances.delete(selectedInstance.id);
-              const list = await refreshInstances();
-              setView(list.length > 0 ? { kind: "instance", id: list[0].id } : { kind: "welcome" });
+              try {
+                await window.api.instances.delete(selectedInstance.id);
+                const list = await refreshInstances();
+                setView(list.length > 0 ? { kind: "instance", id: list[0].id } : { kind: "welcome" });
+              } catch (err) {
+                toast(`Couldn't delete ${selectedInstance.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+              }
             }}
           />
         )}

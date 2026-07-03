@@ -59,8 +59,13 @@ export function importMods(modsDir: string, sourcePaths: string[]): ModInfo[] {
 
 /** Renames one mod's jar to reflect the desired enabled state, without the cost of a full directory re-scan. */
 function renameModFile(modsDir: string, modId: string, enabled: boolean): void {
-  const enabledPath = path.join(modsDir, modId);
-  const disabledPath = path.join(modsDir, modId + DISABLED_SUFFIX);
+  // modId is a bare renderer-supplied IPC argument (see mods:setEnabled/mods:remove in main.ts),
+  // not constrained at the handler level to values listMods() actually returned - path.basename
+  // matches the same guard importMods() above and shaders.ts already apply to file names of this
+  // kind, so a value containing "../" segments can't escape modsDir.
+  const safeId = path.basename(modId);
+  const enabledPath = path.join(modsDir, safeId);
+  const disabledPath = path.join(modsDir, safeId + DISABLED_SUFFIX);
 
   if (enabled && fs.existsSync(disabledPath)) {
     fs.renameSync(disabledPath, enabledPath);
@@ -78,7 +83,8 @@ export function setModEnabled(modsDir: string, modId: string, enabled: boolean):
 }
 
 export function removeMod(modsDir: string, modId: string): ModInfo[] {
-  for (const candidate of [modId, modId + DISABLED_SUFFIX]) {
+  const safeId = path.basename(modId); // see renameModFile's comment above for why
+  for (const candidate of [safeId, safeId + DISABLED_SUFFIX]) {
     const full = path.join(modsDir, candidate);
     if (fs.existsSync(full)) {
       fs.unlinkSync(full);

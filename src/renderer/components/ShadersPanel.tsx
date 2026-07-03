@@ -36,6 +36,8 @@ export default function ShadersPanel({ modsDir }: Props) {
       const updated = await window.api.shaders.import(modsDir, paths);
       setPacks(updated);
       toast(`Imported ${paths.length} shader pack${paths.length === 1 ? "" : "s"} - pick one in-game under Video Settings > Shader Packs.`, "success");
+    } catch (err) {
+      toast(`Couldn't import shader packs: ${err instanceof Error ? err.message : String(err)}`, "error");
     } finally {
       setImporting(false);
     }

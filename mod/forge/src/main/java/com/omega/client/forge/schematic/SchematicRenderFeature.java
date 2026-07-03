@@ -24,6 +24,10 @@ import net.minecraft.world.phys.Vec3;
  * The per-frame examined-block cap (not just the drawn-block cap) matches a fix applied to the
  * Fabric twin of this class - see its javadoc: capping only the draw count left the block-list walk
  * itself unbounded whenever most blocks were out of render range.
+ *
+ * The examine budget also rotates its starting point across frames (examineStartIndex) rather than
+ * always restarting at index 0 - another fix mirrored from the Fabric twin, see its javadoc: without
+ * this, any schematic bigger than the examine cap would permanently strand every entry past it.
  */
 public final class SchematicRenderFeature {
     private static final double MAX_RENDER_DISTANCE = 64.0;
@@ -33,13 +37,16 @@ public final class SchematicRenderFeature {
 
     private SchematicData active;
     private BlockPos origin = BlockPos.ZERO;
+    private int examineStartIndex = 0;
 
     public void setActive(SchematicData data) {
         this.active = data;
+        this.examineStartIndex = 0;
     }
 
     public void clear() {
         this.active = null;
+        this.examineStartIndex = 0;
     }
 
     public SchematicData getActive() {
@@ -62,10 +69,15 @@ public final class SchematicRenderFeature {
         matrices.pushPose();
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
 
+        int size = active.blocks.size();
+        if (examineStartIndex >= size) examineStartIndex = 0;
+
         int rendered = 0;
         int examined = 0;
-        for (SchematicBlockEntry entry : active.blocks) {
-            if (rendered >= MAX_RENDERED_BLOCKS_PER_FRAME || examined >= MAX_EXAMINED_BLOCKS_PER_FRAME) break;
+        int index = examineStartIndex;
+        while (examined < size && rendered < MAX_RENDERED_BLOCKS_PER_FRAME && examined < MAX_EXAMINED_BLOCKS_PER_FRAME) {
+            SchematicBlockEntry entry = active.blocks.get(index);
+            index = (index + 1) % size;
             examined++;
 
             double worldX = origin.getX() + entry.x;
@@ -80,13 +92,14 @@ public final class SchematicRenderFeature {
             WireBoxRenderer.drawBoxOutline(matrices, buffer, new BlockPos((int) worldX, (int) worldY, (int) worldZ), rgb[0], rgb[1], rgb[2], 0.85f);
             rendered++;
         }
+        examineStartIndex = index;
 
         matrices.popPose();
     }
 
-    /** Deterministic block-id -> color so different materials are visually distinguishable without real textures. */
+    /** Deterministic block-id -> color so different materials are visually distinguishable without real textures - null-safe since a corrupted/hand-edited schematic file can carry an entry with a missing "block" field. */
     private float[] colorForBlock(String blockId) {
-        int hash = blockId.hashCode();
+        int hash = (blockId != null ? blockId : "unknown").hashCode();
         float hue = ((hash & 0xFFFF) % 360) / 360f;
         return hsvToRgb(hue, 0.55f, 1.0f);
     }

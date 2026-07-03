@@ -22,6 +22,14 @@ const runningProcesses = new Map<string, ChildProcess>();
 // refresh for seconds) - they're not in runningProcesses yet, but a second launch:start for the
 // same instance during that window would otherwise pass the has() guard and spawn a second JVM.
 const pendingLaunches = new Set<string>();
+// Instances a stop request was just issued for. kill() only *requests* termination (SIGTERM is
+// asynchronous), but launch:stop already removes the instance from runningProcesses immediately
+// so the UI can flip Stop->Play right away - which means a fast Stop-then-Play could otherwise
+// pass both guards above and spawn a second JVM for the same instance while the first is still
+// tearing down. Cleared by the process's own "exit" listener, or after STOP_GRACE_MS as a
+// fallback in case something (a stuck child, a platform quirk) keeps exit from ever firing.
+const stoppingInstances = new Set<string>();
+const STOP_GRACE_MS = 5000;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -196,7 +204,7 @@ app.whenReady().then(() => {
   ipcMain.handle("accounts:remove", (_e, id: string) => accounts.removeAccount(id));
 
   ipcMain.handle("launch:start", async (_e, instance: Instance) => {
-    if (runningProcesses.has(instance.id) || pendingLaunches.has(instance.id)) {
+    if (runningProcesses.has(instance.id) || pendingLaunches.has(instance.id) || stoppingInstances.has(instance.id)) {
       throw new Error("This instance is already running.");
     }
     pendingLaunches.add(instance.id);
@@ -213,6 +221,7 @@ app.whenReady().then(() => {
       runningProcesses.set(instance.id, handle.process);
       handle.process.on("exit", () => {
         runningProcesses.delete(instance.id);
+        stoppingInstances.delete(instance.id);
         checkSwitchAccountRequest(instance);
       });
       instances.markLaunched(instance.id);
@@ -228,8 +237,10 @@ app.whenReady().then(() => {
   ipcMain.handle("launch:stop", (_e, instanceId: string) => {
     const proc = runningProcesses.get(instanceId);
     if (proc) {
+      stoppingInstances.add(instanceId);
       proc.kill();
       runningProcesses.delete(instanceId);
+      setTimeout(() => stoppingInstances.delete(instanceId), STOP_GRACE_MS);
     }
     return true;
   });
