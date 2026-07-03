@@ -13,6 +13,7 @@ import com.omega.client.forge.schematic.SchematicSelection;
 import com.omega.client.session.SessionInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -78,7 +79,7 @@ public class OmegaClientForge {
     }
 
     private void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
-        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> infoHud.render(guiGraphics, hudSettings()));
+        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> renderHud(guiGraphics));
     }
 
     @SubscribeEvent
@@ -109,7 +110,7 @@ public class OmegaClientForge {
         fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isDown());
         toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(hudSettings(), client);
+        infoHud.tick(hudSettings());
 
         if (client.player != null && client.level != null) {
             blockHighlight.tick(config, client.level, client.player.blockPosition());
@@ -158,5 +159,55 @@ public class OmegaClientForge {
                 config.hudShowCps,
                 config.hudShowKeystrokes
         );
+    }
+
+    // Drawing itself stays loader-specific - GuiGraphics (official) and Fabric's DrawContext (Yarn)
+    // are different types at each module's own compile time even though they're the same class once
+    // fully remapped, so the actual draw calls can't live in common/. See InfoHudFeature's javadoc
+    // for the full explanation. The state behind these draws (cached strings, which keys are held)
+    // does live in common/ - this method only reads it and calls GuiGraphics's own drawing methods.
+    private void renderHud(GuiGraphics context) {
+        HudSettings settings = hudSettings();
+        if (!settings.enabled()) return;
+
+        Minecraft client = Minecraft.getInstance();
+        int x = 6;
+        int y = 6;
+        int lineHeight = client.font.lineHeight + 2;
+
+        if (settings.showCoords() && client.player != null) {
+            context.drawString(client.font, infoHud.coords(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showFps()) {
+            context.drawString(client.font, infoHud.fps(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showPing() && !infoHud.ping().isEmpty()) {
+            context.drawString(client.font, infoHud.ping(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showDirection() && !infoHud.direction().isEmpty()) {
+            context.drawString(client.font, infoHud.direction(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showCps()) {
+            infoHud.pollCps();
+            context.drawString(client.font, infoHud.cpsText(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showKeystrokes()) {
+            renderKeystrokes(context, client, x, y);
+        }
+    }
+
+    private void renderKeystrokes(GuiGraphics context, Minecraft client, int x, int y) {
+        for (int i = 0; i < InfoHudFeature.KEY_LABELS.length; i++) {
+            int keyX = x + i * (InfoHudFeature.KEY_BOX_SIZE + InfoHudFeature.KEY_BOX_GAP);
+            boolean held = infoHud.keyHeld(i);
+            int color = held ? 0xFF3B9CFF : InfoHudFeature.SHADOW_BG;
+            context.fill(keyX, y, keyX + InfoHudFeature.KEY_BOX_SIZE, y + InfoHudFeature.KEY_BOX_SIZE, color);
+            context.drawCenteredString(client.font, InfoHudFeature.KEY_LABELS[i], keyX + InfoHudFeature.KEY_BOX_SIZE / 2, y + InfoHudFeature.KEY_BOX_SIZE / 2 - 4, InfoHudFeature.TEXT_COLOR);
+        }
     }
 }

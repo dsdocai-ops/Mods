@@ -16,6 +16,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -90,7 +91,7 @@ public class OmegaClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> schematicRender.render(context, config));
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> infoHud.render(drawContext, hudSettings()));
+        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> renderHud(drawContext));
     }
 
     private void onClientTick(MinecraftClient client) {
@@ -116,7 +117,7 @@ public class OmegaClient implements ClientModInitializer {
         fullbright.tick(config.fullbrightEnabled);
         fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isPressed());
         toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(hudSettings(), client);
+        infoHud.tick(hudSettings());
 
         if (client.player != null && client.world != null) {
             blockHighlight.tick(config, client.world, client.player.getBlockPos());
@@ -149,5 +150,56 @@ public class OmegaClient implements ClientModInitializer {
                 config.hudShowCps,
                 config.hudShowKeystrokes
         );
+    }
+
+    // Drawing itself stays loader-specific - DrawContext (Yarn) and GuiGraphics (official, what
+    // common/'s InfoHudFeature would need to take as a parameter) are different types at this
+    // module's compile time even though they're the same class once fully remapped, so the actual
+    // draw calls can't live in common/. See InfoHudFeature's javadoc for the full explanation. The
+    // state behind these draws (cached strings, which keys are held) does live in common/ - this
+    // method only reads it and calls DrawContext's own drawing methods.
+    private void renderHud(DrawContext context) {
+        HudSettings settings = hudSettings();
+        if (!settings.enabled()) return;
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        int x = 6;
+        int y = 6;
+        int lineHeight = client.textRenderer.fontHeight + 2;
+
+        if (settings.showCoords() && client.player != null) {
+            context.drawTextWithShadow(client.textRenderer, infoHud.coords(), x, y, InfoHudFeature.TEXT_COLOR);
+            y += lineHeight;
+        }
+        if (settings.showFps()) {
+            context.drawTextWithShadow(client.textRenderer, infoHud.fps(), x, y, InfoHudFeature.TEXT_COLOR);
+            y += lineHeight;
+        }
+        if (settings.showPing() && !infoHud.ping().isEmpty()) {
+            context.drawTextWithShadow(client.textRenderer, infoHud.ping(), x, y, InfoHudFeature.TEXT_COLOR);
+            y += lineHeight;
+        }
+        if (settings.showDirection() && !infoHud.direction().isEmpty()) {
+            context.drawTextWithShadow(client.textRenderer, infoHud.direction(), x, y, InfoHudFeature.TEXT_COLOR);
+            y += lineHeight;
+        }
+        if (settings.showCps()) {
+            infoHud.pollCps();
+            context.drawTextWithShadow(client.textRenderer, infoHud.cpsText(), x, y, InfoHudFeature.TEXT_COLOR);
+            y += lineHeight;
+        }
+        if (settings.showKeystrokes()) {
+            renderKeystrokes(context, client, x, y);
+        }
+    }
+
+    private void renderKeystrokes(DrawContext context, MinecraftClient client, int x, int y) {
+        for (int i = 0; i < InfoHudFeature.KEY_LABELS.length; i++) {
+            int keyX = x + i * (InfoHudFeature.KEY_BOX_SIZE + InfoHudFeature.KEY_BOX_GAP);
+            boolean held = infoHud.keyHeld(i);
+            int color = held ? 0xFF3B9CFF : InfoHudFeature.SHADOW_BG;
+            context.fill(keyX, y, keyX + InfoHudFeature.KEY_BOX_SIZE, y + InfoHudFeature.KEY_BOX_SIZE, color);
+            context.drawCenteredTextWithShadow(client.textRenderer, InfoHudFeature.KEY_LABELS[i], keyX + InfoHudFeature.KEY_BOX_SIZE / 2, y + InfoHudFeature.KEY_BOX_SIZE / 2 - 4, InfoHudFeature.TEXT_COLOR);
+        }
     }
 }

@@ -1,48 +1,51 @@
 package com.omega.client.features;
 
-import com.omega.client.hud.CpsTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.client.player.LocalPlayer;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Purely informational overlay (coordinates / FPS / ping / facing / CPS / which movement+attack
- * keys are currently held). Nothing here reads data the player couldn't already see through
- * vanilla's own F3 debug screen or tab list - it's just a friendlier always-on subset of it.
+ * Purely informational overlay state (coordinates / FPS / ping / facing / CPS / which
+ * movement+attack keys are currently held). Nothing here reads data the player couldn't already
+ * see through vanilla's own F3 debug screen or tab list - it's just a friendlier always-on subset
+ * of it.
  *
- * The text lines are recomputed on the 20/s tick loop and cached, not on every render() call -
- * render() can fire well over 20 times a second (uncapped or high-refresh-rate displays, exactly
- * the setup competitive PvP players tend to run), so formatting fresh strings there was needless
- * GC churn every single frame for numbers that only meaningfully change 20 times a second. The
- * one exception is the CPS tracker's button sampling, which runs per-frame by design: clicks can
- * be shorter than a tick, and 20 Hz sampling would undercount fast clickers (see CpsTracker).
- *
- * Compiles once here against official mappings, remapped per-platform (see FullbrightFeature's
- * javadoc for the general pattern).
+ * This class only ever computes and caches plain data (String/boolean) - it deliberately never
+ * takes or returns a Minecraft-mapped type as a public parameter. A render(GuiGraphics, ...) method
+ * was tried here first and failed to compile on the Fabric side: at Fabric's compile time, common/'s
+ * classes are seen through their *official*-mapped signatures (the `common` dependency configuration
+ * gives the raw, unremapped compile-time view - only the final shadowJar-merged runtime artifact
+ * goes through transformProductionFabric's remapping), so a method typed `GuiGraphics` there is a
+ * different, unrelated type from Fabric's own `DrawContext`-typed HudRenderCallback parameter, even
+ * though they're "the same" class once fully remapped at the bytecode level. FullbrightFeature/
+ * FovZoomFeature/ToggleSprintFeature never hit this because their public signatures are already
+ * primitives-only. The actual drawing (which genuinely needs a method-scoped, platform-native draw
+ * context - there's no way to fetch one via a static call) stays a small per-loader wrapper in
+ * OmegaClient.java / OmegaClientForge.java, reading the plain data cached here.
  */
 public final class InfoHudFeature {
-    private static final int TEXT_COLOR = 0xFFFFFF;
-    private static final int SHADOW_BG = 0x66000000;
-    private static final int KEY_BOX_SIZE = 18;
-    private static final int KEY_BOX_GAP = 2;
-    private static final String[] KEY_LABELS = {"W", "A", "S", "D", "SP", "LM"};
+    public static final int TEXT_COLOR = 0xFFFFFF;
+    public static final int SHADOW_BG = 0x66000000;
+    public static final int KEY_BOX_SIZE = 18;
+    public static final int KEY_BOX_GAP = 2;
+    public static final String[] KEY_LABELS = {"W", "A", "S", "D", "SP", "LM"};
 
     private String cachedCoords = "";
     private String cachedFps = "";
     private String cachedPing = "";
     private String cachedDirection = "";
+    private String cachedCps = "";
     private KeyMapping[] keyBindings;
+    private final boolean[] keyHeld = new boolean[6];
     private final CpsTracker cps = new CpsTracker();
 
-    public void tick(HudSettings settings, Minecraft client) {
+    public void tick(HudSettings settings) {
         if (!settings.enabled()) return;
+        Minecraft client = Minecraft.getInstance();
 
         if (settings.showCoords() && client.player != null) {
-            LocalPlayer p = client.player;
-            cachedCoords = String.format("%.1f, %.1f, %.1f", p.getX(), p.getY(), p.getZ());
+            cachedCoords = String.format("%.1f, %.1f, %.1f", client.player.getX(), client.player.getY(), client.player.getZ());
         }
         if (settings.showFps()) {
             cachedFps = client.getFps() + " fps";
@@ -57,73 +60,62 @@ public final class InfoHudFeature {
         if (settings.showDirection() && client.player != null) {
             cachedDirection = "Facing: " + prettyDirection(client.player.getDirection().getName());
         }
+        if (settings.showKeystrokes()) {
+            if (keyBindings == null) {
+                keyBindings = new KeyMapping[]{
+                        client.options.keyUp,
+                        client.options.keyLeft,
+                        client.options.keyDown,
+                        client.options.keyRight,
+                        client.options.keyJump,
+                        client.options.keyAttack,
+                };
+            }
+            for (int i = 0; i < keyBindings.length; i++) {
+                keyHeld[i] = keyBindings[i].isDown();
+            }
+        }
     }
 
-    public void render(GuiGraphics context, HudSettings settings) {
-        if (!settings.enabled()) return;
-
+    /**
+     * Must be called every frame (not just on the 20Hz tick) when showCps is on - clicks can be
+     * shorter than a tick, and 20Hz sampling would undercount fast clickers (see CpsTracker).
+     */
+    public void pollCps() {
         Minecraft client = Minecraft.getInstance();
-        int x = 6;
-        int y = 6;
-        int lineHeight = client.font.lineHeight + 2;
+        long window = client.getWindow().getWindow();
+        cps.update(
+                GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS,
+                GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
+        );
+        cachedCps = cps.leftCps() + " | " + cps.rightCps() + " cps";
+    }
 
-        if (settings.showCoords() && client.player != null) {
-            context.drawString(client.font, cachedCoords, x, y, TEXT_COLOR, true);
-            y += lineHeight;
-        }
+    public String coords() {
+        return cachedCoords;
+    }
 
-        if (settings.showFps()) {
-            context.drawString(client.font, cachedFps, x, y, TEXT_COLOR, true);
-            y += lineHeight;
-        }
+    public String fps() {
+        return cachedFps;
+    }
 
-        if (settings.showPing() && !cachedPing.isEmpty()) {
-            context.drawString(client.font, cachedPing, x, y, TEXT_COLOR, true);
-            y += lineHeight;
-        }
+    public String ping() {
+        return cachedPing;
+    }
 
-        if (settings.showDirection() && !cachedDirection.isEmpty()) {
-            context.drawString(client.font, cachedDirection, x, y, TEXT_COLOR, true);
-            y += lineHeight;
-        }
+    public String direction() {
+        return cachedDirection;
+    }
 
-        if (settings.showCps()) {
-            long window = client.getWindow().getWindow();
-            cps.update(
-                    GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS,
-                    GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS
-            );
-            context.drawString(client.font, cps.leftCps() + " | " + cps.rightCps() + " cps", x, y, TEXT_COLOR, true);
-            y += lineHeight;
-        }
+    public String cpsText() {
+        return cachedCps;
+    }
 
-        if (settings.showKeystrokes()) {
-            renderKeystrokes(context, client, x, y);
-        }
+    public boolean keyHeld(int index) {
+        return keyHeld[index];
     }
 
     private static String prettyDirection(String name) {
         return name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
-    }
-
-    private void renderKeystrokes(GuiGraphics context, Minecraft client, int x, int y) {
-        if (keyBindings == null) {
-            keyBindings = new KeyMapping[]{
-                    client.options.keyUp,
-                    client.options.keyLeft,
-                    client.options.keyDown,
-                    client.options.keyRight,
-                    client.options.keyJump,
-                    client.options.keyAttack,
-            };
-        }
-
-        for (int i = 0; i < keyBindings.length; i++) {
-            int keyX = x + i * (KEY_BOX_SIZE + KEY_BOX_GAP);
-            boolean held = keyBindings[i].isDown();
-            int color = held ? 0xFF3B9CFF : SHADOW_BG;
-            context.fill(keyX, y, keyX + KEY_BOX_SIZE, y + KEY_BOX_SIZE, color);
-            context.drawCenteredString(client.font, KEY_LABELS[i], keyX + KEY_BOX_SIZE / 2, y + KEY_BOX_SIZE / 2 - 4, TEXT_COLOR);
-        }
     }
 }
