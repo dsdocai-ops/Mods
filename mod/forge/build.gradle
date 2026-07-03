@@ -4,12 +4,13 @@
 // Loom bundles its own Mixin annotation processing (same mechanism the fabric module already got
 // for free from fabric-loom), so the separate org.spongepowered.mixin plugin + SpongePowered maven
 // repo + manual `mixin { add ...; config ... }` refmap wiring the ForgeGradle setup needed are gone
-// - Loom auto-detects the *.mixins.json under src/main/resources and generates the refmap itself,
-// driven by the same META-INF/mods.toml `[[mixins]]` entry that already declared it at runtime.
+// - the loom.forge.mixinConfig(...) call below is what wires the refmap now, alongside the same
+// META-INF/mods.toml `[[mixins]]` entry that already declared it at runtime.
 // This module went through two rounds of real-compiler correction the first time it targeted
-// Forge's official mappings (see mod/README.md) - this toolchain switch needed three rounds of its
-// own before landing on the right shape, all around how the plugins themselves get applied (see the
-// root build.gradle's comment) rather than anything Forge-specific.
+// Forge's official mappings (see mod/README.md) - this toolchain switch needed several rounds of
+// its own before landing on the right shape (see the root build.gradle's comment for the plugin-
+// application history; the loom.forge{} block below was the piece that finally made forge(...)
+// exist as a dependency method at all).
 
 // Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - see the root
 // build.gradle's comment for why.
@@ -23,6 +24,17 @@ base {
 architectury {
     platformSetupLoomIde()
     forge()
+}
+
+// The reference this is modeled on (RoughlyEnoughItems' forge/build.gradle) has this block too,
+// and is the one remaining structural difference after four failed rounds all hit the identical
+// "Could not find method forge()" regardless of plugin-application order or Loom version (1.6.422
+// and 1.7.435 both failed identically) - Loom's forge dependency-handler extension may only
+// register once this loom.forge{} configuration itself has been touched.
+loom {
+    forge {
+        mixinConfig "omega_client_forge.mixins.json"
+    }
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
