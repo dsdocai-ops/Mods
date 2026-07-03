@@ -1,11 +1,11 @@
 package com.omega.client.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
-import com.omega.client.forge.features.FovZoomFeature;
 import com.omega.client.forge.features.InfoHudFeature;
-import com.omega.client.forge.features.ToggleSprintFeature;
 import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
@@ -106,8 +106,8 @@ public class OmegaClientForge {
         }
 
         fullbright.tick(config.fullbrightEnabled);
-        fovZoom.tick(config, zoomKey.isDown());
-        toggleSprint.tick(config);
+        fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isDown());
+        toggleSprint.tick(config.toggleSprintEnabled);
         infoHud.tick(config, client);
 
         if (client.player != null && client.level != null) {
