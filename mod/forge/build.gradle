@@ -35,13 +35,14 @@ repositories {
 }
 
 dependencies {
-    // `minecraft`/`mappings` establish the base Loom target the same way fabric/build.gradle does
-    // (official mappings here, not Yarn) - the `forge(...)` dependency config below only exists
-    // once these are declared; omitting them was the first CI round's actual failure ("Could not
-    // find method forge()"), since Loom hadn't initialized its Forge dependency extension yet.
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    // No separate forge() dependency config exists in this Loom line (confirmed by two straight CI
+    // failures on "Could not find method forge()", the second one even with minecraft/mappings
+    // declared alongside it) - Forge reuses the `minecraft` config for the Forge-patched artifact
+    // coordinate itself, the same way ForgeGradle's `minecraft "net.minecraftforge:forge:..."`
+    // always worked, just with mappings now declared as their own explicit Loom dependency instead
+    // of ForgeGradle's `mappings channel: 'official'` block.
     mappings loom.officialMojangMappings()
-    forge "net.minecraftforge:forge:${project.forge_version}"
+    minecraft "net.minecraftforge:forge:${project.forge_version}"
 }
 
 processResources {
