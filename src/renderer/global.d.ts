@@ -11,6 +11,7 @@ import type {
   ModInfo,
   ModTag,
   PublicAccount,
+  ShaderPackInfo,
 } from "@shared/types";
 
 export interface LauncherApi {
@@ -24,6 +25,7 @@ export interface LauncherApi {
   dialog: {
     pickDirectory(): Promise<string | null>;
     pickJarFiles(): Promise<string[]>;
+    pickShaderFiles(): Promise<string[]>;
   };
   external: {
     open(url: string): Promise<boolean>;
@@ -35,6 +37,11 @@ export interface LauncherApi {
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
     setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
+  };
+  shaders: {
+    list(modsDir: string): Promise<ShaderPackInfo[]>;
+    import(modsDir: string, sourcePaths: string[]): Promise<ShaderPackInfo[]>;
+    remove(modsDir: string, fileName: string): Promise<ShaderPackInfo[]>;
   };
   modConfig: {
     find(modsDir: string, modId: string): Promise<string | null>;
@@ -53,6 +60,7 @@ export interface LauncherApi {
   };
   updates: {
     install(): Promise<boolean>;
+    checkNow(): Promise<"unsupported" | "ready" | "checked" | "error">;
     onReady(callback: (version: string) => void): () => void;
   };
   settings: {

@@ -9,6 +9,7 @@ import type {
   LaunchLogEvent,
   ModTag,
   PublicAccount,
+  ShaderPackInfo,
 } from "../shared/types";
 
 const api = {
@@ -22,6 +23,7 @@ const api = {
   dialog: {
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke("dialog:pickDirectory"),
     pickJarFiles: (): Promise<string[]> => ipcRenderer.invoke("dialog:pickJarFiles"),
+    pickShaderFiles: (): Promise<string[]> => ipcRenderer.invoke("dialog:pickShaderFiles"),
   },
   external: {
     open: (url: string): Promise<boolean> => ipcRenderer.invoke("external:open", url),
@@ -35,6 +37,13 @@ const api = {
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
     setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
       ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
+  },
+  shaders: {
+    list: (modsDir: string): Promise<ShaderPackInfo[]> => ipcRenderer.invoke("shaders:list", modsDir),
+    import: (modsDir: string, sourcePaths: string[]): Promise<ShaderPackInfo[]> =>
+      ipcRenderer.invoke("shaders:import", modsDir, sourcePaths),
+    remove: (modsDir: string, fileName: string): Promise<ShaderPackInfo[]> =>
+      ipcRenderer.invoke("shaders:remove", modsDir, fileName),
   },
   modConfig: {
     find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),
@@ -59,6 +68,7 @@ const api = {
   },
   updates: {
     install: (): Promise<boolean> => ipcRenderer.invoke("updates:install"),
+    checkNow: (): Promise<"unsupported" | "ready" | "checked" | "error"> => ipcRenderer.invoke("updates:checkNow"),
     onReady: (callback: (version: string) => void) => {
       const listener = (_e: Electron.IpcRendererEvent, version: string) => callback(version);
       ipcRenderer.on("updates:ready", listener);

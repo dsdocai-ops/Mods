@@ -6,6 +6,7 @@ import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import FeaturesPanel from "../components/FeaturesPanel";
+import ShadersPanel from "../components/ShadersPanel";
 import { toast } from "../toast";
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
   accountSwitchOpenSignal: number;
 }
 
-type Tab = "features" | "mods" | "console" | "settings";
+type Tab = "features" | "mods" | "shaders" | "console" | "settings";
 
 export default function InstanceDetail({
   instance,
@@ -180,6 +181,9 @@ export default function InstanceDetail({
         <button className={tab === "mods" ? "tab active" : "tab"} onClick={() => setTab("mods")}>
           Mods
         </button>
+        <button className={tab === "shaders" ? "tab active" : "tab"} onClick={() => setTab("shaders")}>
+          Shaders
+        </button>
         <button className={tab === "console" ? "tab active" : "tab"} onClick={() => setTab("console")}>
           Console
         </button>
@@ -232,6 +236,8 @@ export default function InstanceDetail({
       )}
 
       {tab === "features" && <FeaturesPanel modsDir={instance.modsDir} />}
+
+      {tab === "shaders" && <ShadersPanel modsDir={instance.modsDir} />}
 
       {tab === "console" && <ConsoleLog lines={logLines} />}
 

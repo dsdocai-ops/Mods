@@ -44,7 +44,7 @@ public class ClickGuiScreen extends Screen {
         // "auto" GUI scale on 1080p the scaled screen is only ~270px tall, and nine stacked rows
         // plus the nav buttons would push "Done" off-screen.
         int toggleRows = 5;
-        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 2 + 8 + ROW_HEIGHT + 8 + 20;
+        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 3 + 8 + ROW_HEIGHT + 8 + 20;
         headerY = Math.max(6, (this.height - contentHeight) / 2);
         int leftX = this.width / 2 - ROW_WIDTH - 4;
         int rightX = this.width / 2 + 4;
@@ -76,6 +76,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Particles..."), b -> {
                     if (this.client != null) this.client.setScreen(new ParticleScreen(config, this));
+                })
+                .dimensions(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Weather & Time..."), b -> {
+                    if (this.client != null) this.client.setScreen(new WeatherTimeScreen(this));
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());

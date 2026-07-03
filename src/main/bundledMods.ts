@@ -91,11 +91,15 @@ function hasModLike(modsDir: string, prefix: string): boolean {
   return fs.readdirSync(modsDir).some((f) => f.toLowerCase().startsWith(prefix) && f.includes(".jar"));
 }
 
-/** Latest Fabric API release for an MC version, from Modrinth. */
-async function fabricApiUrl(minecraftVersion: string): Promise<{ url: string; fileName: string }> {
-  const query = `${MODRINTH_API}/project/fabric-api/version?game_versions=${encodeURIComponent(
+/** Latest Modrinth release of `projectSlug` compatible with an MC version + loader. */
+async function modrinthLatestUrl(
+  projectSlug: string,
+  minecraftVersion: string,
+  loader: "fabric" | "forge"
+): Promise<{ url: string; fileName: string }> {
+  const query = `${MODRINTH_API}/project/${projectSlug}/version?game_versions=${encodeURIComponent(
     JSON.stringify([minecraftVersion])
-  )}&loaders=${encodeURIComponent(JSON.stringify(["fabric"]))}`;
+  )}&loaders=${encodeURIComponent(JSON.stringify([loader]))}`;
   const response = await fetchWithRetry(query);
   if (!response.ok) {
     throw new Error(`Modrinth query failed (${response.status})`);
@@ -103,10 +107,63 @@ async function fabricApiUrl(minecraftVersion: string): Promise<{ url: string; fi
   const versions = (await response.json()) as any[];
   const release = versions.find((v) => v.version_type === "release") ?? versions[0];
   if (!release) {
-    throw new Error(`No Fabric API build on Modrinth for Minecraft ${minecraftVersion}.`);
+    throw new Error(`No ${projectSlug} build on Modrinth for Minecraft ${minecraftVersion} (${loader}).`);
   }
   const file = release.files.find((f: any) => f.primary) ?? release.files[0];
   return { url: file.url, fileName: file.filename };
+}
+
+/** Latest Fabric API release for an MC version, from Modrinth. */
+async function fabricApiUrl(minecraftVersion: string): Promise<{ url: string; fileName: string }> {
+  return modrinthLatestUrl("fabric-api", minecraftVersion, "fabric");
+}
+
+/**
+ * The shaders capability itself ("can shaderpacks even be loaded") vs. which .zip is active
+ * (managed separately - see shaders.ts) needs a shader-loading mod, which vanilla has none of:
+ * Iris (+ its Sodium dependency) on Fabric, Oculus (which pulls in its own Sodium fork, Rubidium)
+ * on Forge. Fetched from Modrinth the same way Fabric API is, and only ever added to instances the
+ * user points the launcher at - never throws, same non-fatal contract as ensureOmegaMods.
+ */
+export async function ensureShaderSupport(instance: Instance, log: (line: string) => void): Promise<void> {
+  const loader = instance.loader === "fabric" || instance.loader === "quilt" ? "fabric" : instance.loader === "forge" ? "forge" : null;
+  if (!loader) return; // vanilla/neoforge: no shader loader to install (yet)
+
+  const shaderLoaderProject = loader === "fabric" ? "iris" : "oculus";
+  if (hasModLike(instance.modsDir, shaderLoaderProject)) return; // already present (bundled or user-added)
+
+  let minecraftVersion: string;
+  try {
+    const resolved = resolveVersion(instance.gameDir, instance.versionId);
+    minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
+  } catch (err) {
+    log(`[launcher] warning: couldn't resolve Minecraft version for shader support: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  try {
+    const { url, fileName } = await modrinthLatestUrl(shaderLoaderProject, minecraftVersion, loader);
+    const cached = await downloadToCache(url, fileName);
+    placeJar(cached, instance.modsDir, fileName);
+    log(`[launcher] ${shaderLoaderProject === "iris" ? "Iris" : "Oculus"} (${fileName}) installed from Modrinth - shaderpacks can now be added`);
+  } catch (err) {
+    log(`[launcher] warning: couldn't fetch a shader loader from Modrinth: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  // Iris on Fabric needs Sodium as a separate dependency (not bundled inside its own jar); Oculus
+  // on Forge brings its Sodium fork (Rubidium) in as its own dependency chain, so only Fabric needs
+  // this extra fetch.
+  if (loader === "fabric" && !hasModLike(instance.modsDir, "sodium")) {
+    try {
+      const { url, fileName } = await modrinthLatestUrl("sodium", minecraftVersion, "fabric");
+      const cached = await downloadToCache(url, fileName);
+      placeJar(cached, instance.modsDir, fileName);
+      log(`[launcher] Sodium (${fileName}) installed from Modrinth`);
+    } catch (err) {
+      log(`[launcher] warning: couldn't fetch Sodium from Modrinth: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 }
 
 /**

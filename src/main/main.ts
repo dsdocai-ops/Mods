@@ -5,13 +5,14 @@ import type { ChildProcess } from "node:child_process";
 import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
+import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
 import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
 import { ensureOmegaConfig, findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
-import { ensureOmegaMods } from "./bundledMods";
+import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 
@@ -68,7 +69,7 @@ app.whenReady().then(() => {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
   }
 
-  setupAutoUpdater(sendToRenderer);
+  setupAutoUpdater(sendToRenderer, store.getSettings().autoUpdateEnabled);
 
   /** The companion mod's in-game "Switch Account" button writes this marker right before quitting - see launch.ts. */
   function checkSwitchAccountRequest(instance: Instance) {
@@ -92,6 +93,7 @@ app.whenReady().then(() => {
     // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance
     // exists. ensureOmegaMods never throws (logs and moves on), so creation can't fail on network.
     await ensureOmegaMods(instance, (line) => console.log(line));
+    await ensureShaderSupport(instance, (line) => console.log(line));
     return instance;
   });
   ipcMain.handle("instances:update", (_e, instance: Instance) => instances.updateInstance(instance));
@@ -106,6 +108,13 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog(win, {
       properties: ["openFile", "multiSelections"],
       filters: [{ name: "Minecraft Mods", extensions: ["jar"] }],
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+  ipcMain.handle("dialog:pickShaderFiles", async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "Shader Packs", extensions: ["zip"] }],
     });
     return result.canceled ? [] : result.filePaths;
   });
@@ -129,6 +138,10 @@ app.whenReady().then(() => {
   ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
     mods.setModsEnabledBulk(modsDir, changes)
   );
+
+  ipcMain.handle("shaders:list", (_e, modsDir: string) => shaders.listShaderPacks(modsDir));
+  ipcMain.handle("shaders:import", (_e, modsDir: string, sourcePaths: string[]) => shaders.importShaderPacks(modsDir, sourcePaths));
+  ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
   ipcMain.handle("modconfig:ensureOmega", (_e, modsDir: string) => ensureOmegaConfig(path.dirname(modsDir)));
@@ -187,6 +200,7 @@ app.whenReady().then(() => {
     try {
       // Keep the preinstalled Omega mod current on every launch (also self-heals a deleted jar).
       await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
+      await ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
