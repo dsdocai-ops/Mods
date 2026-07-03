@@ -1,10 +1,19 @@
 plugins {
-    id 'fabric-loom' version '1.6.12'
+    id 'architectury-plugin' version "${architectury_plugin_version}"
+    id 'dev.architectury.loom' version "${architectury_loom_version}"
     id 'maven-publish'
 }
 
 base {
     archivesName = "${project.archives_base_name}-fabric"
+}
+
+// Architectury Loom is a drop-in superset of Fabric Loom (same `loom {}` extension, same task
+// names/outputs) - this fabric() declaration is the only thing this module adds over what plain
+// fabric-loom already did; everything else below is unchanged from before the Architectury switch.
+architectury {
+    platformSetupLoomIde()
+    fabric()
 }
 
 repositories {

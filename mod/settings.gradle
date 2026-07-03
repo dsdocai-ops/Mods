@@ -5,14 +5,16 @@ pluginManagement {
             url = "https://maven.fabricmc.net/"
         }
         maven {
-            name = "MinecraftForge"
-            url = "https://maven.minecraftforge.net/"
+            // architectury-plugin + architectury-loom - both fabric/ and forge/ build through this
+            // toolchain now (see mod/README.md's Architectury section). Loom's own Mixin annotation
+            // processing replaces the separate SpongePowered MixinGradle plugin the Forge module
+            // used to need for refmap generation.
+            name = "Architectury"
+            url = "https://maven.architectury.dev/"
         }
         maven {
-            // MixinGradle (org.spongepowered.mixin) - refmap generation for the Forge module's
-            // particle Mixin, see forge/build.gradle.
-            name = "SpongePowered"
-            url = "https://repo.spongepowered.org/repository/maven-public/"
+            name = "MinecraftForge"
+            url = "https://maven.minecraftforge.net/"
         }
         mavenCentral()
         gradlePluginPortal()

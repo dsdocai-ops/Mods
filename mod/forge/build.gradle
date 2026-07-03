@@ -1,18 +1,26 @@
-// Standard ForgeGradle MDK-template shape (the official Forge project template's structure has
-// been stable across many Minecraft versions) - the exact plugin version range is the one spot
-// here I'd double check first if this doesn't resolve, same spirit as the moderate-confidence
-// spots flagged in mod/README.md.
+// Architectury Loom, not stock ForgeGradle: this is what lets fabric/ and forge/ eventually share
+// Minecraft-touching code in common/ (see mod/README.md's Architectury section) - both loaders now
+// build through the same Loom toolchain instead of Forge using its own separate ForgeGradle DSL.
+// Loom bundles its own Mixin annotation processing (same mechanism the fabric module already got
+// for free from fabric-loom), so the separate org.spongepowered.mixin plugin + SpongePowered maven
+// repo + manual `mixin { add ...; config ... }` refmap wiring the ForgeGradle setup needed are gone
+// - Loom auto-detects the *.mixins.json under src/main/resources and generates the refmap itself,
+// driven by the same META-INF/mods.toml `[[mixins]]` entry that already declared it at runtime.
+// This module went through two rounds of real-compiler correction the first time it targeted
+// Forge's official mappings (see mod/README.md) - this toolchain switch is new and unverified
+// against a real compile in the same way, so the first CI run here is the actual test.
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    // Official MixinGradle: generates the SRG refmap the particle Mixin needs to apply in
-    // production. Forge 1.20.1 runs SRG names at runtime (only dev uses official mappings), so a
-    // refmap is genuinely required - an earlier attempt to skip it with a compiler flag was wrong,
-    // and CI's annotation processor said so explicitly.
-    id 'org.spongepowered.mixin' version '0.7.+'
+    id 'architectury-plugin' version "${architectury_plugin_version}"
+    id 'dev.architectury.loom' version "${architectury_loom_version}"
 }
 
 base {
     archivesName = "${project.archives_base_name}-forge"
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge()
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -22,38 +30,14 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // separately-built jar.
 sourceSets.main.java.srcDir project(':common').file('src/main/java')
 
-minecraft {
-    mappings channel: 'official', version: project.minecraft_version
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                omega_client_forge {
-                    source sourceSets.main
-                }
-            }
-        }
-    }
-}
-
 repositories {
     mavenCentral()
-    // Only needed for the Mixin annotation processor dependency below - see the particle-control
-    // Mixin in mod/README.md's "Particle control" section.
-    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${project.forge_version}"
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-}
-
-mixin {
-    add sourceSets.main, 'omega_client_forge.refmap.json'
-    config 'omega_client_forge.mixins.json'
+    // Architectury Loom's Forge-specific dependency configuration - replaces ForgeGradle's
+    // `minecraft "net.minecraftforge:forge:..."` notation.
+    forge "net.minecraftforge:forge:${project.forge_version}"
 }
 
 processResources {
@@ -61,6 +45,12 @@ processResources {
     filesMatching("META-INF/mods.toml") {
         expand "version": project.version, "forge_loader_range": project.forge_loader_range
     }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType(JavaCompile).configureEach {
