@@ -4,6 +4,25 @@
  * or flat-array values. Not a spec-complete TOML implementation - multi-line arrays, inline tables,
  * and dates aren't supported. Comments are read but NOT preserved on write; saving a config through
  * the editor regenerates the file from parsed data, so hand-written comments will be lost.
+ *
+ * Known edge cases where a real TOML value survives parse but comes back different after any
+ * save-through-the-editor (found during an adversarial audit pass, deliberately not "fixed" - see
+ * why below):
+ *  - A whole-number float (`x = 1.0`) round-trips as an integer (`x = 1`) - TomlValue collapses
+ *    both to a plain JS `number` with no way to remember "this one had a decimal point", and fixing
+ *    that properly would mean either a type users of this module (modConfig.ts, the renderer's
+ *    generic number-input form editor) don't currently have to think about, or a lossy
+ *    string-based representation that breaks that same number input. Low real-world impact:
+ *    Forge/NightConfig coerces either token shape to the field's actual `double`/`float` type on
+ *    read, so this only shows up as a type change to something diffing the raw file, not a value
+ *    that misbehaves in-game.
+ *  - A quoted key (`"weird key" = 5`, valid TOML) doesn't match this parser's bare-key-only regex
+ *    and is silently dropped - on save, that setting disappears from the file entirely.
+ *  - Integers beyond Number.MAX_SAFE_INTEGER (e.g. a 64-bit seed) lose precision through the
+ *    JS-number round-trip.
+ *  - A malformed unterminated quoted string is misparsed rather than rejected outright (no crash,
+ *    just wrong data - e.g. a stray trailing backslash before the closing quote survives into the
+ *    parsed value instead of erroring).
  */
 
 export type TomlValue = string | number | boolean | TomlValue[];

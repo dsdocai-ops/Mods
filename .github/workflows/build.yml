@@ -10,11 +10,28 @@ on:
   push:
     branches: [main, "claude/**"]
 
+# Queues overlapping runs on the same branch instead of letting them run in parallel - the release
+# job's asset-purge-then-upload sequence against one shared "latest-build" GitHub Release isn't
+# safe under two concurrent runs (one run's purge step could delete an asset the other just
+# uploaded). cancel-in-progress stays false: killing a run mid-purge would be worse than queuing.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Lunar-style: the launcher ships with the Omega mod jars inside it (electron-builder
   # extraResources), so packaging depends on the mod build and stages its artifact first.
+  #
+  # `if: !cancelled()` is what actually delivers the "independent on purpose" guarantee from the
+  # comment below: needs: mod-jars alone only controls ordering, but GitHub Actions' default `if`
+  # for a needs-gated job is success() - so a mod-jars *job* failure (e.g. only the Fabric step
+  # failing, an outcome the comment explicitly calls "expected to need iteration") would silently
+  # skip this job and never build the launcher at all, exactly the thing the comment says must
+  # never happen. Safe because the "Stage bundled mod jars" step below already handles a partial
+  # mod-jars artifact (find/cp on whatever jars did build, even zero of them).
   launcher-windows:
     needs: mod-jars
+    if: ${{ !cancelled() }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,13 +108,25 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Neither build:renderer (Vite/esbuild) nor build:electron (only covers src/main + shared)
+      # type-checks src/renderer - without this, a type error there ships in a packaged build and
+      # nothing catches it until a user hits the broken UI at runtime. This job already does the
+      # npm ci this needs, so it rides along here instead of a whole extra job.
+      - run: npm run typecheck
       - run: npm run build:electron
       - run: node scripts/install-smoke.cjs
 
   # Publishes everything to a rolling "latest-build" GitHub Release - the repo's Releases page
   # shows plain download links, unlike run artifacts which GitHub's mobile app/site often hides.
+  #
+  # The explicit if: checks launcher-windows/installer-smoke directly instead of leaving the
+  # default success()-of-all-needs gating in place - that default would also require mod-jars to
+  # succeed, which reintroduces the same "Fabric-only failure blocks everything" problem
+  # launcher-windows's own if: above exists to avoid. mod-jars is deliberately not in this
+  # condition: whatever mod jars did build still get published alongside the launcher exe.
   release:
     needs: [launcher-windows, mod-jars, installer-smoke]
+    if: ${{ needs.launcher-windows.result == 'success' && needs.installer-smoke.result == 'success' && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

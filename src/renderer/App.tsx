@@ -104,6 +104,11 @@ export default function App() {
     setRunningIds((prev) => new Set(prev).add(instance.id));
     try {
       await window.api.launch.start(instance);
+      // A Stop click that landed while start() was still pending (the game isn't registered in
+      // the main process's runningProcesses yet, so launch:stop is a no-op there) would already
+      // have removed this id from runningIds below - re-add it now that the launch is confirmed to
+      // have actually succeeded, so the UI reflects reality instead of whatever that race left it in.
+      setRunningIds((prev) => new Set(prev).add(instance.id));
     } catch (err) {
       setRunningIds((prev) => {
         const next = new Set(prev);

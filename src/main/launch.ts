@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import AdmZip from "adm-zip";
 import type { Instance, LaunchLogEvent } from "../shared/types";
-import { resolveVersion, findClientJar, resolveArgTokens, evaluateRules, mavenNameToPath, type LibraryEntry } from "./versionResolver";
+import { resolveVersion, findClientJar, resolveArgTokens, evaluateRules, mavenNameToPath, safeLibraryPath, type LibraryEntry } from "./versionResolver";
 import { getValidAccessToken } from "./accountStore";
 
 /**
@@ -136,7 +136,7 @@ function extractNatives(gameDir: string, libraries: LibraryEntry[], destDir: str
     const classifier = nativesClassifierForCurrentOs(lib);
     if (!classifier) continue;
     const artifact = lib.downloads?.classifiers?.[classifier];
-    const relPath = artifact?.path ?? mavenNameToPath(`${lib.name}:${classifier}`);
+    const relPath = safeLibraryPath(artifact?.path ?? mavenNameToPath(`${lib.name}:${classifier}`));
     const jarPath = path.join(gameDir, "libraries", relPath);
     if (!fs.existsSync(jarPath)) {
       log(`[launcher] warning: natives jar missing on disk: ${jarPath}`);
@@ -165,7 +165,7 @@ function buildClasspath(gameDir: string, libraries: LibraryEntry[], clientJar: s
     // Natives-only libraries (no plain artifact) are extracted, not put on the classpath.
     if (lib.natives && !lib.downloads?.artifact) continue;
 
-    const relPath = lib.downloads?.artifact?.path ?? mavenNameToPath(lib.name);
+    const relPath = safeLibraryPath(lib.downloads?.artifact?.path ?? mavenNameToPath(lib.name));
     const fullPath = path.join(gameDir, "libraries", relPath);
     if (!fs.existsSync(fullPath)) {
       log(`[launcher] warning: library missing on disk: ${fullPath}`);

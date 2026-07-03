@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
@@ -38,6 +38,7 @@ export default function InstanceDetail({
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("features");
+  const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
   const [configTarget, setConfigTarget] = useState<{
@@ -64,11 +65,24 @@ export default function InstanceDetail({
     loadAccounts();
   }, []);
 
+  // Guards against out-of-order responses when the account switcher is used twice in quick
+  // succession (open menu, pick account, reopen, pick a different one before the first
+  // window.api.instances.update resolves) - without it, whichever IPC call happens to land last
+  // wins, which isn't necessarily the account the user picked last.
+  const accountRequestRef = useRef(0);
+
   const quickSetAccount = async (accountId: string | undefined) => {
+    const requestId = ++accountRequestRef.current;
     const updated = { ...instance, accountId };
-    await window.api.instances.update(updated);
-    setDraft((prev) => ({ ...prev, accountId }));
-    onInstanceChanged();
+    try {
+      await window.api.instances.update(updated);
+      if (requestId !== accountRequestRef.current) return;
+      setDraft((prev) => ({ ...prev, accountId }));
+      onInstanceChanged();
+    } catch (err) {
+      if (requestId !== accountRequestRef.current) return;
+      toast(`Couldn't switch account: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
   const filteredMods = useMemo(() => {
@@ -77,12 +91,21 @@ export default function InstanceDetail({
     return mods.filter((m) => m.name.toLowerCase().includes(q) || m.tags.some((t) => t.includes(q)));
   }, [mods, filter]);
 
+  // Every mods.* call below returns the mod list's full new state and setMods() replaces it
+  // wholesale - fine when calls resolve in the order they were made, but toggling a mod then
+  // quickly applying a preset (or any other overlapping pair) can have the responses land out of
+  // order, and the last one to arrive would otherwise win over the last one the user actually
+  // triggered. This ref lets each call check "is my response still the newest thing in flight"
+  // before committing it.
+  const modsRequestRef = useRef(0);
+
   const handleImport = async () => {
     const paths = await window.api.dialog.pickJarFiles();
     if (paths.length === 0) return;
+    const requestId = ++modsRequestRef.current;
     try {
       const updated = await window.api.mods.import(instance.modsDir, paths);
-      setMods(updated);
+      if (requestId === modsRequestRef.current) setMods(updated);
     } catch (err) {
       toast(`Couldn't import mods: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
@@ -93,13 +116,14 @@ export default function InstanceDetail({
   const handleToggle = useCallback(
     async (mod: ModInfo, enabled: boolean) => {
       setMods((prev) => prev.map((m) => (m.id === mod.id ? { ...m, enabled } : m)));
+      const requestId = ++modsRequestRef.current;
       try {
         const updated = await window.api.mods.setEnabled(instance.modsDir, mod.id, enabled);
-        setMods(updated);
+        if (requestId === modsRequestRef.current) setMods(updated);
       } catch (err) {
         // The optimistic flip above is now out of sync with disk - resync instead of leaving a
         // toggle showing a state that silently failed to actually apply.
-        loadMods();
+        if (requestId === modsRequestRef.current) loadMods();
         toast(`Couldn't ${enabled ? "enable" : "disable"} ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
       }
     },
@@ -108,9 +132,10 @@ export default function InstanceDetail({
 
   const handleRemove = useCallback(
     async (mod: ModInfo) => {
+      const requestId = ++modsRequestRef.current;
       try {
         const updated = await window.api.mods.remove(instance.modsDir, mod.id);
-        setMods(updated);
+        if (requestId === modsRequestRef.current) setMods(updated);
       } catch (err) {
         toast(`Couldn't remove ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
       }
@@ -136,9 +161,10 @@ export default function InstanceDetail({
   );
 
   const applyPreset = async (tags: ModTag[]) => {
+    const requestId = ++modsRequestRef.current;
     try {
       const updated = await window.api.mods.applyPreset(instance.modsDir, tags);
-      setMods(updated);
+      if (requestId === modsRequestRef.current) setMods(updated);
     } catch (err) {
       toast(`Couldn't apply preset: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
@@ -146,9 +172,10 @@ export default function InstanceDetail({
 
   const enableAll = async () => {
     const changes = Object.fromEntries(mods.filter((m) => !m.enabled).map((m) => [m.id, true]));
+    const requestId = ++modsRequestRef.current;
     try {
       const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
-      setMods(updated);
+      if (requestId === modsRequestRef.current) setMods(updated);
     } catch (err) {
       toast(`Couldn't enable all mods: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
@@ -156,11 +183,22 @@ export default function InstanceDetail({
 
   const disableAll = async () => {
     const changes = Object.fromEntries(mods.filter((m) => m.enabled).map((m) => [m.id, false]));
+    const requestId = ++modsRequestRef.current;
     try {
       const updated = await window.api.mods.setEnabledBulk(instance.modsDir, changes);
-      setMods(updated);
+      if (requestId === modsRequestRef.current) setMods(updated);
     } catch (err) {
       toast(`Couldn't disable all mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await onDeleted();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -388,8 +426,8 @@ export default function InstanceDetail({
             <button className="btn btn-primary" onClick={saveDraft}>
               Save
             </button>
-            <button className="btn btn-danger" onClick={onDeleted}>
-              Delete instance
+            <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+              {deleting ? "Deleting..." : "Delete instance"}
             </button>
           </div>
         </div>
