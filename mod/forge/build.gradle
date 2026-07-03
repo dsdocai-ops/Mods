@@ -12,6 +12,12 @@
 // application history; the loom.forge{} block below was the piece that finally made forge(...)
 // exist as a dependency method at all).
 
+plugins {
+    // Merges common/'s remapped output into this module's jar (see the shadowJar/remapJar blocks
+    // below) - version matches the official Architectury multiloader template.
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
 // Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - see the root
 // build.gradle's comment for why.
 apply plugin: 'architectury-plugin'
@@ -39,10 +45,15 @@ loom {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - added directly as
-// a source directory for the same reason the fabric module does this instead of depending on a
-// separately-built jar.
-sourceSets.main.java.srcDir project(':common').file('src/main/java')
+// common/ is now a real Architectury common module (see common/build.gradle) instead of a raw
+// shared source directory - its remapped output is pulled in via the shadowCommon dependency below
+// and merged into this module's jar by shadowJar/remapJar, not compiled directly into this module.
+configurations {
+    common
+    shadowCommon // Don't use shadow from the shadow plugin - it *excludes* files, we want to merge.
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+}
 
 repositories {
     mavenCentral()
@@ -58,12 +69,38 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
     forge "net.minecraftforge:forge:${project.forge_version}"
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionForge')) { transitive = false }
 }
 
 processResources {
     inputs.property "version", project.version
     filesMatching("META-INF/mods.toml") {
         expand "version": project.version, "forge_loader_range": project.forge_loader_range
+    }
+}
+
+shadowJar {
+    exclude "architectury.common.json"
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = "dev-shadow"
+}
+
+remapJar {
+    input.set shadowJar.archiveFile
+    dependsOn shadowJar
+}
+
+sourcesJar {
+    def commonSources = project(':common').sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}
+
+components.java {
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
     }
 }
 
