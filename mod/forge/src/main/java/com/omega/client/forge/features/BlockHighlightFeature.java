@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.omega.client.ModConfig;
 import com.omega.client.forge.render.WireBoxRenderer;
+import com.omega.client.render.HighlightColorCache;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
@@ -37,8 +38,7 @@ public final class BlockHighlightFeature {
     private Set<ResourceLocation> currentTargets = Set.of();
     private int ticksSinceScanStart = RESCAN_INTERVAL_TICKS;
 
-    private String lastParsedColorSource = null;
-    private float[] lastParsedColor = {0.6f, 0.2f, 1.0f, 0.75f};
+    private final HighlightColorCache colorCache = new HighlightColorCache();
 
     public void tick(ModConfig config, Level level, BlockPos center) {
         if (!config.blockHighlightEnabled || level == null || center == null) {
@@ -93,7 +93,7 @@ public final class BlockHighlightFeature {
     public void render(PoseStack matrices, MultiBufferSource consumers, Vec3 camPos, ModConfig config) {
         if (!config.blockHighlightEnabled || cachedMatches.isEmpty()) return;
 
-        float[] rgba = resolveColor(config.highlightColorArgb);
+        float[] rgba = colorCache.resolve(config.highlightColorArgb);
         VertexConsumer buffer = consumers.getBuffer(RenderType.lines());
 
         matrices.pushPose();
@@ -106,26 +106,4 @@ public final class BlockHighlightFeature {
         matrices.popPose();
     }
 
-    /** Parses "#AARRGGBB" or "#RRGGBB" into normalized [r,g,b,a], cached so repeated per-frame calls don't re-parse an unchanged string. */
-    private float[] resolveColor(String argb) {
-        if (argb.equals(lastParsedColorSource)) return lastParsedColor;
-        lastParsedColorSource = argb;
-        lastParsedColor = parseColor(argb);
-        return lastParsedColor;
-    }
-
-    private float[] parseColor(String argb) {
-        try {
-            String hex = argb.startsWith("#") ? argb.substring(1) : argb;
-            if (hex.length() == 6) hex = "FF" + hex;
-            long value = Long.parseLong(hex, 16);
-            float a = ((value >> 24) & 0xFF) / 255f;
-            float r = ((value >> 16) & 0xFF) / 255f;
-            float g = ((value >> 8) & 0xFF) / 255f;
-            float b = (value & 0xFF) / 255f;
-            return new float[]{r, g, b, a};
-        } catch (Exception e) {
-            return new float[]{0.6f, 0.2f, 1.0f, 0.75f};
-        }
-    }
 }
