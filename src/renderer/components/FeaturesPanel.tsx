@@ -81,8 +81,8 @@ export default function FeaturesPanel({ modsDir }: Props) {
 
       <h3 className="settings-subheading">Visual & PvP</h3>
       {boolRow("fullbrightEnabled", "Fullbright", "max brightness, no torch spam")}
-      {boolRow("blockHighlightEnabled", "Block Highlight", "outline obsidian/anchors for combat clarity")}
-      {boolRow("customFovEnabled", "Custom FOV")}
+      {boolRow("blockHighlightEnabled", "Block Highlight", "outline obsidian/anchors for combat clarity - color/block list in-game via Visual Settings...")}
+      {boolRow("customFovEnabled", "Custom FOV", "FOV/Zoom FOV numbers set in-game via Visual Settings...")}
       <div className="field-row feature-numbers">
         <label className="field">
           <span>FOV</span>
@@ -114,7 +114,7 @@ export default function FeaturesPanel({ modsDir }: Props) {
       {boolRow("showOmegaUsersEnabled", "Show Omega Users", "\u03a9 badge on nametags of other Omega players (needs server relay support)")}
 
       <h3 className="settings-subheading">HUD</h3>
-      {boolRow("hudEnabled", "Info HUD")}
+      {boolRow("hudEnabled", "Info HUD", "individual rows below also toggleable in-game via HUD...")}
       {boolRow("hudShowCoords", "Show coordinates")}
       {boolRow("hudShowFps", "Show FPS")}
       {boolRow("hudShowPing", "Show ping", "hidden in singleplayer")}

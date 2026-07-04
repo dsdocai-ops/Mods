@@ -107,7 +107,7 @@ public class ParticleScreen extends Screen {
     private void addBlacklistEntry() {
         String raw = blacklistField.getValue().trim();
         if (raw.isEmpty()) return;
-        String id = ParticleScreenSupport.normalizeBlacklistId(raw);
+        String id = ParticleScreenSupport.normalizeNamespacedId(raw);
         if (!config.particleBlacklist.contains(id)) {
             config.particleBlacklist.add(id);
             config.save();
