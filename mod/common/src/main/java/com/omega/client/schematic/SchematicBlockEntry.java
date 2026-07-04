@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.schematic;
 
 /** One non-air block in a schematic, position relative to the schematic's own origin corner. */

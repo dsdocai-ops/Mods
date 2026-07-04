@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
 import type { AppSettings, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";

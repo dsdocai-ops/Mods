@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Real Architectury common module now, not just a raw shared source directory - fabric/ and forge/
 // each pull compiled classes from here via Loom's auto-generated
 // transformProductionFabric/transformProductionForge configurations (wired in their own

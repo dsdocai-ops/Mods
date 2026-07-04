@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import type { SponsorPlacement } from "@shared/types";
 
 interface Props {

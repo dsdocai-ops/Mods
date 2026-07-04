@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.forge.features;
 
 import com.mojang.blaze3d.vertex.PoseStack;

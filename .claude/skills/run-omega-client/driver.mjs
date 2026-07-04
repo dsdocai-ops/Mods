@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // REPL driver for the Omega Client Electron launcher's renderer.
 //
 // The real Electron binary cannot launch in this environment (network-

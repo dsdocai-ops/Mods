@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import SponsorCard from "../components/SponsorCard";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
 
@@ -9,6 +10,10 @@ export default function Welcome({ onNewInstance }: Props) {
   return (
     <div className="welcome">
       <h1>Omega Client</h1>
+      <p className="welcome-verse">
+        &ldquo;I am the Alpha and the Omega, the first and the last, the beginning and the end&rdquo;
+        &mdash; Revelation 22:13
+      </p>
       <p className="welcome-slogan">The last client you will ever need.</p>
       <p>
         Point the launcher at a Minecraft install you already have set up (vanilla launcher, MultiMC/Prism, or any

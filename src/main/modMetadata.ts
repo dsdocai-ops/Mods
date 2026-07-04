@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import fs from "node:fs";
 import AdmZip from "adm-zip";
 import type { Loader, ModTag } from "../shared/types";

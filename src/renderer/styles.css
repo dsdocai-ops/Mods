@@ -1,3 +1,4 @@
+/* "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). */
 * {
   box-sizing: border-box;
 }
@@ -229,6 +230,14 @@ body {
 
 .welcome h1 {
   margin-bottom: 4px;
+}
+
+.welcome p.welcome-verse {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.7;
+  margin: 0 0 14px 0;
 }
 
 .welcome p.welcome-slogan {

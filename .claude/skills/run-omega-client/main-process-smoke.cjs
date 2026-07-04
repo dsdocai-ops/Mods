@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Direct-invocation smoke test for src/main/*.ts's real exported functions -
 // the pieces that never run under the renderer-only driver.mjs, because
 // that one only exercises the React UI against a hand-written window.api

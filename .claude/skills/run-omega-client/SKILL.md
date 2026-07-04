@@ -3,6 +3,8 @@ name: run-omega-client
 description: Build, run, and drive the Omega Client Electron launcher (repo root). Use when asked to start the launcher, screenshot its UI, take screenshots of its tabs/Settings/New Instance dialog, click a feature toggle, verify a renderer change actually renders/reacts correctly, or exercise the real main-process logic (instance CRUD, Java detection, mod-jar metadata parsing) directly.
 ---
 
+<!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
+
 The real Electron binary cannot launch in this environment (network-blocked
 binary download - see Gotchas), so this ships two complementary drivers:
 

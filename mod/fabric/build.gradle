@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 plugins {
     id 'maven-publish'
     // Merges common/'s remapped output into this module's jar (see the shadowJar/remapJar blocks
