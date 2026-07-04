@@ -1,6 +1,6 @@
 package com.omega.client.forge.mixin;
 
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.presence.OmegaPresence;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;

@@ -2,7 +2,7 @@ package com.omega.client.forge.schematic;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.forge.render.WireBoxRenderer;
 import com.omega.client.schematic.SchematicBlockEntry;
 import com.omega.client.schematic.SchematicData;

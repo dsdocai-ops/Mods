@@ -1,6 +1,7 @@
 package com.omega.client.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.omega.client.ModConfig;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
 import com.omega.client.features.HudSettings;
@@ -10,6 +11,7 @@ import com.omega.client.forge.features.BlockHighlightFeature;
 import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
+import com.omega.client.schematic.SchematicStorage;
 import com.omega.client.session.SessionInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -27,6 +29,7 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -43,7 +46,7 @@ import org.lwjgl.glfw.GLFW;
  */
 @Mod("omega_client_forge")
 public class OmegaClientForge {
-    private final ModConfig config = ModConfig.load();
+    private final ModConfig config = ModConfig.load(FMLPaths.CONFIGDIR.get());
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
     private final FovZoomFeature fovZoom = new FovZoomFeature();
@@ -52,7 +55,7 @@ public class OmegaClientForge {
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
-    private final SessionInfo session = SessionInfoLoader.load();
+    private final SessionInfo session = SessionInfoLoader.load(FMLPaths.GAMEDIR.get());
 
     private final KeyMapping menuKey = new KeyMapping("key.omega-client.menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "key.categories.omega-client");
     private final KeyMapping zoomKey = new KeyMapping("key.omega-client.zoom", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.omega-client");
@@ -62,6 +65,7 @@ public class OmegaClientForge {
     private final KeyMapping reanchorKey = new KeyMapping("key.omega-client.reanchor", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.omega-client");
 
     public OmegaClientForge() {
+        SchematicStorage.init(FMLPaths.CONFIGDIR.get());
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onRegisterKeyMappings);
         modEventBus.addListener(this::onRegisterGuiOverlays);

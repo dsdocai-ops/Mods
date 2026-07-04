@@ -1,7 +1,8 @@
 package com.omega.client.forge.schematic;
 
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.schematic.SchematicData;
+import com.omega.client.schematic.SchematicStorage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;

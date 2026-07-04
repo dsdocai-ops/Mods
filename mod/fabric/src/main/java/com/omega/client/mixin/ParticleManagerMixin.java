@@ -45,7 +45,7 @@ public abstract class ParticleManagerMixin {
                                        double velocityX, double velocityY, double velocityZ,
                                        CallbackInfoReturnable<Particle> cir) {
         Identifier id = Registries.PARTICLE_TYPE.getId(parameters.getType());
-        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id)) {
+        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
             cir.setReturnValue(null);
         }
     }

@@ -9,8 +9,10 @@ import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.network.PresenceNetworking;
 import com.omega.client.schematic.SchematicRenderFeature;
 import com.omega.client.schematic.SchematicSelection;
+import com.omega.client.schematic.SchematicStorage;
 import com.omega.client.session.SessionInfo;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -30,7 +32,7 @@ import org.lwjgl.glfw.GLFW;
  * excludes anything that reads hidden information through terrain or automates combat input.
  */
 public class OmegaClient implements ClientModInitializer {
-    private final ModConfig config = ModConfig.load();
+    private final ModConfig config = ModConfig.load(FabricLoader.getInstance().getConfigDir());
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
     private final FovZoomFeature fovZoom = new FovZoomFeature();
@@ -39,7 +41,7 @@ public class OmegaClient implements ClientModInitializer {
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
-    private final SessionInfo session = SessionInfoLoader.load();
+    private final SessionInfo session = SessionInfoLoader.load(FabricLoader.getInstance().getGameDir());
 
     private KeyBinding menuKey;
     private KeyBinding zoomKey;
@@ -50,6 +52,7 @@ public class OmegaClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        SchematicStorage.init(FabricLoader.getInstance().getConfigDir());
         menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.omega-client.menu",
                 InputUtil.Type.KEYSYM,

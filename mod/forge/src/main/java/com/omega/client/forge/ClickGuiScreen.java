@@ -1,5 +1,7 @@
 package com.omega.client.forge;
 
+import com.omega.client.ModConfig;
+import com.omega.client.SessionInfoLoader;
 import com.omega.client.forge.particle.ParticleScreen;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicScreen;

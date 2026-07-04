@@ -1,10 +1,8 @@
-package com.omega.client.forge.schematic;
+package com.omega.client.schematic;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
-import com.omega.client.schematic.SchematicData;
-import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -18,16 +16,26 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** Forge-side twin of the Fabric SchematicStorage - identical logic, only the config-dir lookup differs (FMLPaths vs FabricLoader). Same file location/format, so files are interchangeable between the two builds. */
+/**
+ * Save/load/list/delete for .omschem.json files under <config>/omega-client/schematics/. Unified
+ * into common/ the same way ModConfig is - the only per-loader difference was how the config
+ * directory gets resolved (FabricLoader.getInstance().getConfigDir() vs FMLPaths.CONFIGDIR.get()),
+ * so each loader's entrypoint calls init() once at startup with its own resolved Path.
+ */
 public final class SchematicStorage {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String EXTENSION = ".omschem.json";
+    private static Path configDir;
 
     private SchematicStorage() {
     }
 
+    public static void init(Path configDir) {
+        SchematicStorage.configDir = configDir;
+    }
+
     public static Path schematicsDir() {
-        Path dir = FMLPaths.CONFIGDIR.get().resolve("omega-client").resolve("schematics");
+        Path dir = configDir.resolve("omega-client").resolve("schematics");
         try {
             Files.createDirectories(dir);
         } catch (IOException ignored) {
@@ -68,12 +76,13 @@ public final class SchematicStorage {
     }
 
     /**
-     * Same fix as the Fabric twin: sanitize() collapses many distinct raw names onto the same
-     * filename (every disallowed character becomes "_", most filesystems are also
-     * case-insensitive), so saving under a name that only *looks* new after sanitizing would
-     * otherwise silently truncate and overwrite a completely different saved schematic.
-     * Re-saving the same schematic under its own name is still a normal in-place overwrite; only
-     * a collision with a name that reads back as something *different* gets a numeric suffix.
+     * sanitize() collapses many distinct raw names onto the same filename - every character
+     * outside [a-zA-Z0-9_ -] becomes "_" with no dedup check, and most filesystems (default
+     * macOS/Windows) are case-insensitive on top of that. Saving under a name that only *looks*
+     * new after sanitizing would otherwise silently truncate and overwrite a completely different
+     * saved schematic. Re-saving the same schematic under its own name is still a normal in-place
+     * overwrite; only a collision with a name that reads back as something *different* gets
+     * disambiguated with a numeric suffix.
      */
     private static Path resolveSaveTarget(String rawName) {
         Path candidate = fileFor(rawName);
@@ -93,15 +102,17 @@ public final class SchematicStorage {
             SchematicData existing = GSON.fromJson(reader, SchematicData.class);
             return existing != null && rawName.equals(existing.name);
         } catch (IOException | JsonParseException e) {
+            // Unreadable/corrupt file already sitting at this path - treat as "not the same
+            // schematic" so save() disambiguates around it instead of clobbering whatever's there.
             return false;
         }
     }
 
     public static void save(SchematicData data) throws IOException {
         Path file = resolveSaveTarget(data.name);
-        // Write-then-atomic-rename, not a direct write - see the Fabric twin's comment for why
-        // (a direct write truncates the real target immediately, so a crash mid-write permanently
-        // destroys whatever good save was there before).
+        // Write-then-atomic-rename, not a direct write: Files.newBufferedWriter on the real target
+        // truncates it immediately, so a crash/power-loss partway through GSON.toJson left a
+        // truncated JSON fragment permanently in place of whatever good save was there before.
         Path tmp = file.resolveSibling(file.getFileName().toString() + ".tmp");
         try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
             GSON.toJson(data, writer);
@@ -120,7 +131,11 @@ public final class SchematicStorage {
             try {
                 data = GSON.fromJson(reader, SchematicData.class);
             } catch (JsonParseException e) {
-                // Unchecked - see the Fabric twin's comment for why this needs wrapping.
+                // JsonSyntaxException/JsonIOException are unchecked - callers only catch IOException
+                // (see SchematicScreen) - so a malformed/truncated file (a hand-edit, or a save that
+                // got interrupted before the atomic-write fix above) would otherwise escape as an
+                // uncaught RuntimeException instead of the "couldn't load" message every other
+                // failure path here produces.
                 throw new IOException("Schematic file is corrupted: " + file, e);
             }
             if (data == null) throw new IOException("Schematic file is empty or invalid: " + file);

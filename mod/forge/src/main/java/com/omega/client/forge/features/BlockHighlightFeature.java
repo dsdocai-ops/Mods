@@ -2,7 +2,7 @@ package com.omega.client.forge.features;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.forge.render.WireBoxRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;

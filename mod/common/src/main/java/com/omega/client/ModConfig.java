@@ -1,8 +1,7 @@
-package com.omega.client.forge;
+package com.omega.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraftforge.fml.loading.FMLPaths;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -14,13 +13,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Forge-side twin of the Fabric module's ModConfig - same fields/shape (so the launcher's generic
- * mod-config editor works identically either way), same file name, different config-dir lookup
- * (FMLPaths.CONFIGDIR instead of FabricLoader.getInstance().getConfigDir()).
+ * Plain-JSON config, deliberately readable/editable both in-game and by the Omega Client launcher's
+ * generic mod-config editor (which infers a form from whatever fields it finds here).
+ *
+ * Unified into common/ (was previously duplicated per loader) - the only thing that ever differed
+ * was how the config directory gets resolved (FabricLoader.getInstance().getConfigDir() vs
+ * FMLPaths.CONFIGDIR.get()), and since java.nio.file.Path is a plain JDK type with no
+ * Fabric/Forge-mapping divergence, that resolution can just happen in each loader's own entrypoint
+ * and get passed in to load() - no need for the loader-specific ModConfig duplication every other
+ * feature class had to decouple from.
  */
 public class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String FILE_NAME = "omega-client.json";
+    private static Path configDir;
 
     /** The instance the particle Mixin reads from - set whenever load() runs. See ParticleFilter. */
     public static ModConfig ACTIVE = new ModConfig();
@@ -75,10 +81,11 @@ public class ModConfig {
     public float particleDensity = 1.0f;
 
     private static Path configPath() {
-        return FMLPaths.CONFIGDIR.get().resolve(FILE_NAME);
+        return configDir.resolve(FILE_NAME);
     }
 
-    public static ModConfig load() {
+    public static ModConfig load(Path configDir) {
+        ModConfig.configDir = configDir;
         ModConfig result = loadFromDisk();
         ACTIVE = result;
         return result;
@@ -94,9 +101,11 @@ public class ModConfig {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             ModConfig loaded = GSON.fromJson(reader, ModConfig.class);
             if (loaded == null) return new ModConfig();
-            // Same null-guards as the Fabric twin: Gson overrides field defaults with null when the
-            // JSON explicitly contains null, and these lists get iterated on hot paths.
-            // highlightColorArgb is the same story: BlockHighlightFeature.resolveColor() calls
+            // Gson overrides field defaults with null when the JSON explicitly contains null (a
+            // hand-edit, or a bad save through the launcher's generic config editor) - and these
+            // lists get iterated on hot paths (every particle spawn / every highlight scan), where
+            // a null would crash the game instead of just misbehaving. highlightColorArgb is the
+            // same story despite not being a list: BlockHighlightFeature.resolveColor() calls
             // argb.equals(...) on it unconditionally every frame the feature is on.
             if (loaded.highlightedBlocks == null) loaded.highlightedBlocks = new ArrayList<>();
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();

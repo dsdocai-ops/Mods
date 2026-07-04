@@ -1,6 +1,6 @@
 package com.omega.client.forge.particle;
 
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
