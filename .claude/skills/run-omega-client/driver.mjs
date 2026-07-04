@@ -87,6 +87,10 @@ function installMockApi() {
       detect: async () => (['/usr/bin/java']),
       verify: async () => ({ ok: true, version: '17.0.9' }),
     },
+    licensing: {
+      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "Cosmetics aren't on sale yet - check back soon." }; },
+      listOwned: async () => ([]),
+    },
     install: {
       listVersions: async () => ([{ id: '1.20.1', type: 'release', url: '' }]),
       start: async () => 'job-1',

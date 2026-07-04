@@ -1,4 +1,5 @@
-import SponsoredHostCard from "../components/SponsoredHostCard";
+import SponsorCard from "../components/SponsorCard";
+import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
 
 interface Props {
   onNewInstance: () => void;
@@ -18,7 +19,9 @@ export default function Welcome({ onNewInstance }: Props) {
         Create your first instance
       </button>
 
-      <SponsoredHostCard />
+      {SPONSOR_PLACEMENTS.map((placement) => (
+        <SponsorCard key={placement.id} placement={placement} />
+      ))}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type {
   ModInfo,
   ModTag,
   PublicAccount,
+  RedeemLicenseResult,
   ShaderPackInfo,
 } from "@shared/types";
 
@@ -52,6 +53,10 @@ export interface LauncherApi {
   java: {
     detect(gameDir?: string): Promise<string[]>;
     verify(javaPath: string): Promise<{ ok: boolean; version: string }>;
+  };
+  licensing: {
+    redeem(key: string): Promise<RedeemLicenseResult>;
+    listOwned(): Promise<string[]>;
   };
   install: {
     listVersions(): Promise<InstallableVersion[]>;

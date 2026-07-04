@@ -1,6 +1,7 @@
 package com.omega.client.forge.mixin;
 
 import com.omega.client.ModConfig;
+import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.OmegaPresence;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;
@@ -19,14 +20,13 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
-    private static final int OMEGA_BADGE_RGB = 0xE63946;
-
     @ModifyVariable(method = "renderNameTag", at = @At("HEAD"), argsOnly = true)
     private Component omega$badgeOmegaUsers(Component text, Entity entity) {
         if (!(entity instanceof Player player)) return text;
         if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return text;
         if (!OmegaPresence.isOmegaUser(player.getUUID())) return text;
-        MutableComponent badge = Component.literal("Ω ").setStyle(Style.EMPTY.withColor(OMEGA_BADGE_RGB));
+        int badgeRgb = CosmeticCatalog.colorFor(OmegaPresence.cosmeticOf(player.getUUID()));
+        MutableComponent badge = Component.literal("Ω ").setStyle(Style.EMPTY.withColor(badgeRgb));
         return badge.append(text);
     }
 }

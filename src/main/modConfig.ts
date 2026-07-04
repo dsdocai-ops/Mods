@@ -85,6 +85,7 @@ const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
   clearWeatherEnabled: false,
   schematicPreviewEnabled: false,
   showOmegaUsersEnabled: true,
+  ownedCosmeticId: "",
   particlesMasterEnabled: true,
   blockParticlesEnabled: true,
   ambientParticlesEnabled: true,

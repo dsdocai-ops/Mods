@@ -9,6 +9,7 @@ import type {
   LaunchLogEvent,
   ModTag,
   PublicAccount,
+  RedeemLicenseResult,
   ShaderPackInfo,
 } from "../shared/types";
 
@@ -55,6 +56,10 @@ const api = {
   java: {
     detect: (gameDir?: string) => ipcRenderer.invoke("java:detect", gameDir),
     verify: (javaPath: string) => ipcRenderer.invoke("java:verify", javaPath),
+  },
+  licensing: {
+    redeem: (key: string): Promise<RedeemLicenseResult> => ipcRenderer.invoke("licensing:redeem", key),
+    listOwned: (): Promise<string[]> => ipcRenderer.invoke("licensing:listOwned"),
   },
   install: {
     listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),

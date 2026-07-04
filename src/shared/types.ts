@@ -141,6 +141,30 @@ export interface AppSettings {
   autoUpdateEnabled: boolean;
 }
 
+/**
+ * Result of redeeming a license key for a paid cosmetic - see main/licensing.ts. `cosmeticId`
+ * matches an id in the mod's CosmeticCatalog (mod/common/.../presence/CosmeticCatalog.java).
+ */
+export interface RedeemLicenseResult {
+  ok: boolean;
+  cosmeticId?: string;
+  message: string;
+}
+
+/**
+ * A native, in-launcher sponsor/affiliate recommendation - not a third-party ad network banner (see
+ * README's Monetization section for why). Always paired with an explicit disclosure per FTC-style
+ * rules and Minecraft's own usage guidelines around not implying endorsement.
+ */
+export interface SponsorPlacement {
+  id: string;
+  title: string;
+  body: string;
+  ctaLabel: string;
+  url: string;
+  disclosure: string;
+}
+
 export const DEFAULT_JVM: JvmSettings = {
   javaPath: "",
   minRamMb: 2048,
