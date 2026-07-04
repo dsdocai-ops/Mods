@@ -1,11 +1,12 @@
 package com.omega.client.schematic;
 
 /**
- * The two pieces of LitematicaImporter's parsing that are pure math/string logic with zero NBT
- * types in their signature - everything else in that class touches NbtCompound/NbtList (Yarn) vs
- * CompoundTag/ListTag (official), which differ in both package and class name between mappings, so
- * only this sliver can actually be shared. See LitematicaImporter's javadoc for the full format
- * rationale (community-reconstructed, best-effort, unverified against a real file).
+ * Pure math/string logic pulled out of the Litematica import path (LitematicaImporter's parsing,
+ * plus SchematicScreen's filename-to-default-name step) - everything else on that path touches a
+ * mapping-divergent type (NbtCompound/NbtList vs. CompoundTag/ListTag, or a GUI type in
+ * SchematicScreen itself), so only these self-contained slivers can actually be shared. See
+ * LitematicaImporter's javadoc for the full format rationale (community-reconstructed, best-effort,
+ * unverified against a real file).
  */
 public final class LitematicaBitPacking {
     private LitematicaBitPacking() {
@@ -35,5 +36,12 @@ public final class LitematicaBitPacking {
 
     public static boolean isAir(String blockString) {
         return blockString.startsWith("minecraft:air") || blockString.startsWith("minecraft:cave_air") || blockString.startsWith("minecraft:void_air");
+    }
+
+    /** Strips a ".litematic" extension for use as the imported schematic's default name. */
+    public static String stripLitematicExtension(String fileName) {
+        return fileName.toLowerCase().endsWith(".litematic")
+                ? fileName.substring(0, fileName.length() - ".litematic".length())
+                : fileName;
     }
 }

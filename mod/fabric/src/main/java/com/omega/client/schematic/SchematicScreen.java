@@ -133,7 +133,7 @@ public class SchematicScreen extends Screen {
 
     private void importLitematic(Path file) {
         String fileName = file.getFileName().toString();
-        String name = fileName.toLowerCase().endsWith(".litematic") ? fileName.substring(0, fileName.length() - ".litematic".length()) : fileName;
+        String name = LitematicaBitPacking.stripLitematicExtension(fileName);
         try {
             SchematicData data = LitematicaImporter.importFile(file, name);
             SchematicStorage.save(data);
