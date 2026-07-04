@@ -2,6 +2,7 @@ package com.omega.client;
 
 import com.google.gson.Gson;
 import com.omega.client.session.SessionInfo;
+import com.omega.client.util.OmegaGson;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -19,7 +20,7 @@ import java.nio.file.Path;
  * since java.nio.file.Path has no Fabric/Forge-mapping divergence to work around.
  */
 public final class SessionInfoLoader {
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = OmegaGson.INSTANCE;
     private static Path gameDir;
 
     private SessionInfoLoader() {

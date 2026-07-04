@@ -1,5 +1,6 @@
 package com.omega.client.features;
 
+import com.omega.client.ModConfig;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -7,16 +8,22 @@ import net.minecraft.client.Minecraft;
  * same no-mixin technique as fullbright, no automation involved. Compiles once here against official
  * mappings, remapped per-platform (see FullbrightFeature's javadoc for the general pattern).
  *
- * Takes raw values instead of the loader-specific ModConfig type, same as FullbrightFeature.
+ * zoomKeyHeld is passed separately rather than folded into ModConfig - it's the zoom keybinding's
+ * live pressed-state, not a persisted config flag, so each loader still reads its own
+ * KeyBinding/KeyMapping.isPressed()/isDown() and hands the result in.
  */
 public final class FovZoomFeature {
     private int baseFov = 90;
     private boolean baseFovCaptured = false;
     private int lastAppliedFov = Integer.MIN_VALUE;
 
-    public void tick(int zoomFov, boolean customFovEnabled, int customFov, boolean zoomKeyHeld) {
+    public void tick(ModConfig config, boolean zoomKeyHeld) {
         Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
+
+        int zoomFov = config.zoomFov;
+        boolean customFovEnabled = config.customFovEnabled;
+        int customFov = config.customFov;
 
         // If the live value doesn't match the last one *we* wrote, something else changed it - most
         // likely the player adjusting the FOV slider in vanilla's own Options screen. Re-capture it

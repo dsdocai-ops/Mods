@@ -43,7 +43,10 @@ public abstract class ParticleEngineMixin {
                                        double xSpeed, double ySpeed, double zSpeed,
                                        CallbackInfoReturnable<Particle> cir) {
         ResourceLocation id = BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());
-        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
+        // getKey returns null for a type not present in this registry (e.g. a modded/transient
+        // type) - ParticleFilter itself already treats a null namespace/path as "always spawn",
+        // so short-circuit here rather than NPE-ing on the .getNamespace()/.getPath() calls below.
+        if (id != null && !ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
             cir.setReturnValue(null);
         }
     }

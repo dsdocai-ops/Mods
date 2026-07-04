@@ -1,5 +1,6 @@
 package com.omega.client.features;
 
+import com.omega.client.ModConfig;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -10,18 +11,16 @@ import net.minecraft.client.Minecraft;
  * transformProductionFabric/transformProductionForge) - both loaders previously carried
  * byte-for-byte-equivalent copies of this exact logic, one against Yarn names, one against these
  * same official names.
- *
- * Takes the raw flag instead of the loader-specific ModConfig type, so this migration doesn't also
- * require unifying ModConfig (a separate, larger, not-yet-attempted piece of work).
  */
 public final class FullbrightFeature {
     private double savedGamma = 1.0;
     private boolean applied = false;
 
-    public void tick(boolean fullbrightEnabled) {
+    public void tick(ModConfig config) {
         Minecraft client = Minecraft.getInstance();
         if (client.options == null) return;
 
+        boolean fullbrightEnabled = config.fullbrightEnabled;
         if (fullbrightEnabled && !applied) {
             savedGamma = client.options.gamma().get();
             client.options.gamma().set(15.0d);

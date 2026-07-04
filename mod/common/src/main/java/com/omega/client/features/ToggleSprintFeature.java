@@ -1,5 +1,6 @@
 package com.omega.client.features;
 
+import com.omega.client.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
@@ -10,8 +11,8 @@ import net.minecraft.client.player.LocalPlayer;
  * once here against official mappings, remapped per-platform (see FullbrightFeature's javadoc).
  */
 public final class ToggleSprintFeature {
-    public void tick(boolean toggleSprintEnabled) {
-        if (!toggleSprintEnabled) return;
+    public void tick(ModConfig config) {
+        if (!config.toggleSprintEnabled) return;
 
         Minecraft client = Minecraft.getInstance();
         LocalPlayer player = client.player;

@@ -58,6 +58,10 @@ public class OmegaClientForge {
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
     private final SessionInfo session = SessionInfoLoader.load(FMLPaths.GAMEDIR.get());
 
+    // Refreshed once per tick (onClientTick), read every frame (renderHud) - avoids rebuilding
+    // this record on every single render callback, which fires far more often than the tick loop.
+    private HudSettings hudSettings = HudSettings.from(config);
+
     private final KeyMapping menuKey = new KeyMapping("key.omega-client.menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "key.categories.omega-client");
     private final KeyMapping zoomKey = new KeyMapping("key.omega-client.zoom", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.omega-client");
     private final KeyMapping pos1Key = new KeyMapping("key.omega-client.pos1", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, "key.categories.omega-client");
@@ -112,10 +116,11 @@ public class OmegaClientForge {
             }
         }
 
-        fullbright.tick(config.fullbrightEnabled);
-        fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isDown());
-        toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(hudSettings());
+        fullbright.tick(config);
+        fovZoom.tick(config, zoomKey.isDown());
+        toggleSprint.tick(config);
+        hudSettings = HudSettings.from(config);
+        infoHud.tick(hudSettings);
 
         if (client.player != null && client.level != null) {
             blockHighlight.tick(config, client.level, client.player.blockPosition());
@@ -154,25 +159,13 @@ public class OmegaClientForge {
         }
     }
 
-    private HudSettings hudSettings() {
-        return new HudSettings(
-                config.hudEnabled,
-                config.hudShowCoords,
-                config.hudShowFps,
-                config.hudShowPing,
-                config.hudShowDirection,
-                config.hudShowCps,
-                config.hudShowKeystrokes
-        );
-    }
-
     // Drawing itself stays loader-specific - GuiGraphics (official) and Fabric's DrawContext (Yarn)
     // are different types at each module's own compile time even though they're the same class once
     // fully remapped, so the actual draw calls can't live in common/. See InfoHudFeature's javadoc
     // for the full explanation. The state behind these draws (cached strings, which keys are held)
     // does live in common/ - this method only reads it and calls GuiGraphics's own drawing methods.
     private void renderHud(GuiGraphics context) {
-        HudSettings settings = hudSettings();
+        HudSettings settings = hudSettings;
         if (!settings.enabled()) return;
 
         Minecraft client = Minecraft.getInstance();

@@ -43,6 +43,10 @@ public class OmegaClient implements ClientModInitializer {
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
     private final SessionInfo session = SessionInfoLoader.load(FabricLoader.getInstance().getGameDir());
 
+    // Refreshed once per tick (onClientTick), read every frame (renderHud) - avoids rebuilding
+    // this record on every single render callback, which fires far more often than the tick loop.
+    private HudSettings hudSettings = HudSettings.from(config);
+
     private KeyBinding menuKey;
     private KeyBinding zoomKey;
     private KeyBinding pos1Key;
@@ -117,10 +121,11 @@ public class OmegaClient implements ClientModInitializer {
             }
         }
 
-        fullbright.tick(config.fullbrightEnabled);
-        fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isPressed());
-        toggleSprint.tick(config.toggleSprintEnabled);
-        infoHud.tick(hudSettings());
+        fullbright.tick(config);
+        fovZoom.tick(config, zoomKey.isPressed());
+        toggleSprint.tick(config);
+        hudSettings = HudSettings.from(config);
+        infoHud.tick(hudSettings);
 
         if (client.player != null && client.world != null) {
             blockHighlight.tick(config, client.world, client.player.getBlockPos());
@@ -143,18 +148,6 @@ public class OmegaClient implements ClientModInitializer {
         }
     }
 
-    private HudSettings hudSettings() {
-        return new HudSettings(
-                config.hudEnabled,
-                config.hudShowCoords,
-                config.hudShowFps,
-                config.hudShowPing,
-                config.hudShowDirection,
-                config.hudShowCps,
-                config.hudShowKeystrokes
-        );
-    }
-
     // Drawing itself stays loader-specific - DrawContext (Yarn) and GuiGraphics (official, what
     // common/'s InfoHudFeature would need to take as a parameter) are different types at this
     // module's compile time even though they're the same class once fully remapped, so the actual
@@ -162,7 +155,7 @@ public class OmegaClient implements ClientModInitializer {
     // state behind these draws (cached strings, which keys are held) does live in common/ - this
     // method only reads it and calls DrawContext's own drawing methods.
     private void renderHud(DrawContext context) {
-        HudSettings settings = hudSettings();
+        HudSettings settings = hudSettings;
         if (!settings.enabled()) return;
 
         MinecraftClient client = MinecraftClient.getInstance();

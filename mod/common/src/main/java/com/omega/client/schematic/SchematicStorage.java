@@ -1,8 +1,8 @@
 package com.omega.client.schematic;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.omega.client.util.OmegaGson;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -23,7 +23,7 @@ import java.util.List;
  * so each loader's entrypoint calls init() once at startup with its own resolved Path.
  */
 public final class SchematicStorage {
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = OmegaGson.INSTANCE;
     private static final String EXTENSION = ".omschem.json";
     private static Path configDir;
 
