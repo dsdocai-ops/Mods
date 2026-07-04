@@ -242,4 +242,19 @@ jobs:
             done
           fi
           mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \))
-          gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
+          # gh release upload --clobber deletes-then-reuploads any same-name asset internally (same
+          # as the purge loop above) - GitHub's backend occasionally hasn't finished committing that
+          # deletion by the time the following upload POST lands, which surfaces as a transient
+          # "404 Not Found" on the upload endpoint for a release that demonstrably exists (confirmed
+          # by the `gh release view` call two lines up succeeding against it moments earlier).
+          # Retrying the whole command is safe - --clobber is idempotent, so re-uploading an asset
+          # that actually succeeded on a prior attempt just clobbers it again with identical bytes.
+          for attempt in 1 2 3 4 5; do
+            if gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"; then
+              exit 0
+            fi
+            echo "gh release upload failed (attempt $attempt/5) - likely the documented delete/upload race, retrying..." >&2
+            sleep 5
+          done
+          echo "gh release upload failed after 5 attempts" >&2
+          exit 1
