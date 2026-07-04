@@ -1,22 +1,29 @@
 ---
 name: run-omega-client
-description: Build, run, and drive the Omega Client Electron launcher (repo root). Use when asked to start the launcher, screenshot its UI, take screenshots of its tabs/Settings/New Instance dialog, click a feature toggle, or verify a renderer change actually renders/reacts correctly.
+description: Build, run, and drive the Omega Client Electron launcher (repo root). Use when asked to start the launcher, screenshot its UI, take screenshots of its tabs/Settings/New Instance dialog, click a feature toggle, verify a renderer change actually renders/reacts correctly, or exercise the real main-process logic (instance CRUD, Java detection, mod-jar metadata parsing) directly.
 ---
 
 The real Electron binary cannot launch in this environment (network-blocked
-binary download - see Gotchas), so this drives the built renderer as a plain
-web page in Playwright's Chromium, with `window.api` (the IPC surface from
-`src/main/preload.ts`) replaced by a mock matching the real main-process
-handlers in `src/main/*.ts`. Drive it via
-`.claude/skills/run-omega-client/driver.mjs` - no xvfb needed, Chromium runs
-headless.
+binary download - see Gotchas), so this ships two complementary drivers:
 
-**Scope**: this verifies the React renderer's rendering/event-handling logic
-and the IPC *contract shapes* (does a click call the right `window.api`
-method with the right payload). It does NOT execute real Electron
-main-process code - no real file I/O, Java launching, installer downloads,
-or Microsoft OAuth. Treat it as a renderer smoke test, not a full
-integration test.
+1. **`driver.mjs`** - drives the built renderer as a plain web page in
+   Playwright's Chromium, with `window.api` (the IPC surface from
+   `src/main/preload.ts`) replaced by a mock matching the real main-process
+   handlers. Verifies the React UI's rendering/event-handling and the IPC
+   *contract shapes* - not real main-process code. No xvfb needed, Chromium
+   runs headless.
+2. **`main-process-smoke.cjs`** - calls the REAL compiled `src/main/*.ts`
+   functions directly (instance CRUD, Java detection, mod-jar metadata
+   parsing) against real files on disk - no mocking of this code at all,
+   only the one `electron.app.getPath()` call these modules need is stubbed.
+   This is the one that actually exercises production logic; `driver.mjs`
+   only exercises the UI around a stand-in for it.
+
+Between the two: `driver.mjs` covers the renderer, `main-process-smoke.cjs`
+covers everything in `src/main/*.ts` that doesn't import `electron` beyond
+`app.getPath`. Still never exercised by either: the installer's network
+download engine, and the Microsoft OAuth flow (both need real external
+network access this environment may not allow - not yet checked).
 
 All paths below are relative to the repo root (`/home/user/Mods` in this
 container).
@@ -85,6 +92,32 @@ Console, Instance Settings (all five instance tabs), the global Settings
 page (`click-text Settings`), and the New Instance modal
 (`click-text "+ New Instance"`).
 
+## Direct invocation (real main-process code, no mock)
+
+```bash
+npm run build:electron   # compiles src/main/*.ts -> dist-electron/main/*.js (CommonJS)
+node .claude/skills/run-omega-client/main-process-smoke.cjs
+```
+
+Runs ~20 checks against the REAL compiled functions - not a mock of them:
+`instances.ts`/`store.ts` (create/list/update/remove an instance, confirmed
+by reading the actual `launcher-store.json` back off disk), `java.ts`
+(`detectJavaCandidates()` against this container's real installed JDK,
+`verifyJava()` spawning the real `java -version`), and `mods.ts`/
+`modMetadata.ts` (builds two real jars with `adm-zip` - one with a genuine
+`fabric.mod.json`, one with a genuine `META-INF/mods.toml` - then lists,
+toggles, and tag-presets them for real). Prints `OK`/`FAIL` per check, exits
+non-zero if anything failed, cleans up its own scratch directory either way.
+
+The only thing stubbed is `electron`'s `app.getPath("userData")` (these
+modules' one and only touchpoint with the `electron` package) - everything
+downstream of that call is the unmodified compiled output of `src/main/*.ts`.
+Modules that need more of `electron` than `app.getPath` (`accountStore.ts`,
+`bundledMods.ts`, `main.ts`, `msAuth.ts`, `updater.ts` - anything using
+`BrowserWindow`, `safeStorage`, `ipcMain`, or `shell` for real) are out of
+scope for this technique; extend the `Module._load` stub in
+`main-process-smoke.cjs` if you need to reach one of those.
+
 ## Run (human path)
 
 ```bash
@@ -98,9 +131,11 @@ npm run dev   # opens a real Electron window - useless headless, and the
 
 ```bash
 npm run typecheck   # tsc --noEmit on both the renderer and electron-main tsconfigs
+npm run build:electron && node .claude/skills/run-omega-client/main-process-smoke.cjs   # see Direct invocation above
 ```
 
-No unit test suite exists for the renderer/main process. `mod/` (the
+No conventional unit test suite exists for the renderer/main process -
+`main-process-smoke.cjs` above is the closest thing to one. `mod/` (the
 companion Java mod) has its own CI-only verification - see `mod/README.md`.
 
 ---
@@ -138,6 +173,21 @@ companion Java mod) has its own CI-only verification - see `mod/README.md`.
   app calls `window.api.*` synchronously during React's initial mount, so
   injecting the mock after navigation is too late (everything crashes on
   `window.api is undefined`).
+
+- **`dist-electron/main/*.js` is CommonJS** (`tsconfig.electron.json`
+  targets it that way), which is what makes the `Module._load` patch in
+  `main-process-smoke.cjs` work - `require("electron")` inside those
+  compiled files goes through Node's normal CJS resolution, so intercepting
+  `Module._load` before requiring them redirects it cleanly. This would NOT
+  work against an ESM build (no `Module._load` hook for `import`).
+
+- **Build real jars for metadata-parsing tests, don't hand-roll JSON
+  strings.** `modMetadata.ts` opens each jar as an actual zip via `AdmZip`
+  (already a project dependency) and looks for specific entry paths
+  (`fabric.mod.json`, `META-INF/mods.toml`, etc.) - the only way to
+  genuinely exercise that code is a real zip with those entries, which
+  `AdmZip`'s own writer API builds in a few lines. A fake in-memory object
+  standing in for "a jar" would test nothing about the actual zip-reading path.
 
 ## Troubleshooting
 
