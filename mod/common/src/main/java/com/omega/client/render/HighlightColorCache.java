@@ -13,7 +13,7 @@ public final class HighlightColorCache {
     private static final float[] DEFAULT_COLOR = {0.6f, 0.2f, 1.0f, 0.75f};
 
     private String lastSource = null;
-    private float[] lastColor = DEFAULT_COLOR;
+    private float[] lastColor = defaultColor();
 
     public float[] resolve(String argb) {
         if (argb.equals(lastSource)) return lastColor;
@@ -33,7 +33,14 @@ public final class HighlightColorCache {
             float b = (value & 0xFF) / 255f;
             return new float[]{r, g, b, a};
         } catch (Exception e) {
-            return DEFAULT_COLOR;
+            return defaultColor();
         }
+    }
+
+    // A fresh copy each time, not the shared DEFAULT_COLOR reference - the only current caller
+    // never mutates the returned array, but handing out the same backing array on every failed
+    // parse would let one caller's in-place edit corrupt the fallback for every other caller.
+    private static float[] defaultColor() {
+        return DEFAULT_COLOR.clone();
     }
 }

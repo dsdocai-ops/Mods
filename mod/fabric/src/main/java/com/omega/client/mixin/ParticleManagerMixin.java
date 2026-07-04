@@ -45,7 +45,10 @@ public abstract class ParticleManagerMixin {
                                        double velocityX, double velocityY, double velocityZ,
                                        CallbackInfoReturnable<Particle> cir) {
         Identifier id = Registries.PARTICLE_TYPE.getId(parameters.getType());
-        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
+        // getId returns null for a type not present in this registry (e.g. a modded/transient
+        // type) - ParticleFilter itself already treats a null namespace/path as "always spawn",
+        // so short-circuit here rather than NPE-ing on the .getNamespace()/.getPath() calls below.
+        if (id != null && !ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
             cir.setReturnValue(null);
         }
     }

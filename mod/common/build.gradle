@@ -2,10 +2,12 @@
 // each pull compiled classes from here via Loom's auto-generated
 // transformProductionFabric/transformProductionForge configurations (wired in their own
 // build.gradle's dependencies block), remapped per-platform from the official mappings this module
-// compiles against. Still holds only the same zero-Minecraft-import classes as before (SchematicData,
-// SchematicBlockEntry, SessionInfo, ParticleCategory) - moving actual Minecraft-touching feature code
-// in is separate follow-up work (see mod/README.md's Architectury section). Modeled on the official
-// Architectury multiloader template's common/build.gradle (architectury/architectury-templates).
+// compiles against. Holds every class whose public API never needs a raw Minecraft-mapped type
+// (ModConfig, feature classes like FullbrightFeature/InfoHudFeature, small pure-logic helpers like
+// HighlightColorCache, plus the original zero-Minecraft-import classes SchematicData/SessionInfo/
+// ParticleCategory) - see mod/README.md's Architectury section for the exact rule and what still has
+// to stay loader-specific. Modeled on the official Architectury multiloader template's
+// common/build.gradle (architectury/architectury-templates).
 //
 // Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - versions are
 // pinned once in the root build.gradle with `apply false`; see its comment for why (the six-round

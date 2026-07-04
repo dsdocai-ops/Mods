@@ -1,5 +1,7 @@
 package com.omega.client.features;
 
+import com.omega.client.ModConfig;
+
 /**
  * Immutable snapshot of the HUD-relevant ModConfig flags - InfoHudFeature takes this instead of
  * the loader-specific ModConfig type directly, same decoupling reason as FullbrightFeature/
@@ -15,4 +17,15 @@ public record HudSettings(
         boolean showCps,
         boolean showKeystrokes
 ) {
+    public static HudSettings from(ModConfig config) {
+        return new HudSettings(
+                config.hudEnabled,
+                config.hudShowCoords,
+                config.hudShowFps,
+                config.hudShowPing,
+                config.hudShowDirection,
+                config.hudShowCps,
+                config.hudShowKeystrokes
+        );
+    }
 }

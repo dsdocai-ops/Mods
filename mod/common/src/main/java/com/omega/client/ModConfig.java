@@ -1,7 +1,7 @@
 package com.omega.client;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.omega.client.util.OmegaGson;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -24,7 +24,7 @@ import java.util.List;
  * feature class had to decouple from.
  */
 public class ModConfig {
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = OmegaGson.INSTANCE;
     private static final String FILE_NAME = "omega-client.json";
     private static Path configDir;
 
