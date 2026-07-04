@@ -2,6 +2,7 @@ package com.omega.client.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.omega.client.ModConfig;
+import com.omega.client.SessionInfoLoader;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
 import com.omega.client.features.HudSettings;
