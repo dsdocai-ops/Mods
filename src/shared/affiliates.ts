@@ -12,9 +12,9 @@ import type { SponsorPlacement } from "./types";
  * networks' own ToS prohibit exactly this kind of desktop-app embedding anyway. Real placements get
  * added to this array as they're set up - not inventing fake ones ahead of time.
  */
-export const APEX_HOSTING_AFFILIATE_URL = "https://billing.apexminecrafthosting.com/aff.php?aff=16916";
+const APEX_HOSTING_AFFILIATE_URL = "https://billing.apexminecrafthosting.com/aff.php?aff=16916";
 
-export const APEX_HOSTING_DISCLOSURE =
+const APEX_HOSTING_DISCLOSURE =
   "Affiliate link - Omega Client may earn a commission if you sign up, at no extra cost to you.";
 
 export const SPONSOR_PLACEMENTS: SponsorPlacement[] = [

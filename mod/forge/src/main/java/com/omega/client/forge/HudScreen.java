@@ -54,17 +54,7 @@ public class HudScreen extends Screen {
     }
 
     private void addToggleRow(int x, int y, String label, BooleanSupplier getter, Consumer<Boolean> setter) {
-        Button button = Button.builder(rowText(label, getter.getAsBoolean()), b -> {
-            boolean next = !getter.getAsBoolean();
-            setter.accept(next);
-            b.setMessage(rowText(label, next));
-            config.save();
-        }).bounds(x, y, ROW_WIDTH, 20).build();
-        this.addRenderableWidget(button);
-    }
-
-    private static Component rowText(String label, boolean enabled) {
-        return Component.literal(label + ": " + (enabled ? "ON" : "OFF"));
+        ToggleRowSupport.addToggleRow(this::addRenderableWidget, x, y, ROW_WIDTH, label, getter, setter, config::save);
     }
 
     @Override
