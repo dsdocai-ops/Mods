@@ -1,5 +1,6 @@
 package com.omega.client.features;
 
+import com.omega.client.hud.CpsTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
