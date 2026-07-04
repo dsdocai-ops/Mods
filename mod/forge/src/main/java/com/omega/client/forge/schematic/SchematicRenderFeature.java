@@ -2,8 +2,9 @@ package com.omega.client.forge.schematic;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.forge.render.WireBoxRenderer;
+import com.omega.client.render.BlockColorizer;
 import com.omega.client.schematic.SchematicBlockEntry;
 import com.omega.client.schematic.SchematicData;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -88,7 +89,7 @@ public final class SchematicRenderFeature {
             double dz = worldZ + 0.5 - camPos.z;
             if (dx * dx + dy * dy + dz * dz > MAX_RENDER_DISTANCE_SQ) continue;
 
-            float[] rgb = colorForBlock(entry.block);
+            float[] rgb = BlockColorizer.colorForBlock(entry.block);
             WireBoxRenderer.drawBoxOutline(matrices, buffer, new BlockPos((int) worldX, (int) worldY, (int) worldZ), rgb[0], rgb[1], rgb[2], 0.85f);
             rendered++;
         }
@@ -97,26 +98,4 @@ public final class SchematicRenderFeature {
         matrices.popPose();
     }
 
-    /** Deterministic block-id -> color so different materials are visually distinguishable without real textures - null-safe since a corrupted/hand-edited schematic file can carry an entry with a missing "block" field. */
-    private float[] colorForBlock(String blockId) {
-        int hash = (blockId != null ? blockId : "unknown").hashCode();
-        float hue = ((hash & 0xFFFF) % 360) / 360f;
-        return hsvToRgb(hue, 0.55f, 1.0f);
-    }
-
-    private float[] hsvToRgb(float h, float s, float v) {
-        int i = (int) (h * 6);
-        float f = h * 6 - i;
-        float p = v * (1 - s);
-        float q = v * (1 - f * s);
-        float t = v * (1 - (1 - f) * s);
-        return switch (i % 6) {
-            case 0 -> new float[]{v, t, p};
-            case 1 -> new float[]{q, v, p};
-            case 2 -> new float[]{p, v, t};
-            case 3 -> new float[]{p, q, v};
-            case 4 -> new float[]{t, p, v};
-            default -> new float[]{v, p, q};
-        };
-    }
 }

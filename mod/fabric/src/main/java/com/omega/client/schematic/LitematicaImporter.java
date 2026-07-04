@@ -89,21 +89,17 @@ public final class LitematicaImporter {
         for (int y = 0; y < absSizeY; y++) {
             for (int z = 0; z < absSizeZ; z++) {
                 for (int x = 0; x < absSizeX; x++) {
-                    int paletteIndex = readPackedEntry(packedStates, index, bitsPerEntry);
+                    int paletteIndex = LitematicaBitPacking.readPackedEntry(packedStates, index, bitsPerEntry);
                     index++;
                     if (paletteIndex < 0 || paletteIndex >= palette.size()) continue;
                     String blockString = palette.get(paletteIndex);
-                    if (isAir(blockString)) continue;
+                    if (LitematicaBitPacking.isAir(blockString)) continue;
                     data.blocks.add(new SchematicBlockEntry(x, y, z, blockString));
                 }
             }
         }
 
         return data;
-    }
-
-    private static boolean isAir(String blockString) {
-        return blockString.startsWith("minecraft:air") || blockString.startsWith("minecraft:cave_air") || blockString.startsWith("minecraft:void_air");
     }
 
     private static List<String> readPalette(NbtCompound region) {
@@ -130,25 +126,4 @@ public final class LitematicaImporter {
         return palette;
     }
 
-    /**
-     * Litematica packs palette indices into a long[] allowing a value to span across two longs -
-     * unlike vanilla's own post-1.16 chunk section packing, which never splits a value across a
-     * long boundary. Getting this distinction backwards is the classic mistake when reading this
-     * format; this implementation intentionally allows spanning to match Litematica's scheme.
-     */
-    private static int readPackedEntry(long[] data, int index, int bitsPerEntry) {
-        long bitOffset = (long) index * bitsPerEntry;
-        int longIndex = (int) (bitOffset >> 6);
-        int bitInLong = (int) (bitOffset & 0x3F);
-        if (longIndex >= data.length) return -1;
-
-        long value;
-        if (bitInLong + bitsPerEntry > 64 && longIndex + 1 < data.length) {
-            value = (data[longIndex] >>> bitInLong) | (data[longIndex + 1] << (64 - bitInLong));
-        } else {
-            value = data[longIndex] >>> bitInLong;
-        }
-        long mask = (1L << bitsPerEntry) - 1;
-        return (int) (value & mask);
-    }
 }

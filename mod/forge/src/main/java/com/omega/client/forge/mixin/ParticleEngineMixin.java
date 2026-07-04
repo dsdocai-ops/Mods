@@ -1,7 +1,7 @@
 package com.omega.client.forge.mixin;
 
-import com.omega.client.forge.ModConfig;
-import com.omega.client.forge.particle.ParticleFilter;
+import com.omega.client.ModConfig;
+import com.omega.client.particle.ParticleFilter;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.particles.ParticleOptions;
@@ -43,7 +43,7 @@ public abstract class ParticleEngineMixin {
                                        double xSpeed, double ySpeed, double zSpeed,
                                        CallbackInfoReturnable<Particle> cir) {
         ResourceLocation id = BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());
-        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id)) {
+        if (!ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
             cir.setReturnValue(null);
         }
     }

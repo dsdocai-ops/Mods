@@ -1,7 +1,7 @@
 package com.omega.client.forge.mixin;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import net.minecraft.client.renderer.FogRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;

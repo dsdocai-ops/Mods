@@ -1,27 +1,50 @@
 plugins {
-    id 'fabric-loom' version '1.6.12'
     id 'maven-publish'
+    // Merges common/'s remapped output into this module's jar (see the shadowJar/remapJar blocks
+    // below) - version matches the official Architectury multiloader template.
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
+
+// Applied via the classic `apply plugin:` mechanism, not this file's own `plugins { ... version }`
+// block - versions are pinned once in the root build.gradle with `apply false`. See its comment for
+// why (three CI rounds' worth of "Could not find method forge()" before this was the actual fix).
+apply plugin: 'architectury-plugin'
+apply plugin: 'dev.architectury.loom'
 
 base {
     archivesName = "${project.archives_base_name}-fabric"
+}
+
+// Architectury Loom is a drop-in superset of Fabric Loom (same `loom {}` extension, same task
+// names/outputs) - this fabric() declaration is the only thing this module adds over what plain
+// fabric-loom already did; everything else below is unchanged from before the Architectury switch.
+architectury {
+    platformSetupLoomIde()
+    fabric()
 }
 
 repositories {
     mavenCentral()
 }
 
-// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - adding its source
-// directory straight into this module's own compilation, rather than depending on a separately
-// built jar, means it's compiled together with everything else in one pass with no jar-embedding
-// step needed.
-sourceSets.main.java.srcDir project(':common').file('src/main/java')
+// common/ is now a real Architectury common module (see common/build.gradle) instead of a raw
+// shared source directory - its remapped output is pulled in via the shadowCommon dependency below
+// and merged into this module's jar by shadowJar/remapJar, not compiled directly into this module.
+configurations {
+    common
+    shadowCommon // Don't use shadow from the shadow plugin - it *excludes* files, we want to merge.
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+}
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionFabric')) { transitive = false }
 }
 
 processResources {
@@ -36,6 +59,32 @@ java {
     withSourcesJar()
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+// withSourcesJar() above must run first - it's what registers the sourcesJar task the block below
+// configures. Same for shadowJar/remapJar needing the shadow plugin's task already registered by
+// the time this file reaches them, which the plugin application at the top of this file covers.
+shadowJar {
+    exclude "architectury.common.json"
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = "dev-shadow"
+}
+
+remapJar {
+    input.set shadowJar.archiveFile
+    dependsOn shadowJar
+}
+
+sourcesJar {
+    def commonSources = project(':common').sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}
+
+components.java {
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

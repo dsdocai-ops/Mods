@@ -1,6 +1,7 @@
 package com.omega.client.forge.particle;
 
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
+import com.omega.client.particle.ParticleScreenSupport;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -20,7 +21,6 @@ import java.util.function.Consumer;
 public class ParticleScreen extends Screen {
     private static final int ROW_HEIGHT = 22;
     private static final int ROW_WIDTH = 220;
-    private static final float[] DENSITY_STEPS = {1.0f, 0.75f, 0.5f, 0.25f, 0.1f};
     private static final int MAX_VISIBLE_BLACKLIST_ROWS = 5;
 
     private final ModConfig config;
@@ -57,7 +57,7 @@ public class ParticleScreen extends Screen {
         y += ROW_HEIGHT;
 
         this.addRenderableWidget(Button.builder(densityText(), b -> {
-                    config.particleDensity = nextDensityStep(config.particleDensity);
+                    config.particleDensity = ParticleScreenSupport.nextDensityStep(config.particleDensity);
                     b.setMessage(densityText());
                     config.save();
                 })
@@ -106,7 +106,7 @@ public class ParticleScreen extends Screen {
     private void addBlacklistEntry() {
         String raw = blacklistField.getValue().trim();
         if (raw.isEmpty()) return;
-        String id = raw.contains(":") ? raw : "minecraft:" + raw;
+        String id = ParticleScreenSupport.normalizeBlacklistId(raw);
         if (!config.particleBlacklist.contains(id)) {
             config.particleBlacklist.add(id);
             config.save();
@@ -122,15 +122,6 @@ public class ParticleScreen extends Screen {
         config.save();
         this.clearWidgets();
         this.init();
-    }
-
-    private static float nextDensityStep(float current) {
-        for (int i = 0; i < DENSITY_STEPS.length; i++) {
-            if (Math.abs(DENSITY_STEPS[i] - current) < 0.001f) {
-                return DENSITY_STEPS[(i + 1) % DENSITY_STEPS.length];
-            }
-        }
-        return DENSITY_STEPS[0];
     }
 
     private Component densityText() {

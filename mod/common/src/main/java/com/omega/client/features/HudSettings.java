@@ -1,0 +1,18 @@
+package com.omega.client.features;
+
+/**
+ * Immutable snapshot of the HUD-relevant ModConfig flags - InfoHudFeature takes this instead of
+ * the loader-specific ModConfig type directly, same decoupling reason as FullbrightFeature/
+ * FovZoomFeature/ToggleSprintFeature, just as a record instead of raw parameters since there are
+ * seven flags here rather than one to three.
+ */
+public record HudSettings(
+        boolean enabled,
+        boolean showCoords,
+        boolean showFps,
+        boolean showPing,
+        boolean showDirection,
+        boolean showCps,
+        boolean showKeystrokes
+) {
+}

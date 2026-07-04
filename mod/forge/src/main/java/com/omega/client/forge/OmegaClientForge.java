@@ -1,17 +1,22 @@
 package com.omega.client.forge;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.omega.client.ModConfig;
+import com.omega.client.SessionInfoLoader;
+import com.omega.client.features.FovZoomFeature;
+import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.HudSettings;
+import com.omega.client.features.InfoHudFeature;
+import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
-import com.omega.client.forge.features.FovZoomFeature;
-import com.omega.client.forge.features.FullbrightFeature;
-import com.omega.client.forge.features.InfoHudFeature;
-import com.omega.client.forge.features.ToggleSprintFeature;
 import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
+import com.omega.client.schematic.SchematicStorage;
 import com.omega.client.session.SessionInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -25,6 +30,7 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -41,7 +47,7 @@ import org.lwjgl.glfw.GLFW;
  */
 @Mod("omega_client_forge")
 public class OmegaClientForge {
-    private final ModConfig config = ModConfig.load();
+    private final ModConfig config = ModConfig.load(FMLPaths.CONFIGDIR.get());
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
     private final FovZoomFeature fovZoom = new FovZoomFeature();
@@ -50,7 +56,7 @@ public class OmegaClientForge {
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
-    private final SessionInfo session = SessionInfoLoader.load();
+    private final SessionInfo session = SessionInfoLoader.load(FMLPaths.GAMEDIR.get());
 
     private final KeyMapping menuKey = new KeyMapping("key.omega-client.menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, "key.categories.omega-client");
     private final KeyMapping zoomKey = new KeyMapping("key.omega-client.zoom", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, "key.categories.omega-client");
@@ -60,6 +66,7 @@ public class OmegaClientForge {
     private final KeyMapping reanchorKey = new KeyMapping("key.omega-client.reanchor", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.omega-client");
 
     public OmegaClientForge() {
+        SchematicStorage.init(FMLPaths.CONFIGDIR.get());
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onRegisterKeyMappings);
         modEventBus.addListener(this::onRegisterGuiOverlays);
@@ -77,7 +84,7 @@ public class OmegaClientForge {
     }
 
     private void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
-        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> infoHud.render(guiGraphics, config));
+        event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> renderHud(guiGraphics));
     }
 
     @SubscribeEvent
@@ -105,10 +112,10 @@ public class OmegaClientForge {
             }
         }
 
-        fullbright.tick(config);
-        fovZoom.tick(config, zoomKey.isDown());
-        toggleSprint.tick(config);
-        infoHud.tick(config, client);
+        fullbright.tick(config.fullbrightEnabled);
+        fovZoom.tick(config.zoomFov, config.customFovEnabled, config.customFov, zoomKey.isDown());
+        toggleSprint.tick(config.toggleSprintEnabled);
+        infoHud.tick(hudSettings());
 
         if (client.player != null && client.level != null) {
             blockHighlight.tick(config, client.level, client.player.blockPosition());
@@ -144,6 +151,68 @@ public class OmegaClientForge {
                     Component.literal("Omega: Position " + (isPos1 ? "1" : "2") + " set to " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()),
                     true
             );
+        }
+    }
+
+    private HudSettings hudSettings() {
+        return new HudSettings(
+                config.hudEnabled,
+                config.hudShowCoords,
+                config.hudShowFps,
+                config.hudShowPing,
+                config.hudShowDirection,
+                config.hudShowCps,
+                config.hudShowKeystrokes
+        );
+    }
+
+    // Drawing itself stays loader-specific - GuiGraphics (official) and Fabric's DrawContext (Yarn)
+    // are different types at each module's own compile time even though they're the same class once
+    // fully remapped, so the actual draw calls can't live in common/. See InfoHudFeature's javadoc
+    // for the full explanation. The state behind these draws (cached strings, which keys are held)
+    // does live in common/ - this method only reads it and calls GuiGraphics's own drawing methods.
+    private void renderHud(GuiGraphics context) {
+        HudSettings settings = hudSettings();
+        if (!settings.enabled()) return;
+
+        Minecraft client = Minecraft.getInstance();
+        int x = 6;
+        int y = 6;
+        int lineHeight = client.font.lineHeight + 2;
+
+        if (settings.showCoords() && client.player != null) {
+            context.drawString(client.font, infoHud.coords(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showFps()) {
+            context.drawString(client.font, infoHud.fps(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showPing() && !infoHud.ping().isEmpty()) {
+            context.drawString(client.font, infoHud.ping(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showDirection() && !infoHud.direction().isEmpty()) {
+            context.drawString(client.font, infoHud.direction(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showCps()) {
+            infoHud.pollCps();
+            context.drawString(client.font, infoHud.cpsText(), x, y, InfoHudFeature.TEXT_COLOR, true);
+            y += lineHeight;
+        }
+        if (settings.showKeystrokes()) {
+            renderKeystrokes(context, client, x, y);
+        }
+    }
+
+    private void renderKeystrokes(GuiGraphics context, Minecraft client, int x, int y) {
+        for (int i = 0; i < InfoHudFeature.KEY_LABELS.length; i++) {
+            int keyX = x + i * (InfoHudFeature.KEY_BOX_SIZE + InfoHudFeature.KEY_BOX_GAP);
+            boolean held = infoHud.keyHeld(i);
+            int color = held ? 0xFF3B9CFF : InfoHudFeature.SHADOW_BG;
+            context.fill(keyX, y, keyX + InfoHudFeature.KEY_BOX_SIZE, y + InfoHudFeature.KEY_BOX_SIZE, color);
+            context.drawCenteredString(client.font, InfoHudFeature.KEY_LABELS[i], keyX + InfoHudFeature.KEY_BOX_SIZE / 2, y + InfoHudFeature.KEY_BOX_SIZE / 2 - 4, InfoHudFeature.TEXT_COLOR);
         }
     }
 }

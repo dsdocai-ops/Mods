@@ -1,6 +1,6 @@
 package com.omega.client.forge.network;
 
-import com.omega.client.forge.ModConfig;
+import com.omega.client.ModConfig;
 import com.omega.client.presence.OmegaPresence;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;

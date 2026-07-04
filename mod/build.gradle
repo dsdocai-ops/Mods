@@ -1,5 +1,17 @@
-// Root build - just shared coordinates. Each subproject (common/fabric/forge) configures its own
-// toolchain (or none, for common) in its own build.gradle.
+// Root build - shared coordinates plus the Architectury plugin version pins. fabric/ and forge/
+// each `apply plugin:` these (no version, since it's pinned here with `apply false`) rather than
+// independently re-declaring `plugins { id ... version ... }` in their own build.gradle - that
+// per-module pattern is what caused three straight CI rounds to fail with "Could not find method
+// forge()": Loom's Forge dependency-handler extension never wired up. Confirmed against a real,
+// building multi-loader mod (RoughlyEnoughItems' 12.x-1.20 branch, the same MC 1.20.1 /
+// Architectury 3.4.x / Loom 1.6.x line this project resolved to) using this exact apply-false +
+// subproject apply-plugin idiom. common/ deliberately never applies either plugin - it stays a
+// plain java-library with zero Minecraft imports (see common/build.gradle).
+plugins {
+    id 'architectury-plugin' version "${architectury_plugin_version}" apply false
+    id 'dev.architectury.loom' version "${architectury_loom_version}" apply false
+}
+
 allprojects {
     version = project.mod_version
     group = project.maven_group

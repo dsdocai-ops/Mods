@@ -1,15 +1,36 @@
-// Deliberately not a Loom/ForgeGradle project: everything here (SchematicData, SchematicBlockEntry)
-// is plain Java with zero Minecraft imports, so there's no obfuscation-mapping to worry about.
-// fabric/ and forge/ each add this module's source directory straight into their own compilation
-// (see their build.gradle) rather than depending on a separately-compiled jar - since nothing here
-// touches a mapped Minecraft class, that's a safe, low-risk way to genuinely share this code
-// between two modules built against different mapping sets. See mod/README.md for why the rest of
-// the mod (anything that *does* touch Minecraft classes) is NOT shared this way.
-plugins {
-    id 'java-library'
+// Real Architectury common module now, not just a raw shared source directory - fabric/ and forge/
+// each pull compiled classes from here via Loom's auto-generated
+// transformProductionFabric/transformProductionForge configurations (wired in their own
+// build.gradle's dependencies block), remapped per-platform from the official mappings this module
+// compiles against. Still holds only the same zero-Minecraft-import classes as before (SchematicData,
+// SchematicBlockEntry, SessionInfo, ParticleCategory) - moving actual Minecraft-touching feature code
+// in is separate follow-up work (see mod/README.md's Architectury section). Modeled on the official
+// Architectury multiloader template's common/build.gradle (architectury/architectury-templates).
+//
+// Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - versions are
+// pinned once in the root build.gradle with `apply false`; see its comment for why (the six-round
+// history of getting the Forge module's equivalent wiring right applies here too).
+apply plugin: 'architectury-plugin'
+apply plugin: 'dev.architectury.loom'
+
+architectury {
+    common(rootProject.enabled_platforms.split(","))
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    // Fabric loader only for @Environment annotations at compile time - not shipped, matches the
+    // official template's own common/build.gradle.
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 }
 
 java {
+    withSourcesJar()
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
 }

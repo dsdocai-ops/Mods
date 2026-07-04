@@ -1,65 +1,116 @@
-// Standard ForgeGradle MDK-template shape (the official Forge project template's structure has
-// been stable across many Minecraft versions) - the exact plugin version range is the one spot
-// here I'd double check first if this doesn't resolve, same spirit as the moderate-confidence
-// spots flagged in mod/README.md.
+// Architectury Loom, not stock ForgeGradle: this is what lets fabric/ and forge/ eventually share
+// Minecraft-touching code in common/ (see mod/README.md's Architectury section) - both loaders now
+// build through the same Loom toolchain instead of Forge using its own separate ForgeGradle DSL.
+// Loom bundles its own Mixin annotation processing (same mechanism the fabric module already got
+// for free from fabric-loom), so the separate org.spongepowered.mixin plugin + SpongePowered maven
+// repo + manual `mixin { add ...; config ... }` refmap wiring the ForgeGradle setup needed are gone
+// - the loom.forge.mixinConfig(...) call below is what wires the refmap now, alongside the same
+// META-INF/mods.toml `[[mixins]]` entry that already declared it at runtime.
+// This module went through two rounds of real-compiler correction the first time it targeted
+// Forge's official mappings (see mod/README.md) - this toolchain switch needed several rounds of
+// its own before landing on the right shape (see the root build.gradle's comment for the plugin-
+// application history; the loom.forge{} block below was the piece that finally made forge(...)
+// exist as a dependency method at all).
+
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    // Official MixinGradle: generates the SRG refmap the particle Mixin needs to apply in
-    // production. Forge 1.20.1 runs SRG names at runtime (only dev uses official mappings), so a
-    // refmap is genuinely required - an earlier attempt to skip it with a compiler flag was wrong,
-    // and CI's annotation processor said so explicitly.
-    id 'org.spongepowered.mixin' version '0.7.+'
+    // Merges common/'s remapped output into this module's jar (see the shadowJar/remapJar blocks
+    // below) - version matches the official Architectury multiloader template.
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
+
+// Applied via `apply plugin:`, not this file's own `plugins { ... version }` block - see the root
+// build.gradle's comment for why.
+apply plugin: 'architectury-plugin'
+apply plugin: 'dev.architectury.loom'
 
 base {
     archivesName = "${project.archives_base_name}-forge"
 }
 
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+// The reference this is modeled on (RoughlyEnoughItems' forge/build.gradle) has this block too,
+// and is the one remaining structural difference after four failed rounds all hit the identical
+// "Could not find method forge()" regardless of plugin-application order or Loom version (1.6.422
+// and 1.7.435 both failed identically) - Loom's forge dependency-handler extension may only
+// register once this loom.forge{} configuration itself has been touched.
+loom {
+    forge {
+        mixinConfig "omega_client_forge.mixins.json"
+    }
+}
+
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-// common/ is plain Java with zero Minecraft imports (see common/build.gradle) - added directly as
-// a source directory for the same reason the fabric module does this instead of depending on a
-// separately-built jar.
-sourceSets.main.java.srcDir project(':common').file('src/main/java')
-
-minecraft {
-    mappings channel: 'official', version: project.minecraft_version
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods {
-                omega_client_forge {
-                    source sourceSets.main
-                }
-            }
-        }
-    }
+// common/ is now a real Architectury common module (see common/build.gradle) instead of a raw
+// shared source directory - its remapped output is pulled in via the shadowCommon dependency below
+// and merged into this module's jar by shadowJar/remapJar, not compiled directly into this module.
+configurations {
+    common
+    shadowCommon // Don't use shadow from the shadow plugin - it *excludes* files, we want to merge.
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
 }
 
 repositories {
     mavenCentral()
-    // Only needed for the Mixin annotation processor dependency below - see the particle-control
-    // Mixin in mod/README.md's "Particle control" section.
-    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${project.forge_version}"
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-}
+    // minecraft(...) always resolves its GAV's version segment as a literal vanilla Minecraft
+    // version to fetch from piston-meta - it can never take the Forge-patched coordinate directly
+    // (confirmed: passing net.minecraftforge:forge:1.20.1-47.2.0 here made Loom try and fail to
+    // look up a vanilla release literally named "1.20.1-47.2.0"). forge(...) is the correct,
+    // separate config for that - it just needed `architectury-plugin`/`dev.architectury.loom`
+    // applied the way the root build.gradle now does for the method to actually exist.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    forge "net.minecraftforge:forge:${project.forge_version}"
 
-mixin {
-    add sourceSets.main, 'omega_client_forge.refmap.json'
-    config 'omega_client_forge.mixins.json'
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionForge')) { transitive = false }
 }
 
 processResources {
     inputs.property "version", project.version
     filesMatching("META-INF/mods.toml") {
         expand "version": project.version, "forge_loader_range": project.forge_loader_range
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// withSourcesJar() above must run first - it's what registers the sourcesJar task the block below
+// configures (this ordering bug was round 1 of the common-module fix: fabric's identical mistake
+// failed first since Gradle configures :common then :fabric before :forge in this multi-project
+// build).
+shadowJar {
+    exclude "architectury.common.json"
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = "dev-shadow"
+}
+
+remapJar {
+    input.set shadowJar.archiveFile
+    dependsOn shadowJar
+}
+
+sourcesJar {
+    def commonSources = project(':common').sourcesJar
+    dependsOn commonSources
+    from commonSources.archiveFile.map { zipTree(it) }
+}
+
+components.java {
+    withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+        skip()
     }
 }
 
