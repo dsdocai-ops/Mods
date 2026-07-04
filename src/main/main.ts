@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,6 +16,7 @@ import { ensureOmegaConfig, findModConfigPath, readModConfigFile, writeModConfig
 import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
+import * as licensing from "./licensing";
 
 const isDev = process.env.NODE_ENV === "development";
 const runningProcesses = new Map<string, ChildProcess>();
@@ -164,6 +166,9 @@ app.whenReady().then(() => {
 
   ipcMain.handle("java:detect", (_e, gameDir?: string) => javaModule.detectJavaCandidates(gameDir));
   ipcMain.handle("java:verify", (_e, javaPath: string) => javaModule.verifyJava(javaPath));
+
+  ipcMain.handle("licensing:redeem", (_e, key: string) => licensing.redeemLicenseKey(key));
+  ipcMain.handle("licensing:listOwned", () => licensing.getOwnedCosmetics());
 
   ipcMain.handle("install:listVersions", () => listInstallableVersions());
 

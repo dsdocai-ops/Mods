@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import fs from "node:fs";
 import path from "node:path";
 import type { ConfigFormat, ModConfigFile } from "../shared/types";
@@ -85,6 +86,7 @@ const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
   clearWeatherEnabled: false,
   schematicPreviewEnabled: false,
   showOmegaUsersEnabled: true,
+  ownedCosmeticId: "",
   particlesMasterEnabled: true,
   blockParticlesEnabled: true,
   ambientParticlesEnabled: true,

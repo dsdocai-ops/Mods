@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.particle;
 
 import com.omega.client.ModConfig;
@@ -106,7 +107,7 @@ public class ParticleScreen extends Screen {
     private void addBlacklistEntry() {
         String raw = blacklistField.getText().trim();
         if (raw.isEmpty()) return;
-        String id = ParticleScreenSupport.normalizeBlacklistId(raw);
+        String id = ParticleScreenSupport.normalizeNamespacedId(raw);
         if (!config.particleBlacklist.contains(id)) {
             config.particleBlacklist.add(id);
             config.save();

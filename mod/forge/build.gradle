@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Architectury Loom, not stock ForgeGradle: this is what lets fabric/ and forge/ eventually share
 // Minecraft-touching code in common/ (see mod/README.md's Architectury section) - both loaders now
 // build through the same Loom toolchain instead of Forge using its own separate ForgeGradle DSL.

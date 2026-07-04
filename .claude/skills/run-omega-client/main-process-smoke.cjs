@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Direct-invocation smoke test for src/main/*.ts's real exported functions -
 // the pieces that never run under the renderer-only driver.mjs, because
 // that one only exercises the React UI against a hand-written window.api
@@ -152,7 +153,58 @@ function runModsSection() {
   const preset = mods.applyTagPreset(modsDir, ["cpvp"]);
   check("applyTagPreset(['cpvp']) enables the crystal mod, disables the perf mod", preset.find((m) => m.id === crystal.id)?.enabled === true && preset.find((m) => m.id === sodium.id)?.enabled === false);
 
-  finish();
+  runLicensingSection();
+}
+
+// ---- licensing.ts (real licenses.json + real mod-config write, no mocking) ----
+function runLicensingSection() {
+  console.log("\n== licensing ==");
+  const licensing = require(path.join(MAIN_DIR, "licensing.js"));
+
+  check("getOwnedCosmetics() starts empty", licensing.getOwnedCosmetics().length === 0);
+
+  // redeemLicenseKey() is an intentional stub (no payment provider chosen yet) - confirm it still
+  // reports that honestly rather than silently unlocking anything.
+  return licensing.redeemLicenseKey("SOME-KEY-123").then((result) => {
+    check("redeemLicenseKey() stub reports ok:false", result.ok === false);
+    check("redeemLicenseKey() stub gives a human-readable message", typeof result.message === "string" && result.message.length > 0);
+    check("redeemLicenseKey() stub doesn't unlock anything", licensing.getOwnedCosmetics().length === 0);
+
+    // unlockCosmetic() is the real, independently-callable function a future payment integration
+    // will call on a verified purchase - test it directly, bypassing the stub.
+    const instances = require(path.join(MAIN_DIR, "instances.js"));
+    const licenseInstance = instances.createInstance({
+      name: "License Smoke Instance",
+      gameDir: path.join(SCRATCH, "minecraft-license"),
+      versionId: "1.20.1",
+      loader: "fabric",
+    });
+
+    licensing.unlockCosmetic("gold_badge");
+    check("unlockCosmetic() adds the cosmetic to getOwnedCosmetics()", licensing.getOwnedCosmetics().includes("gold_badge"));
+
+    const licensesFile = path.join(USER_DATA, "licenses.json");
+    check("licenses.json actually exists on disk", fs.existsSync(licensesFile));
+    const licensesOnDisk = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
+    check("licenses.json on-disk content matches", Array.isArray(licensesOnDisk.ownedCosmetics) && licensesOnDisk.ownedCosmetics.includes("gold_badge"));
+
+    const configPath = path.join(path.dirname(licenseInstance.modsDir), "config", "omega-client.json");
+    check("unlockCosmetic() wrote a real config/omega-client.json for the instance", fs.existsSync(configPath));
+    const configOnDisk = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    check("config/omega-client.json has ownedCosmeticId set", configOnDisk.ownedCosmeticId === "gold_badge");
+
+    // Calling it again with the same id must not duplicate the entry.
+    licensing.unlockCosmetic("gold_badge");
+    const licensesAfterRepeat = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
+    check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "gold_badge").length === 1);
+
+    instances.removeInstance(licenseInstance.id);
+    finish();
+  }).catch((e) => {
+    console.log("  FAIL licensing section threw:", e.message);
+    failures++;
+    finish();
+  });
 }
 
 function finish() {

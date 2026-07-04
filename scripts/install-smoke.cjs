@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Runtime smoke test for the Minecraft install engine, run by CI (the dev sandbox that writes
 // this code can't reach Mojang's CDNs, so this is the only place the download path actually
 // executes). Installs vanilla 1.20.1 into a temp dir - skipping the ~350MB of individual asset

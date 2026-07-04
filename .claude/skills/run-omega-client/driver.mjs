@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // REPL driver for the Omega Client Electron launcher's renderer.
 //
 // The real Electron binary cannot launch in this environment (network-
@@ -86,6 +87,10 @@ function installMockApi() {
     java: {
       detect: async () => (['/usr/bin/java']),
       verify: async () => ({ ok: true, version: '17.0.9' }),
+    },
+    licensing: {
+      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "Cosmetics aren't on sale yet - check back soon." }; },
+      listOwned: async () => ([]),
     },
     install: {
       listVersions: async () => ([{ id: '1.20.1', type: 'release', url: '' }]),

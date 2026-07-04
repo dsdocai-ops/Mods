@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.particle;
 
 /**
@@ -23,8 +24,12 @@ public final class ParticleScreenSupport {
         return DENSITY_STEPS[0];
     }
 
-    /** Defaults a bare id (no namespace) to "minecraft:" - the same shorthand vanilla commands accept. */
-    public static String normalizeBlacklistId(String raw) {
+    /**
+     * Defaults a bare id (no namespace) to "minecraft:" - the same shorthand vanilla commands accept.
+     * Shared with the Block Highlight screen's block-id list (VisualScreenSupport doesn't duplicate
+     * this - same normalization rule for any modded-block-id text field in this GUI).
+     */
+    public static String normalizeNamespacedId(String raw) {
         return raw.contains(":") ? raw : "minecraft:" + raw;
     }
 }

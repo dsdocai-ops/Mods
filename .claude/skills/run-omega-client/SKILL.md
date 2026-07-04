@@ -3,6 +3,8 @@ name: run-omega-client
 description: Build, run, and drive the Omega Client Electron launcher (repo root). Use when asked to start the launcher, screenshot its UI, take screenshots of its tabs/Settings/New Instance dialog, click a feature toggle, verify a renderer change actually renders/reacts correctly, or exercise the real main-process logic (instance CRUD, Java detection, mod-jar metadata parsing) directly.
 ---
 
+<!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
+
 The real Electron binary cannot launch in this environment (network-blocked
 binary download - see Gotchas), so this ships two complementary drivers:
 
@@ -188,6 +190,22 @@ companion Java mod) has its own CI-only verification - see `mod/README.md`.
   genuinely exercise that code is a real zip with those entries, which
   `AdmZip`'s own writer API builds in a few lines. A fake in-memory object
   standing in for "a jar" would test nothing about the actual zip-reading path.
+
+- **Setting a controlled `<input>`'s `.value` directly in `eval` doesn't
+  register with React.** React wraps the native value setter, so
+  `el.value = 'x'` followed by `el.dispatchEvent(new Event('input'))`
+  leaves React's own state untouched (the app still sees the old/empty
+  value, e.g. a Redeem button stays disabled because `licenseKey.trim()`
+  is empty in state even though the DOM shows text). Go through the native
+  property descriptor's setter first, then dispatch: `Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, 'x'); el.dispatchEvent(new Event('input', {bubbles: true}))`.
+  Simpler alternative when the element already has focus: use the driver's
+  `type` command (real keyboard events), which doesn't have this problem.
+
+- **The `eval` command's expression must invoke itself.**
+  `page.evaluate(expr)` evaluates `expr` as-is - passing a bare arrow
+  function string like `() => document.title` returns the function itself
+  (prints as `null`/`undefined` through JSON), it does NOT call it. Wrap in
+  an IIFE: `eval (() => document.title)()`.
 
 ## Troubleshooting
 

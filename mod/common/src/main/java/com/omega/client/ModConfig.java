@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client;
 
 import com.google.gson.Gson;
@@ -67,6 +68,8 @@ public class ModConfig {
 
     /** Show an Omega badge next to the nametag of players known to be on Omega Client. */
     public boolean showOmegaUsersEnabled = true;
+    /** Empty = no cosmetic owned/selected. Set by the launcher's Cosmetics redeem flow; see CosmeticCatalog. */
+    public String ownedCosmeticId = "";
 
     public boolean particlesMasterEnabled = true;
     public boolean blockParticlesEnabled = true;
@@ -110,6 +113,7 @@ public class ModConfig {
             if (loaded.highlightedBlocks == null) loaded.highlightedBlocks = new ArrayList<>();
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
             if (loaded.highlightColorArgb == null) loaded.highlightColorArgb = "#803B9CFF";
+            if (loaded.ownedCosmeticId == null) loaded.ownedCosmeticId = "";
             return loaded;
         } catch (IOException e) {
             return new ModConfig();

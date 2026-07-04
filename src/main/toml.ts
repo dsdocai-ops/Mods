@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 /**
  * Minimal TOML subset parser/serializer covering what Forge-style mod config files actually use:
  * top-level `key = value` pairs, one level of `[section]` / `[section.sub]` headers, quoted or

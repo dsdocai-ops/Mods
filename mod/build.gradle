@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 // Root build - shared coordinates plus the Architectury plugin version pins. fabric/ and forge/
 // each `apply plugin:` these (no version, since it's pinned here with `apply false`) rather than
 // independently re-declaring `plugins { id ... version ... }` in their own build.gradle - that

@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.forge;
 
 import com.omega.client.ModConfig;
@@ -50,7 +51,7 @@ public class ClickGuiScreen extends Screen {
         // "auto" GUI scale on 1080p the scaled screen is only ~270px tall, and nine stacked rows
         // plus the nav buttons would push "Done" off-screen.
         int toggleRows = 5;
-        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 3 + 8 + ROW_HEIGHT + 8 + 20;
+        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 5 + 8 + ROW_HEIGHT + 8 + 20;
         headerY = Math.max(6, (this.height - contentHeight) / 2);
         int leftX = this.width / 2 - ROW_WIDTH - 4;
         int rightX = this.width / 2 + 4;
@@ -89,6 +90,20 @@ public class ClickGuiScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal("Weather & Time..."), b -> {
                     if (this.minecraft != null) this.minecraft.setScreen(new WeatherTimeScreen(this));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("HUD..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new HudScreen(config, this));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Visual Settings..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new VisualScreen(config, this));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());

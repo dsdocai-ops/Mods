@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useRef, useState } from "react";
 import type { Instance, PublicAccount } from "@shared/types";
 import { toast } from "../toast";

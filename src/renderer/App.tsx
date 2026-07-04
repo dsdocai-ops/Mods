@@ -1,3 +1,4 @@
+// "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent } from "@shared/types";
 import Sidebar from "./components/Sidebar";
