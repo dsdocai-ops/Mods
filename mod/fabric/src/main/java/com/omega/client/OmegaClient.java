@@ -33,6 +33,9 @@ import org.lwjgl.glfw.GLFW;
  * excludes anything that reads hidden information through terrain or automates combat input.
  */
 public class OmegaClient implements ClientModInitializer {
+    /** Set once at startup - lets GameMenuScreenMixin (the Esc-menu Ω button) reach the same openMenu() the keybind uses, without a second config/session load. */
+    public static OmegaClient INSTANCE;
+
     private final ModConfig config = ModConfig.load(FabricLoader.getInstance().getConfigDir());
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
@@ -95,6 +98,7 @@ public class OmegaClient implements ClientModInitializer {
                 "key.categories.omega-client"
         ));
 
+        INSTANCE = this;
         PresenceNetworking.register(config);
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
@@ -102,9 +106,14 @@ public class OmegaClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> renderHud(drawContext));
     }
 
+    /** Opens the same menu the "key.omega-client.menu" keybind does - shared with GameMenuScreenMixin's Esc-menu Ω button. */
+    public void openMenu(MinecraftClient client) {
+        client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
+    }
+
     private void onClientTick(MinecraftClient client) {
         while (menuKey.wasPressed()) {
-            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
+            openMenu(client);
         }
         while (pos1Key.wasPressed()) {
             setSelectionFromCrosshair(client, true);

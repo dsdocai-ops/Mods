@@ -6,6 +6,7 @@
   "client": [
     "BackgroundRendererMixin",
     "EntityRendererMixin",
+    "GameMenuScreenMixin",
     "GameRendererMixin",
     "ParticleManagerMixin",
     "WorldMixin"
