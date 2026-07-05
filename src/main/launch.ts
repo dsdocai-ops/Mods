@@ -8,6 +8,7 @@ import AdmZip from "adm-zip";
 import type { Instance, LaunchLogEvent } from "../shared/types";
 import { resolveVersion, findClientJar, resolveArgTokens, evaluateRules, mavenNameToPath, safeLibraryPath, type LibraryEntry } from "./versionResolver";
 import { getValidAccessToken } from "./accountStore";
+import { verifyInstall, describeBlockingIssues } from "./installVerify";
 
 /**
  * File-based signaling convention with the companion mod's in-game "Switch Account" button:
@@ -197,10 +198,17 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
 
   const resolved = resolveVersion(instance.gameDir, instance.versionId);
   const clientJar = findClientJar(instance.gameDir, resolved.chainIds);
-  if (!clientJar) {
-    throw new Error(
-      `Could not locate a client .jar for version "${instance.versionId}". Make sure the base vanilla version is fully installed in ${instance.gameDir}.`
-    );
+
+  const verify = verifyInstall(instance.gameDir, resolved, clientJar);
+  if (!verify.ok) {
+    throw new Error(describeBlockingIssues(verify));
+  }
+  if (verify.missingAssetIndex) {
+    log(`[launcher] warning: asset index "${resolved.assetIndexId}" is missing - some textures/sounds may be broken.`);
+  } else if (verify.assetIndexCorrupt) {
+    log(`[launcher] warning: asset index "${resolved.assetIndexId}" couldn't be read - some textures/sounds may be broken.`);
+  } else if (verify.missingAssetObjectCount > 0) {
+    log(`[launcher] warning: ${verify.missingAssetObjectCount} asset file(s) missing - some textures/sounds may be broken.`);
   }
 
   const runDir = path.dirname(instance.modsDir);

@@ -101,14 +101,21 @@ npm run build:electron   # compiles src/main/*.ts -> dist-electron/main/*.js (Co
 node .claude/skills/run-omega-client/main-process-smoke.cjs
 ```
 
-Runs ~20 checks against the REAL compiled functions - not a mock of them:
+Runs ~45 checks against the REAL compiled functions - not a mock of them:
 `instances.ts`/`store.ts` (create/list/update/remove an instance, confirmed
-by reading the actual `launcher-store.json` back off disk), `java.ts`
-(`detectJavaCandidates()` against this container's real installed JDK,
-`verifyJava()` spawning the real `java -version`), and `mods.ts`/
-`modMetadata.ts` (builds two real jars with `adm-zip` - one with a genuine
-`fabric.mod.json`, one with a genuine `META-INF/mods.toml` - then lists,
-toggles, and tag-presets them for real). Prints `OK`/`FAIL` per check, exits
+by reading the actual `launcher-store.json` back off disk), `installVerify.ts`/
+`versionResolver.ts` (builds a fake install fixture on disk - a version json,
+a client jar, one present and one deliberately-missing library, an asset
+index with one present and one missing object - then confirms `verifyInstall()`
+correctly separates blocking issues (missing library/client jar) from
+non-blocking ones (missing assets)), `java.ts` (`detectJavaCandidates()`
+against this container's real installed JDK, `verifyJava()` spawning the
+real `java -version`), `mods.ts`/`modMetadata.ts` (builds two real jars with
+`adm-zip` - one with a genuine `fabric.mod.json`, one with a genuine
+`META-INF/mods.toml` - then lists, toggles, and tag-presets them for real),
+and `licensing.ts` (a real HMAC-based license key check against
+`scripts/generate-license-key.cjs`'s formula, plus real `licenses.json` and
+`config/omega-client.json` writes). Prints `OK`/`FAIL` per check, exits
 non-zero if anything failed, cleans up its own scratch directory either way.
 
 The only thing stubbed is `electron`'s `app.getPath("userData")` (these
