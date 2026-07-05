@@ -5,6 +5,7 @@ import { app } from "electron";
 import type { RedeemLicenseResult } from "../shared/types";
 import { ensureOmegaConfig, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { listInstances } from "./instances";
+import { getSettings } from "./store";
 
 const LICENSES_FILE = "licenses.json";
 
@@ -63,15 +64,42 @@ export function unlockCosmetic(cosmeticId: string): void {
 }
 
 /**
- * Validates a license key and, on success, unlocks the associated cosmetic.
+ * Validates a license key (a Stripe Checkout Session id, e.g. "cs_live_...") and, on success,
+ * unlocks the associated cosmetic.
  *
- * STUB: no payment provider has been chosen yet (see README's Monetization section) - this always
- * reports "not available" rather than validating against anything real. Swap this function's body
- * for a real call to your chosen provider's license-verify endpoint (Gumroad's `licenses/verify`, or
- * your own Stripe-backed server) once one is chosen, calling unlockCosmetic(cosmeticId) on success.
- * Every caller (the licensing:redeem IPC handler, the renderer's Cosmetics UI) stays exactly the
- * same regardless of what goes here - this is the only function that needs to change.
+ * Stripe secret keys must never live in the client (they can issue refunds/read customer data), so
+ * this can't call Stripe's API directly - it POSTs the session id to your own deployed verify
+ * function (see server/stripe-verify/README.md for the reference implementation + deploy steps),
+ * which holds the real secret key and returns exactly this function's shape back. That URL is
+ * user-configured (Settings -> Cosmetics -> "Stripe verify endpoint URL"), empty until you deploy
+ * your own - this function reports that plainly rather than pretending to validate anything.
  */
-export async function redeemLicenseKey(_key: string): Promise<RedeemLicenseResult> {
-  return { ok: false, message: "Cosmetics aren't on sale yet - check back soon." };
+export async function redeemLicenseKey(key: string): Promise<RedeemLicenseResult> {
+  const endpoint = getSettings().stripeVerifyEndpointUrl.trim();
+  if (!endpoint) {
+    return { ok: false, message: "Cosmetics aren't set up yet - no Stripe verify endpoint is configured (see Settings)." };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: key }),
+    });
+  } catch (err) {
+    return { ok: false, message: `Couldn't reach the verify server: ${err instanceof Error ? err.message : String(err)}` };
+  }
+
+  let result: RedeemLicenseResult;
+  try {
+    result = (await response.json()) as RedeemLicenseResult;
+  } catch {
+    return { ok: false, message: `Verify server returned an unexpected response (HTTP ${response.status}).` };
+  }
+
+  if (result.ok && result.cosmeticId) {
+    unlockCosmetic(result.cosmeticId);
+  }
+  return result;
 }

@@ -237,8 +237,20 @@ export default function SettingsPage() {
       <h3 className="settings-subheading">Cosmetics</h3>
       <p className="instance-subtitle">
         A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Redeem a license key below to unlock one.
+        badge - needs a server/proxy relaying the presence channel). Redemption is backed by Stripe Checkout - see{" "}
+        <code>server/stripe-verify/README.md</code> for how to set up your own Payment Link and deploy the verify
+        function this points at.
       </p>
+
+      <label className="field">
+        <span>Stripe verify endpoint URL</span>
+        <input
+          className="input"
+          placeholder="https://your-deployed-function.example.com/verify"
+          value={settings.stripeVerifyEndpointUrl}
+          onChange={(e) => setSettings({ ...settings, stripeVerifyEndpointUrl: e.target.value })}
+        />
+      </label>
 
       <div className="account-list">
         {ownedCosmetics.length === 0 && <p className="empty-hint">No cosmetics owned yet.</p>}
@@ -254,7 +266,7 @@ export default function SettingsPage() {
           <span>License key</span>
           <input
             className="input"
-            placeholder="paste your license key"
+            placeholder="paste the Stripe Checkout Session id (starts with cs_) from your receipt"
             value={licenseKey}
             onChange={(e) => setLicenseKey(e.target.value)}
           />

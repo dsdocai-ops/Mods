@@ -156,22 +156,24 @@ function runModsSection() {
   runLicensingSection();
 }
 
-// ---- licensing.ts (real licenses.json + real mod-config write, no mocking) ----
+// ---- licensing.ts (real licenses.json + real mod-config write + a real local HTTP server
+// standing in for a deployed server/stripe-verify function - no mocking of licensing.ts itself) ----
 function runLicensingSection() {
   console.log("\n== licensing ==");
   const licensing = require(path.join(MAIN_DIR, "licensing.js"));
+  const store = require(path.join(MAIN_DIR, "store.js"));
 
   check("getOwnedCosmetics() starts empty", licensing.getOwnedCosmetics().length === 0);
 
-  // redeemLicenseKey() is an intentional stub (no payment provider chosen yet) - confirm it still
-  // reports that honestly rather than silently unlocking anything.
-  return licensing.redeemLicenseKey("SOME-KEY-123").then((result) => {
-    check("redeemLicenseKey() stub reports ok:false", result.ok === false);
-    check("redeemLicenseKey() stub gives a human-readable message", typeof result.message === "string" && result.message.length > 0);
-    check("redeemLicenseKey() stub doesn't unlock anything", licensing.getOwnedCosmetics().length === 0);
+  // No Stripe verify endpoint configured yet (the store's default) - confirm redeemLicenseKey()
+  // reports that honestly rather than silently unlocking anything or throwing.
+  return licensing.redeemLicenseKey("cs_test_whatever").then((result) => {
+    check("redeemLicenseKey() reports ok:false with no endpoint configured", result.ok === false);
+    check("redeemLicenseKey() gives a human-readable message", typeof result.message === "string" && result.message.length > 0);
+    check("redeemLicenseKey() doesn't unlock anything with no endpoint configured", licensing.getOwnedCosmetics().length === 0);
 
-    // unlockCosmetic() is the real, independently-callable function a future payment integration
-    // will call on a verified purchase - test it directly, bypassing the stub.
+    // unlockCosmetic() is the real, independently-callable function the verify endpoint calls on a
+    // confirmed payment - test it directly first, bypassing the HTTP round trip.
     const instances = require(path.join(MAIN_DIR, "instances.js"));
     const licenseInstance = instances.createInstance({
       name: "License Smoke Instance",
@@ -199,9 +201,56 @@ function runLicensingSection() {
     check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "gold_badge").length === 1);
 
     instances.removeInstance(licenseInstance.id);
-    finish();
+    return runStripeVerifyHttpSection(licensing, store);
   }).catch((e) => {
     console.log("  FAIL licensing section threw:", e.message);
+    failures++;
+    finish();
+  });
+}
+
+// Stands in for a deployed server/stripe-verify/api/verify.js: same request/response contract
+// (POST {sessionId} -> {ok, cosmeticId?, message}), so this exercises redeemLicenseKey()'s real
+// fetch()+json()-parsing+unlockCosmetic() path end to end, not just the "no endpoint" short-circuit.
+function runStripeVerifyHttpSection(licensing, store) {
+  return new Promise((resolve, reject) => {
+    const http = require("http");
+    const verifyServer = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        const parsed = JSON.parse(body || "{}");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        if (parsed.sessionId === "cs_test_valid") {
+          res.end(JSON.stringify({ ok: true, cosmeticId: "azure_badge", message: "Unlocked: azure_badge" }));
+        } else {
+          res.end(JSON.stringify({ ok: false, message: "This checkout session hasn't completed payment yet." }));
+        }
+      });
+    });
+
+    verifyServer.listen(0, "127.0.0.1", () => {
+      const port = verifyServer.address().port;
+      const settings = store.getSettings();
+      settings.stripeVerifyEndpointUrl = `http://127.0.0.1:${port}`;
+      store.saveSettings(settings);
+
+      licensing.redeemLicenseKey("cs_test_valid").then((validResult) => {
+        check("redeemLicenseKey() against a real HTTP endpoint reports ok:true for a paid session", validResult.ok === true);
+        check("redeemLicenseKey() returns the cosmeticId the endpoint named", validResult.cosmeticId === "azure_badge");
+        check("redeemLicenseKey() unlocked the cosmetic via the real fetch()+unlockCosmetic() path", licensing.getOwnedCosmetics().includes("azure_badge"));
+
+        return licensing.redeemLicenseKey("cs_test_unpaid").then((unpaidResult) => {
+          check("redeemLicenseKey() reports ok:false for a session the endpoint rejects", unpaidResult.ok === false);
+          check("redeemLicenseKey() doesn't unlock anything for a rejected session", !licensing.getOwnedCosmetics().includes("cs_test_unpaid"));
+          verifyServer.close(() => resolve());
+        });
+      }).catch((e) => {
+        verifyServer.close(() => reject(e));
+      });
+    });
+  }).then(() => finish()).catch((e) => {
+    console.log("  FAIL stripe-verify HTTP section threw:", e.message);
     failures++;
     finish();
   });

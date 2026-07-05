@@ -1,0 +1,9 @@
+{
+  "name": "omega-client-stripe-verify",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deployable serverless function that verifies a Stripe Checkout Session and maps it to an Omega Client cosmetic id. See README.md.",
+  "dependencies": {
+    "stripe": "^17.4.0"
+  }
+}
