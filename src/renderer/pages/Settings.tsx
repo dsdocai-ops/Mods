@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
+import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
 import SponsorCard from "../components/SponsorCard";
 import { toast } from "../toast";
 
@@ -237,8 +238,15 @@ export default function SettingsPage() {
       <h3 className="settings-subheading">Cosmetics</h3>
       <p className="instance-subtitle">
         A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Redeem a license key below to unlock one.
+        badge - needs a server/proxy relaying the presence channel). Buy one, then redeem the license key you're
+        given below.
       </p>
+
+      <div className="settings-actions">
+        <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)}>
+          Buy a cosmetic
+        </button>
+      </div>
 
       <div className="account-list">
         {ownedCosmetics.length === 0 && <p className="empty-hint">No cosmetics owned yet.</p>}
@@ -254,7 +262,7 @@ export default function SettingsPage() {
           <span>License key</span>
           <input
             className="input"
-            placeholder="paste your license key"
+            placeholder="paste the license key you were given"
             value={licenseKey}
             onChange={(e) => setLicenseKey(e.target.value)}
           />

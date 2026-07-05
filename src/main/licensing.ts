@@ -1,8 +1,10 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import type { RedeemLicenseResult } from "../shared/types";
+import { KNOWN_COSMETIC_IDS } from "../shared/cosmetics";
 import { ensureOmegaConfig, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { listInstances } from "./instances";
 
@@ -62,16 +64,35 @@ export function unlockCosmetic(cosmeticId: string): void {
   }
 }
 
-/**
- * Validates a license key and, on success, unlocks the associated cosmetic.
- *
- * STUB: no payment provider has been chosen yet (see README's Monetization section) - this always
- * reports "not available" rather than validating against anything real. Swap this function's body
- * for a real call to your chosen provider's license-verify endpoint (Gumroad's `licenses/verify`, or
- * your own Stripe-backed server) once one is chosen, calling unlockCosmetic(cosmeticId) on success.
- * Every caller (the licensing:redeem IPC handler, the renderer's Cosmetics UI) stays exactly the
- * same regardless of what goes here - this is the only function that needs to change.
- */
-export async function redeemLicenseKey(_key: string): Promise<RedeemLicenseResult> {
-  return { ok: false, message: "Cosmetics aren't on sale yet - check back soon." };
+// Replace with your own secret before shipping - keys are generated with the matching formula in
+// scripts/generate-license-key.cjs, kept privately (not part of the shipped app), and handed out
+// manually once a purchase via the Stripe link in shared/cosmetics.ts is confirmed. Same self-
+// reported trust model as everything else in this app (see ModConfig.java's ownedCosmeticId
+// javadoc): this check lives entirely in the client, so it's a soft gate, not real DRM - proportionate
+// to a vanity-only cosmetic, not something worth a backend for.
+const LICENSE_SECRET = "REPLACE_ME_WITH_YOUR_OWN_SECRET";
+
+function expectedSuffix(cosmeticId: string): string {
+  return crypto.createHmac("sha256", LICENSE_SECRET).update(cosmeticId).digest("hex").slice(0, 12);
+}
+
+/** Validates a license key (format: "<cosmeticId>-<suffix>", e.g. "gold_badge-a1b2c3d4e5f6") and, on success, unlocks the associated cosmetic. */
+export async function redeemLicenseKey(key: string): Promise<RedeemLicenseResult> {
+  const trimmed = key.trim();
+  const separatorIndex = trimmed.lastIndexOf("-");
+  if (separatorIndex <= 0) {
+    return { ok: false, message: "That doesn't look like a valid license key." };
+  }
+
+  const cosmeticId = trimmed.slice(0, separatorIndex);
+  const suffix = trimmed.slice(separatorIndex + 1);
+  if (!(KNOWN_COSMETIC_IDS as readonly string[]).includes(cosmeticId)) {
+    return { ok: false, message: "That license key isn't valid." };
+  }
+  if (suffix !== expectedSuffix(cosmeticId)) {
+    return { ok: false, message: "That license key isn't valid." };
+  }
+
+  unlockCosmetic(cosmeticId);
+  return { ok: true, cosmeticId, message: `Unlocked: ${cosmeticId}` };
 }

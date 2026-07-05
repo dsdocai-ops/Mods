@@ -156,22 +156,51 @@ function runModsSection() {
   runLicensingSection();
 }
 
-// ---- licensing.ts (real licenses.json + real mod-config write, no mocking) ----
+// ---- licensing.ts (real licenses.json + real mod-config write + real local HMAC key check - no
+// network call, no mocking of licensing.ts itself) ----
 function runLicensingSection() {
   console.log("\n== licensing ==");
   const licensing = require(path.join(MAIN_DIR, "licensing.js"));
 
   check("getOwnedCosmetics() starts empty", licensing.getOwnedCosmetics().length === 0);
 
-  // redeemLicenseKey() is an intentional stub (no payment provider chosen yet) - confirm it still
-  // reports that honestly rather than silently unlocking anything.
-  return licensing.redeemLicenseKey("SOME-KEY-123").then((result) => {
-    check("redeemLicenseKey() stub reports ok:false", result.ok === false);
-    check("redeemLicenseKey() stub gives a human-readable message", typeof result.message === "string" && result.message.length > 0);
-    check("redeemLicenseKey() stub doesn't unlock anything", licensing.getOwnedCosmetics().length === 0);
+  // Same formula as licensing.ts's expectedSuffix() / scripts/generate-license-key.cjs - kept in
+  // sync manually since the real secret is a private, per-deployment constant.
+  const crypto = require("crypto");
+  const LICENSE_SECRET = "REPLACE_ME_WITH_YOUR_OWN_SECRET";
+  const validKey = "gold_badge-" + crypto.createHmac("sha256", LICENSE_SECRET).update("gold_badge").digest("hex").slice(0, 12);
 
-    // unlockCosmetic() is the real, independently-callable function a future payment integration
-    // will call on a verified purchase - test it directly, bypassing the stub.
+  return licensing.redeemLicenseKey("not-a-real-key").then((malformedResult) => {
+    check("redeemLicenseKey() reports ok:false for a malformed key", malformedResult.ok === false);
+    check("redeemLicenseKey() gives a human-readable message", typeof malformedResult.message === "string" && malformedResult.message.length > 0);
+
+    return licensing.redeemLicenseKey("unknown_cosmetic-abcdef123456").then((unknownResult) => {
+      check("redeemLicenseKey() reports ok:false for an unknown cosmetic id", unknownResult.ok === false);
+
+      return licensing.redeemLicenseKey("gold_badge-wrongsuffix1").then((wrongSuffixResult) => {
+        check("redeemLicenseKey() reports ok:false for a wrong suffix", wrongSuffixResult.ok === false);
+        check("redeemLicenseKey() hasn't unlocked anything yet", licensing.getOwnedCosmetics().length === 0);
+
+        return licensing.redeemLicenseKey(validKey).then((validResult) => {
+          check("redeemLicenseKey() reports ok:true for a real, correctly-formed key", validResult.ok === true);
+          check("redeemLicenseKey() returns the matching cosmeticId", validResult.cosmeticId === "gold_badge");
+          check("redeemLicenseKey() unlocked the cosmetic via the real HMAC-check+unlockCosmetic() path", licensing.getOwnedCosmetics().includes("gold_badge"));
+          return runUnlockCosmeticSection(licensing);
+        });
+      });
+    });
+  }).catch((e) => {
+    console.log("  FAIL licensing section threw:", e.message);
+    failures++;
+    finish();
+  });
+}
+
+// unlockCosmetic() is the real, independently-callable function redeemLicenseKey() calls on a
+// valid key - already exercised indirectly above, this confirms its on-disk side effects directly
+// (licenses.json + every instance's config/omega-client.json) and its idempotency.
+function runUnlockCosmeticSection(licensing) {
+  return new Promise((resolve, reject) => {
     const instances = require(path.join(MAIN_DIR, "instances.js"));
     const licenseInstance = instances.createInstance({
       name: "License Smoke Instance",
@@ -180,32 +209,33 @@ function runLicensingSection() {
       loader: "fabric",
     });
 
-    licensing.unlockCosmetic("gold_badge");
-    check("unlockCosmetic() adds the cosmetic to getOwnedCosmetics()", licensing.getOwnedCosmetics().includes("gold_badge"));
+    licensing.unlockCosmetic("azure_badge");
+    check("unlockCosmetic() adds the cosmetic to getOwnedCosmetics()", licensing.getOwnedCosmetics().includes("azure_badge"));
 
     const licensesFile = path.join(USER_DATA, "licenses.json");
     check("licenses.json actually exists on disk", fs.existsSync(licensesFile));
     const licensesOnDisk = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
-    check("licenses.json on-disk content matches", Array.isArray(licensesOnDisk.ownedCosmetics) && licensesOnDisk.ownedCosmetics.includes("gold_badge"));
+    check("licenses.json on-disk content matches", Array.isArray(licensesOnDisk.ownedCosmetics) && licensesOnDisk.ownedCosmetics.includes("azure_badge"));
 
     const configPath = path.join(path.dirname(licenseInstance.modsDir), "config", "omega-client.json");
     check("unlockCosmetic() wrote a real config/omega-client.json for the instance", fs.existsSync(configPath));
     const configOnDisk = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    check("config/omega-client.json has ownedCosmeticId set", configOnDisk.ownedCosmeticId === "gold_badge");
+    check("config/omega-client.json has ownedCosmeticId set", configOnDisk.ownedCosmeticId === "azure_badge");
 
     // Calling it again with the same id must not duplicate the entry.
-    licensing.unlockCosmetic("gold_badge");
+    licensing.unlockCosmetic("azure_badge");
     const licensesAfterRepeat = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
-    check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "gold_badge").length === 1);
+    check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "azure_badge").length === 1);
 
     instances.removeInstance(licenseInstance.id);
-    finish();
-  }).catch((e) => {
-    console.log("  FAIL licensing section threw:", e.message);
+    resolve();
+  }).then(() => finish()).catch((e) => {
+    console.log("  FAIL unlockCosmetic section threw:", e.message);
     failures++;
     finish();
   });
 }
+
 
 function finish() {
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
