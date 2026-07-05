@@ -31,8 +31,11 @@ export default function AccountSwitcher({ instance, accounts, onAccountChange, o
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  // Every instance is expected to have an account now that sign-in is required to reach any
+  // screen (see App.tsx's SignInRequired gate) - the "no account" fallback only covers an
+  // instance somehow left without one (e.g. from before this became mandatory).
   const activeAccount = accounts.find((a) => a.id === instance.accountId);
-  const label = activeAccount ? activeAccount.username : `Offline: ${instance.offlineUsername}`;
+  const label = activeAccount ? activeAccount.username : "No account selected";
 
   const selectAccount = (accountId: string | undefined) => {
     onAccountChange(accountId);
@@ -62,9 +65,6 @@ export default function AccountSwitcher({ instance, accounts, onAccountChange, o
 
       {open && (
         <div className="account-switcher-menu">
-          <button className={`account-switcher-item ${!instance.accountId ? "active" : ""}`} onClick={() => selectAccount(undefined)}>
-            Offline: {instance.offlineUsername}
-          </button>
           {accounts.map((account) => (
             <button
               key={account.id}

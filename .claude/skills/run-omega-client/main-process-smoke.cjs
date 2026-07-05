@@ -86,6 +86,10 @@ check("on-disk JSON matches the update", onDisk.instances[0].offlineUsername ===
 instances.removeInstance(created.id);
 check("removeInstance() empties the list", instances.listInstances().length === 0);
 
+const store = require(path.join(MAIN_DIR, "store.js"));
+const defaultSettings = store.getSettings();
+check("getSettings() ships a real default msaClientId (sign-in works out of the box)", typeof defaultSettings.msaClientId === "string" && /^[0-9a-f-]{36}$/i.test(defaultSettings.msaClientId));
+
 // ---- installVerify.ts / versionResolver.ts (real fake-install fixture on disk, no mocking) ----
 console.log("\n== installVerify ==");
 {

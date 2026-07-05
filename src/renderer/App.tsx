@@ -1,11 +1,12 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Instance, LaunchLogEvent } from "@shared/types";
+import type { Instance, LaunchLogEvent, PublicAccount } from "@shared/types";
 import Sidebar from "./components/Sidebar";
 import InstanceDetail from "./pages/InstanceDetail";
 import SettingsPage from "./pages/Settings";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
 import Welcome from "./pages/Welcome";
+import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import { toast } from "./toast";
 
@@ -24,8 +25,21 @@ export default function App() {
   // Set when the auto-updater has finished downloading a new build in the background (packaged
   // installer builds only - dev runs and the portable exe never emit this event).
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  // null = still loading (don't flash the sign-in gate before we actually know); [] = no account
+  // linked yet, gates the whole app - see SignInRequired.
+  const [accounts, setAccounts] = useState<PublicAccount[] | null>(null);
 
   useEffect(() => window.api.updates.onReady(setUpdateVersion), []);
+
+  const refreshAccounts = useCallback(async () => {
+    const list = await window.api.accounts.list();
+    setAccounts(list);
+    return list;
+  }, []);
+
+  useEffect(() => {
+    refreshAccounts();
+  }, [refreshAccounts]);
 
   const refreshInstances = async () => {
     const list = await window.api.instances.list();
@@ -152,6 +166,11 @@ export default function App() {
   const handleNewInstance = useCallback(() => setShowNewInstance(true), []);
   const handleOpenSettings = useCallback(() => setView({ kind: "settings" }), []);
 
+  // Gates literally everything else in the app - sidebar, instances, settings - behind a linked
+  // Microsoft account. Rendered instead of the app shell, not layered over it.
+  if (accounts === null) return <div className="app-shell" />;
+  if (accounts.length === 0) return <SignInRequired onSignedIn={refreshAccounts} />;
+
   return (
     <div className="app-shell">
       <ToastHost />
@@ -179,7 +198,7 @@ export default function App() {
 
       <main className="main-area">
         {view.kind === "welcome" && <Welcome onNewInstance={handleNewInstance} />}
-        {view.kind === "settings" && <SettingsPage />}
+        {view.kind === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
         {view.kind === "instance" && selectedInstance && (
           <InstanceDetail
             key={selectedInstance.id}
@@ -209,6 +228,11 @@ export default function App() {
           onClose={() => setShowNewInstance(false)}
           onCreated={async (instance) => {
             setShowNewInstance(false);
+            // Sign-in is required to reach this dialog at all, so there's always >=1 account -
+            // every new instance uses it by default rather than falling back to offline play.
+            if (!instance.accountId && accounts.length > 0) {
+              await window.api.instances.update({ ...instance, accountId: accounts[0].id });
+            }
             await refreshInstances();
             setView({ kind: "instance", id: instance.id });
           }}

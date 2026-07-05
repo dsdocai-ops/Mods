@@ -326,23 +326,12 @@ export default function InstanceDetail({
               value={draft.accountId ?? ""}
               onChange={(e) => setDraft({ ...draft, accountId: e.target.value || undefined })}
             >
-              <option value="">Offline</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.username} (Microsoft)
                 </option>
               ))}
             </select>
-          </label>
-
-          <label className="field">
-            <span>Offline username{draft.accountId ? " (unused while a Microsoft account is selected)" : ""}</span>
-            <input
-              className="input"
-              disabled={!!draft.accountId}
-              value={draft.offlineUsername}
-              onChange={(e) => setDraft({ ...draft, offlineUsername: e.target.value })}
-            />
           </label>
 
           <div className="field-row">
