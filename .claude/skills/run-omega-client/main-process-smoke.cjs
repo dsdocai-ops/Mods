@@ -156,24 +156,51 @@ function runModsSection() {
   runLicensingSection();
 }
 
-// ---- licensing.ts (real licenses.json + real mod-config write + a real local HTTP server
-// standing in for a deployed server/stripe-verify function - no mocking of licensing.ts itself) ----
+// ---- licensing.ts (real licenses.json + real mod-config write + real local HMAC key check - no
+// network call, no mocking of licensing.ts itself) ----
 function runLicensingSection() {
   console.log("\n== licensing ==");
   const licensing = require(path.join(MAIN_DIR, "licensing.js"));
-  const store = require(path.join(MAIN_DIR, "store.js"));
 
   check("getOwnedCosmetics() starts empty", licensing.getOwnedCosmetics().length === 0);
 
-  // No Stripe verify endpoint configured yet (the store's default) - confirm redeemLicenseKey()
-  // reports that honestly rather than silently unlocking anything or throwing.
-  return licensing.redeemLicenseKey("cs_test_whatever").then((result) => {
-    check("redeemLicenseKey() reports ok:false with no endpoint configured", result.ok === false);
-    check("redeemLicenseKey() gives a human-readable message", typeof result.message === "string" && result.message.length > 0);
-    check("redeemLicenseKey() doesn't unlock anything with no endpoint configured", licensing.getOwnedCosmetics().length === 0);
+  // Same formula as licensing.ts's expectedSuffix() / scripts/generate-license-key.cjs - kept in
+  // sync manually since the real secret is a private, per-deployment constant.
+  const crypto = require("crypto");
+  const LICENSE_SECRET = "REPLACE_ME_WITH_YOUR_OWN_SECRET";
+  const validKey = "gold_badge-" + crypto.createHmac("sha256", LICENSE_SECRET).update("gold_badge").digest("hex").slice(0, 12);
 
-    // unlockCosmetic() is the real, independently-callable function the verify endpoint calls on a
-    // confirmed payment - test it directly first, bypassing the HTTP round trip.
+  return licensing.redeemLicenseKey("not-a-real-key").then((malformedResult) => {
+    check("redeemLicenseKey() reports ok:false for a malformed key", malformedResult.ok === false);
+    check("redeemLicenseKey() gives a human-readable message", typeof malformedResult.message === "string" && malformedResult.message.length > 0);
+
+    return licensing.redeemLicenseKey("unknown_cosmetic-abcdef123456").then((unknownResult) => {
+      check("redeemLicenseKey() reports ok:false for an unknown cosmetic id", unknownResult.ok === false);
+
+      return licensing.redeemLicenseKey("gold_badge-wrongsuffix1").then((wrongSuffixResult) => {
+        check("redeemLicenseKey() reports ok:false for a wrong suffix", wrongSuffixResult.ok === false);
+        check("redeemLicenseKey() hasn't unlocked anything yet", licensing.getOwnedCosmetics().length === 0);
+
+        return licensing.redeemLicenseKey(validKey).then((validResult) => {
+          check("redeemLicenseKey() reports ok:true for a real, correctly-formed key", validResult.ok === true);
+          check("redeemLicenseKey() returns the matching cosmeticId", validResult.cosmeticId === "gold_badge");
+          check("redeemLicenseKey() unlocked the cosmetic via the real HMAC-check+unlockCosmetic() path", licensing.getOwnedCosmetics().includes("gold_badge"));
+          return runUnlockCosmeticSection(licensing);
+        });
+      });
+    });
+  }).catch((e) => {
+    console.log("  FAIL licensing section threw:", e.message);
+    failures++;
+    finish();
+  });
+}
+
+// unlockCosmetic() is the real, independently-callable function redeemLicenseKey() calls on a
+// valid key - already exercised indirectly above, this confirms its on-disk side effects directly
+// (licenses.json + every instance's config/omega-client.json) and its idempotency.
+function runUnlockCosmeticSection(licensing) {
+  return new Promise((resolve, reject) => {
     const instances = require(path.join(MAIN_DIR, "instances.js"));
     const licenseInstance = instances.createInstance({
       name: "License Smoke Instance",
@@ -182,79 +209,33 @@ function runLicensingSection() {
       loader: "fabric",
     });
 
-    licensing.unlockCosmetic("gold_badge");
-    check("unlockCosmetic() adds the cosmetic to getOwnedCosmetics()", licensing.getOwnedCosmetics().includes("gold_badge"));
+    licensing.unlockCosmetic("azure_badge");
+    check("unlockCosmetic() adds the cosmetic to getOwnedCosmetics()", licensing.getOwnedCosmetics().includes("azure_badge"));
 
     const licensesFile = path.join(USER_DATA, "licenses.json");
     check("licenses.json actually exists on disk", fs.existsSync(licensesFile));
     const licensesOnDisk = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
-    check("licenses.json on-disk content matches", Array.isArray(licensesOnDisk.ownedCosmetics) && licensesOnDisk.ownedCosmetics.includes("gold_badge"));
+    check("licenses.json on-disk content matches", Array.isArray(licensesOnDisk.ownedCosmetics) && licensesOnDisk.ownedCosmetics.includes("azure_badge"));
 
     const configPath = path.join(path.dirname(licenseInstance.modsDir), "config", "omega-client.json");
     check("unlockCosmetic() wrote a real config/omega-client.json for the instance", fs.existsSync(configPath));
     const configOnDisk = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    check("config/omega-client.json has ownedCosmeticId set", configOnDisk.ownedCosmeticId === "gold_badge");
+    check("config/omega-client.json has ownedCosmeticId set", configOnDisk.ownedCosmeticId === "azure_badge");
 
     // Calling it again with the same id must not duplicate the entry.
-    licensing.unlockCosmetic("gold_badge");
+    licensing.unlockCosmetic("azure_badge");
     const licensesAfterRepeat = JSON.parse(fs.readFileSync(licensesFile, "utf-8"));
-    check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "gold_badge").length === 1);
+    check("unlockCosmetic() is idempotent for an already-owned cosmetic", licensesAfterRepeat.ownedCosmetics.filter((id) => id === "azure_badge").length === 1);
 
     instances.removeInstance(licenseInstance.id);
-    return runStripeVerifyHttpSection(licensing, store);
-  }).catch((e) => {
-    console.log("  FAIL licensing section threw:", e.message);
-    failures++;
-    finish();
-  });
-}
-
-// Stands in for a deployed server/stripe-verify/api/verify.js: same request/response contract
-// (POST {sessionId} -> {ok, cosmeticId?, message}), so this exercises redeemLicenseKey()'s real
-// fetch()+json()-parsing+unlockCosmetic() path end to end, not just the "no endpoint" short-circuit.
-function runStripeVerifyHttpSection(licensing, store) {
-  return new Promise((resolve, reject) => {
-    const http = require("http");
-    const verifyServer = http.createServer((req, res) => {
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", () => {
-        const parsed = JSON.parse(body || "{}");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        if (parsed.sessionId === "cs_test_valid") {
-          res.end(JSON.stringify({ ok: true, cosmeticId: "azure_badge", message: "Unlocked: azure_badge" }));
-        } else {
-          res.end(JSON.stringify({ ok: false, message: "This checkout session hasn't completed payment yet." }));
-        }
-      });
-    });
-
-    verifyServer.listen(0, "127.0.0.1", () => {
-      const port = verifyServer.address().port;
-      const settings = store.getSettings();
-      settings.stripeVerifyEndpointUrl = `http://127.0.0.1:${port}`;
-      store.saveSettings(settings);
-
-      licensing.redeemLicenseKey("cs_test_valid").then((validResult) => {
-        check("redeemLicenseKey() against a real HTTP endpoint reports ok:true for a paid session", validResult.ok === true);
-        check("redeemLicenseKey() returns the cosmeticId the endpoint named", validResult.cosmeticId === "azure_badge");
-        check("redeemLicenseKey() unlocked the cosmetic via the real fetch()+unlockCosmetic() path", licensing.getOwnedCosmetics().includes("azure_badge"));
-
-        return licensing.redeemLicenseKey("cs_test_unpaid").then((unpaidResult) => {
-          check("redeemLicenseKey() reports ok:false for a session the endpoint rejects", unpaidResult.ok === false);
-          check("redeemLicenseKey() doesn't unlock anything for a rejected session", !licensing.getOwnedCosmetics().includes("cs_test_unpaid"));
-          verifyServer.close(() => resolve());
-        });
-      }).catch((e) => {
-        verifyServer.close(() => reject(e));
-      });
-    });
+    resolve();
   }).then(() => finish()).catch((e) => {
-    console.log("  FAIL stripe-verify HTTP section threw:", e.message);
+    console.log("  FAIL unlockCosmetic section threw:", e.message);
     failures++;
     finish();
   });
 }
+
 
 function finish() {
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);

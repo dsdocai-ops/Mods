@@ -89,7 +89,7 @@ function installMockApi() {
       verify: async () => ({ ok: true, version: '17.0.9' }),
     },
     licensing: {
-      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "Cosmetics aren't set up yet - no Stripe verify endpoint is configured (see Settings)." }; },
+      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "That license key isn't valid." }; },
       listOwned: async () => ([]),
     },
     install: {
@@ -108,7 +108,6 @@ function installMockApi() {
         defaultOfflineUsername: 'Player',
         msaClientId: '',
         autoUpdateEnabled: true,
-        stripeVerifyEndpointUrl: '',
       }),
       set: async () => {},
     },

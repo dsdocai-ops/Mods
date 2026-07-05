@@ -1,5 +1,0 @@
-{
-  "_comment": "Map each Stripe Price id (from your Stripe Dashboard, starts with price_) to the matching cosmetic id from mod/common/.../presence/CosmeticCatalog.java. Placeholder entries below - replace with your real price ids once you've created Products/Prices in Stripe.",
-  "price_REPLACE_ME_GOLD": "gold_badge",
-  "price_REPLACE_ME_AZURE": "azure_badge"
-}

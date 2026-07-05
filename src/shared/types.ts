@@ -140,12 +140,6 @@ export interface AppSettings {
   msaClientId: string;
   /** Background-check the rolling release for a newer build on startup and download it silently. On by default; portable installs ignore this (they can't self-update either way). */
   autoUpdateEnabled: boolean;
-  /**
-   * URL of your own deployed Stripe checkout-session verify function (see server/stripe-verify) -
-   * main/licensing.ts POSTs a redeemed key (a Stripe Checkout Session id) here and unlocks whatever
-   * cosmetic the response names. Empty until you deploy your own; see server/stripe-verify/README.md.
-   */
-  stripeVerifyEndpointUrl: string;
 }
 
 /**

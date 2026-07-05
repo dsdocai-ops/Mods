@@ -17,7 +17,6 @@ const DEFAULT_STORE: StoreShape = {
     defaultOfflineUsername: "Player",
     msaClientId: "",
     autoUpdateEnabled: true,
-    stripeVerifyEndpointUrl: "",
   },
 };
 
@@ -42,7 +41,6 @@ function readStore(): StoreShape {
         defaultOfflineUsername: parsed.settings?.defaultOfflineUsername ?? "Player",
         msaClientId: parsed.settings?.msaClientId ?? "",
         autoUpdateEnabled: parsed.settings?.autoUpdateEnabled ?? true,
-        stripeVerifyEndpointUrl: parsed.settings?.stripeVerifyEndpointUrl ?? "",
       },
     };
   } catch {

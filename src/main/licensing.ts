@@ -1,11 +1,12 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import type { RedeemLicenseResult } from "../shared/types";
+import { KNOWN_COSMETIC_IDS } from "../shared/cosmetics";
 import { ensureOmegaConfig, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { listInstances } from "./instances";
-import { getSettings } from "./store";
 
 const LICENSES_FILE = "licenses.json";
 
@@ -63,43 +64,35 @@ export function unlockCosmetic(cosmeticId: string): void {
   }
 }
 
-/**
- * Validates a license key (a Stripe Checkout Session id, e.g. "cs_live_...") and, on success,
- * unlocks the associated cosmetic.
- *
- * Stripe secret keys must never live in the client (they can issue refunds/read customer data), so
- * this can't call Stripe's API directly - it POSTs the session id to your own deployed verify
- * function (see server/stripe-verify/README.md for the reference implementation + deploy steps),
- * which holds the real secret key and returns exactly this function's shape back. That URL is
- * user-configured (Settings -> Cosmetics -> "Stripe verify endpoint URL"), empty until you deploy
- * your own - this function reports that plainly rather than pretending to validate anything.
- */
+// Replace with your own secret before shipping - keys are generated with the matching formula in
+// scripts/generate-license-key.cjs, kept privately (not part of the shipped app), and handed out
+// manually once a purchase via the Stripe link in shared/cosmetics.ts is confirmed. Same self-
+// reported trust model as everything else in this app (see ModConfig.java's ownedCosmeticId
+// javadoc): this check lives entirely in the client, so it's a soft gate, not real DRM - proportionate
+// to a vanity-only cosmetic, not something worth a backend for.
+const LICENSE_SECRET = "REPLACE_ME_WITH_YOUR_OWN_SECRET";
+
+function expectedSuffix(cosmeticId: string): string {
+  return crypto.createHmac("sha256", LICENSE_SECRET).update(cosmeticId).digest("hex").slice(0, 12);
+}
+
+/** Validates a license key (format: "<cosmeticId>-<suffix>", e.g. "gold_badge-a1b2c3d4e5f6") and, on success, unlocks the associated cosmetic. */
 export async function redeemLicenseKey(key: string): Promise<RedeemLicenseResult> {
-  const endpoint = getSettings().stripeVerifyEndpointUrl.trim();
-  if (!endpoint) {
-    return { ok: false, message: "Cosmetics aren't set up yet - no Stripe verify endpoint is configured (see Settings)." };
+  const trimmed = key.trim();
+  const separatorIndex = trimmed.lastIndexOf("-");
+  if (separatorIndex <= 0) {
+    return { ok: false, message: "That doesn't look like a valid license key." };
   }
 
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: key }),
-    });
-  } catch (err) {
-    return { ok: false, message: `Couldn't reach the verify server: ${err instanceof Error ? err.message : String(err)}` };
+  const cosmeticId = trimmed.slice(0, separatorIndex);
+  const suffix = trimmed.slice(separatorIndex + 1);
+  if (!(KNOWN_COSMETIC_IDS as readonly string[]).includes(cosmeticId)) {
+    return { ok: false, message: "That license key isn't valid." };
+  }
+  if (suffix !== expectedSuffix(cosmeticId)) {
+    return { ok: false, message: "That license key isn't valid." };
   }
 
-  let result: RedeemLicenseResult;
-  try {
-    result = (await response.json()) as RedeemLicenseResult;
-  } catch {
-    return { ok: false, message: `Verify server returned an unexpected response (HTTP ${response.status}).` };
-  }
-
-  if (result.ok && result.cosmeticId) {
-    unlockCosmetic(result.cosmeticId);
-  }
-  return result;
+  unlockCosmetic(cosmeticId);
+  return { ok: true, cosmeticId, message: `Unlocked: ${cosmeticId}` };
 }
