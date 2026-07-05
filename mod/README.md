@@ -5,7 +5,7 @@
 
 A small client mod that adds an in-game toggle menu for visual/QoL PvP settings, built for **both Fabric and Forge**. It's designed to be installed like any other mod through the Omega Client launcher's **Import your mods** button, and its config file (`config/omega-client.json`) is a plain JSON file the launcher's **Configure** button can already edit.
 
-Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls screen, under "Omega Client").
+Open the menu in-game with **Right Shift** (rebindable in vanilla's Controls screen, under "Omega Client") - or click the small **Ω** button in the top-right corner of the vanilla pause menu (Esc), for anyone who hasn't found or rebound the key yet. Both open the exact same menu.
 
 ## Project layout
 
@@ -61,7 +61,7 @@ Identical on both loaders, rebindable in vanilla's Controls screen under "Omega 
 
 | Action | Default key |
 |---|---|
-| Open menu | Right Shift |
+| Open menu | Right Shift (or the **Ω** button in the vanilla pause menu) |
 | Zoom (hold) | C |
 | Schematic: set Position 1 | O |
 | Schematic: set Position 2 | P |

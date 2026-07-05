@@ -48,6 +48,9 @@ import org.lwjgl.glfw.GLFW;
  */
 @Mod("omega_client_forge")
 public class OmegaClientForge {
+    /** Set once at startup - lets PauseScreenMixin (the Esc-menu Ω button) reach the same openMenu() the keybind uses, without a second config/session load. */
+    public static OmegaClientForge INSTANCE;
+
     private final ModConfig config = ModConfig.load(FMLPaths.CONFIGDIR.get());
 
     private final FullbrightFeature fullbright = new FullbrightFeature();
@@ -71,12 +74,18 @@ public class OmegaClientForge {
     private final KeyMapping reanchorKey = new KeyMapping("key.omega-client.reanchor", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.omega-client");
 
     public OmegaClientForge() {
+        INSTANCE = this;
         SchematicStorage.init(FMLPaths.CONFIGDIR.get());
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onRegisterKeyMappings);
         modEventBus.addListener(this::onRegisterGuiOverlays);
         MinecraftForge.EVENT_BUS.register(this);
         PresenceNetworking.register(config);
+    }
+
+    /** Opens the same menu the "key.omega-client.menu" keybind does - shared with PauseScreenMixin's Esc-menu Ω button. */
+    public void openMenu(Minecraft client) {
+        client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
     }
 
     private void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
@@ -99,7 +108,7 @@ public class OmegaClientForge {
         Minecraft client = Minecraft.getInstance();
 
         while (menuKey.consumeClick()) {
-            client.setScreen(new ClickGuiScreen(config, schematicSelection, schematicRender, session));
+            openMenu(client);
         }
         while (pos1Key.consumeClick()) {
             setSelectionFromCrosshair(client, true);
