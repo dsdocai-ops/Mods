@@ -86,6 +86,81 @@ check("on-disk JSON matches the update", onDisk.instances[0].offlineUsername ===
 instances.removeInstance(created.id);
 check("removeInstance() empties the list", instances.listInstances().length === 0);
 
+// ---- installVerify.ts / versionResolver.ts (real fake-install fixture on disk, no mocking) ----
+console.log("\n== installVerify ==");
+{
+  const versionResolver = require(path.join(MAIN_DIR, "versionResolver.js"));
+  const installVerify = require(path.join(MAIN_DIR, "installVerify.js"));
+
+  const verifyDir = path.join(SCRATCH, "verify-install");
+  const versionId = "1.20.1-verify-test";
+  const versionDir = path.join(verifyDir, "versions", versionId);
+  fs.mkdirSync(versionDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(versionDir, `${versionId}.json`),
+    JSON.stringify({
+      id: versionId,
+      mainClass: "net.minecraft.client.main.Main",
+      libraries: [
+        { name: "com.example:present-lib:1.0", downloads: { artifact: { path: "com/example/present-lib/1.0/present-lib-1.0.jar" } } },
+        { name: "com.example:missing-lib:1.0", downloads: { artifact: { path: "com/example/missing-lib/1.0/missing-lib-1.0.jar" } } },
+      ],
+      assetIndex: { id: "test-assets" },
+    })
+  );
+
+  const presentLibPath = path.join(verifyDir, "libraries", "com/example/present-lib/1.0/present-lib-1.0.jar");
+  fs.mkdirSync(path.dirname(presentLibPath), { recursive: true });
+  fs.writeFileSync(presentLibPath, "fake-jar-bytes");
+  // missing-lib deliberately not created on disk.
+
+  const clientJarPath = path.join(versionDir, `${versionId}.jar`);
+  fs.writeFileSync(clientJarPath, "fake-client-jar-bytes");
+
+  const presentHash = "aaaa1111presenthash0000000000000000000a";
+  const missingHash = "bbbb2222missinghash0000000000000000000b";
+  const assetIndexPath = path.join(verifyDir, "assets", "indexes", "test-assets.json");
+  fs.mkdirSync(path.dirname(assetIndexPath), { recursive: true });
+  fs.writeFileSync(
+    assetIndexPath,
+    JSON.stringify({
+      objects: {
+        "minecraft/sounds/present.ogg": { hash: presentHash },
+        "minecraft/sounds/missing.ogg": { hash: missingHash },
+      },
+    })
+  );
+  const presentObjPath = path.join(verifyDir, "assets", "objects", presentHash.slice(0, 2), presentHash);
+  fs.mkdirSync(path.dirname(presentObjPath), { recursive: true });
+  fs.writeFileSync(presentObjPath, "fake-asset-bytes");
+  // missing.ogg's object deliberately not created on disk.
+
+  const resolved = versionResolver.resolveVersion(verifyDir, versionId);
+  const clientJar = versionResolver.findClientJar(verifyDir, resolved.chainIds);
+  check("findClientJar() finds the real client jar on disk", clientJar === clientJarPath);
+
+  const result = installVerify.verifyInstall(verifyDir, resolved, clientJar);
+  check("verifyInstall() flags the missing library", result.missingLibraries.includes("com.example:missing-lib:1.0"));
+  check("verifyInstall() doesn't flag the present library", !result.missingLibraries.includes("com.example:present-lib:1.0"));
+  check("verifyInstall() reports ok:false when a required library is missing", result.ok === false);
+  check("verifyInstall() finds the real asset index on disk", result.missingAssetIndex === false);
+  check("verifyInstall() counts exactly the one missing asset object", result.missingAssetObjectCount === 1);
+
+  const message = installVerify.describeBlockingIssues(result);
+  check("describeBlockingIssues() names the missing library", message.includes("missing-lib"));
+
+  const noJarResult = installVerify.verifyInstall(verifyDir, resolved, null);
+  check("verifyInstall() reports ok:false and missingClientJar:true when there's no client jar", noJarResult.ok === false && noJarResult.missingClientJar === true);
+
+  // Fix the missing library and re-check: missing assets alone must NOT block a launch.
+  const missingLibPath = path.join(verifyDir, "libraries", "com/example/missing-lib/1.0/missing-lib-1.0.jar");
+  fs.mkdirSync(path.dirname(missingLibPath), { recursive: true });
+  fs.writeFileSync(missingLibPath, "fake-jar-bytes");
+  const resultAfterFix = installVerify.verifyInstall(verifyDir, resolved, clientJar);
+  check("verifyInstall() reports ok:true once the missing library is added", resultAfterFix.ok === true);
+  check("verifyInstall() still non-blockingly reports the missing asset object", resultAfterFix.missingAssetObjectCount === 1 && resultAfterFix.ok === true);
+}
+
 // ---- java.ts (zero mocking at all - runs against this container's real java) ----
 console.log("\n== java ==");
 const java = require(path.join(MAIN_DIR, "java.js"));
