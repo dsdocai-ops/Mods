@@ -58,9 +58,18 @@ export function unlockCosmetic(cosmeticId: string): void {
   }
 
   for (const instance of listInstances()) {
-    const configPath = ensureOmegaConfig(path.dirname(instance.modsDir));
-    const configFile = readModConfigFile(configPath);
-    writeModConfigFile(configPath, configFile.format, { ...configFile.data, ownedCosmeticId: cosmeticId });
+    // One instance's config being unreadable/unwritable (corrupt JSON, permissions, disk full)
+    // must not abort the loop and leave every instance after it in the list un-unlocked - each
+    // instance is independent, so a failure here is caught and skipped rather than propagated.
+    try {
+      const configPath = ensureOmegaConfig(path.dirname(instance.modsDir));
+      const configFile = readModConfigFile(configPath);
+      writeModConfigFile(configPath, configFile.format, { ...configFile.data, ownedCosmeticId: cosmeticId });
+    } catch {
+      // Best-effort: licenses.json (source of truth for the Settings UI) is already updated above,
+      // and the mod re-derives ownedCosmeticId from this same write path the next time any config
+      // change touches this instance.
+    }
   }
 }
 
@@ -89,7 +98,14 @@ export async function redeemLicenseKey(key: string): Promise<RedeemLicenseResult
   if (!(KNOWN_COSMETIC_IDS as readonly string[]).includes(cosmeticId)) {
     return { ok: false, message: "That license key isn't valid." };
   }
-  if (suffix !== expectedSuffix(cosmeticId)) {
+  const expected = expectedSuffix(cosmeticId);
+  const suffixBuf = Buffer.from(suffix, "utf-8");
+  const expectedBuf = Buffer.from(expected, "utf-8");
+  // crypto.timingSafeEqual throws on a length mismatch instead of just returning false, so a
+  // wrong-length guess (nearly every one, since a valid suffix is a fixed 12 hex chars) has to be
+  // handled explicitly rather than falling through to a fast, length-revealing `!==` compare.
+  const valid = suffixBuf.length === expectedBuf.length && crypto.timingSafeEqual(suffixBuf, expectedBuf);
+  if (!valid) {
     return { ok: false, message: "That license key isn't valid." };
   }
 

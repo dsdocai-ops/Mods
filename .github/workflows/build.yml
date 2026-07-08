@@ -208,7 +208,13 @@ jobs:
   # the (gating) Windows launcher build.
   release:
     needs: [launcher-windows, launcher-mac, launcher-linux, mod-jars, installer-smoke]
-    if: ${{ needs.launcher-windows.result == 'success' && needs.installer-smoke.result == 'success' && !cancelled() }}
+    # github.ref == main is load-bearing, not cosmetic: the push trigger above also covers
+    # claude/** dev branches (so their own build/test jobs run as PR-gating checks), but this job
+    # publishes straight to the public "latest-build" release that installed clients auto-update
+    # from - without this guard, pushing WIP to any claude/** branch would ship it to real users.
+    # It also collapses the concurrency group (keyed on github.ref) back down to one release run
+    # at a time, since only main pushes can ever reach this job now.
+    if: ${{ needs.launcher-windows.result == 'success' && needs.installer-smoke.result == 'success' && !cancelled() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

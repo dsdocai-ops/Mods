@@ -1,5 +1,5 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ShaderPackInfo } from "@shared/types";
 import { toast } from "../toast";
 
@@ -21,6 +21,10 @@ function formatSize(bytes: number): string {
 export default function ShadersPanel({ modsDir }: Props) {
   const [packs, setPacks] = useState<ShaderPackInfo[] | null>(null);
   const [importing, setImporting] = useState(false);
+  // Guards against two overlapping shaders:import/remove round-trips landing out of order (e.g.
+  // remove pack A then quickly remove pack B) - only the response to the most recently issued
+  // request is allowed to win. Same pattern as InstanceDetail's modsRequestRef, for the same reason.
+  const requestRef = useRef(0);
 
   const load = () => window.api.shaders.list(modsDir).then(setPacks);
 
@@ -33,9 +37,10 @@ export default function ShadersPanel({ modsDir }: Props) {
     const paths = await window.api.dialog.pickShaderFiles();
     if (paths.length === 0) return;
     setImporting(true);
+    const requestId = ++requestRef.current;
     try {
       const updated = await window.api.shaders.import(modsDir, paths);
-      setPacks(updated);
+      if (requestId === requestRef.current) setPacks(updated);
       toast(`Imported ${paths.length} shader pack${paths.length === 1 ? "" : "s"} - pick one in-game under Video Settings > Shader Packs.`, "success");
     } catch (err) {
       toast(`Couldn't import shader packs: ${err instanceof Error ? err.message : String(err)}`, "error");
@@ -45,8 +50,9 @@ export default function ShadersPanel({ modsDir }: Props) {
   };
 
   const handleRemove = async (fileName: string) => {
+    const requestId = ++requestRef.current;
     const updated = await window.api.shaders.remove(modsDir, fileName);
-    setPacks(updated);
+    if (requestId === requestRef.current) setPacks(updated);
   };
 
   if (!packs) return <p className="empty-hint">Loading shader packs&hellip;</p>;

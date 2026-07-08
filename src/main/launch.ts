@@ -2,7 +2,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import crypto from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import AdmZip from "adm-zip";
 import type { Instance, LaunchLogEvent } from "../shared/types";
@@ -116,14 +115,6 @@ export function sweepStaleNativesDirs(): void {
   });
 }
 
-function offlineUuid(username: string): string {
-  const digest = crypto.createHash("md5").update(`OfflinePlayer:${username}`, "utf8").digest();
-  digest[6] = (digest[6] & 0x0f) | 0x30;
-  digest[8] = (digest[8] & 0x3f) | 0x80;
-  const hex = digest.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 function nativesClassifierForCurrentOs(lib: LibraryEntry): string | undefined {
   const key = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "osx" : "linux";
   const raw = lib.natives?.[key];
@@ -186,15 +177,22 @@ export interface LaunchHandle {
 export async function launchInstance(instance: Instance, msaClientId: string, onLog: (event: LaunchLogEvent) => void): Promise<LaunchHandle> {
   const log = (line: string) => onLog({ instanceId: instance.id, stream: "status", data: line });
 
-  let auth: { username: string; uuid: string; accessToken: string; userType: string };
-  if (instance.accountId) {
-    log("Signing in with your Microsoft account...");
-    const token = await getValidAccessToken(msaClientId, instance.accountId);
-    auth = { username: token.username, uuid: token.uuid, accessToken: token.accessToken, userType: "msa" };
-  } else {
-    const uuid = offlineUuid(instance.offlineUsername);
-    auth = { username: instance.offlineUsername, uuid, accessToken: "0", userType: "legacy" };
+  // Sign-in is mandatory app-wide (see SignInRequired.tsx / App.tsx) - every reachable instance is
+  // expected to carry an accountId. An instance can still end up without one from data that
+  // predates that requirement, or an account removed later in Settings; silently falling back to
+  // an offline session here would bypass the sign-in gate the rest of the app enforces, so this
+  // fails loudly instead - the caller (main.ts's launch:start handler) surfaces it as a toast.
+  if (!instance.accountId) {
+    throw new Error(`"${instance.name}" has no account selected. Pick an account for it, then launch again.`);
   }
+  log("Signing in with your Microsoft account...");
+  const token = await getValidAccessToken(msaClientId, instance.accountId);
+  const auth: { username: string; uuid: string; accessToken: string; userType: string } = {
+    username: token.username,
+    uuid: token.uuid,
+    accessToken: token.accessToken,
+    userType: "msa",
+  };
 
   const resolved = resolveVersion(instance.gameDir, instance.versionId);
   const clientJar = findClientJar(instance.gameDir, resolved.chainIds);

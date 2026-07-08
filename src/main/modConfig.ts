@@ -56,7 +56,12 @@ export function readModConfigFile(filePath: string): ModConfigFile {
 
 export function writeModConfigFile(filePath: string, format: ConfigFormat, data: Record<string, unknown>): void {
   const content = format === "toml" ? stringifyToml(data as TomlTable) : JSON.stringify(data, null, 2);
-  fs.writeFileSync(filePath, content, "utf-8");
+  // Write-then-rename instead of a direct write: rename is atomic on both Windows and POSIX, so a
+  // kill mid-save (or two overlapping saves) can never leave this file half-written. A half-written
+  // omega-client.json in particular would fail to parse on the mod's next launch (see ModConfig.java).
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, content, "utf-8");
+  fs.renameSync(tmpPath, filePath);
 }
 
 /**
@@ -104,7 +109,7 @@ export function ensureOmegaConfig(runDir: string): string {
   fs.mkdirSync(configDir, { recursive: true });
   const filePath = path.join(configDir, "omega-client.json");
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify(OMEGA_CONFIG_DEFAULTS, null, 2), "utf-8");
+    writeModConfigFile(filePath, "json", OMEGA_CONFIG_DEFAULTS);
   }
   return filePath;
 }

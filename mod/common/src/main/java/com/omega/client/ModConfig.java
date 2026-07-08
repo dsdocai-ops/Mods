@@ -114,8 +114,19 @@ public class ModConfig {
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
             if (loaded.highlightColorArgb == null) loaded.highlightColorArgb = "#803B9CFF";
             if (loaded.ownedCosmeticId == null) loaded.ownedCosmeticId = "";
+            // A value outside the slider's intended 0.0-1.0 range (e.g. hand-edited, or typed into
+            // the launcher's generic number input which has no range constraint) makes the density
+            // check in ParticleFilter.shouldSpawn silently drop every particle regardless of the
+            // category toggles' still-ON state - clamp once here instead of at every call site.
+            if (loaded.particleDensity < 0f) loaded.particleDensity = 0f;
+            if (loaded.particleDensity > 1f) loaded.particleDensity = 1f;
             return loaded;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // RuntimeException covers Gson's own parse failures (JsonSyntaxException,
+            // NumberFormatException, etc.) - a field of the wrong JSON type (a float typed into an
+            // int field, a boolean typed into a string-list field) throws one of these, not
+            // IOException, and previously propagated straight out of load(), which runs as a field
+            // initializer in the mod's entrypoint - failing the whole mod's init over one bad field.
             return new ModConfig();
         }
     }

@@ -34,7 +34,12 @@ public final class PresenceNetworking {
 
     public static void register(ModConfig config) {
         EventNetworkChannel channel = NetworkRegistry.newEventChannel(CHANNEL, () -> "1", s -> true, s -> true);
-        channel.addListener((NetworkEvent.ServerCustomPayloadEvent event) -> {
+        // ServerCustomPayloadEvent only fires on the logical *server* side receiving a serverbound
+        // packet - this client-only mod has no server-side component, so that listener would never
+        // fire for an incoming (relayed) announcement. ClientCustomPayloadEvent is the client-side
+        // counterpart, delivered when a clientbound payload on this channel arrives - the event this
+        // listener actually needs to receive other players' presence/cosmetic broadcasts.
+        channel.addListener((NetworkEvent.ClientCustomPayloadEvent event) -> {
             FriendlyByteBuf payload = event.getPayload();
             if (payload != null && payload.readableBytes() >= 16) {
                 UUID uuid = payload.readUUID();
