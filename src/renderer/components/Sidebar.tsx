@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { memo } from "react";
 import type { Instance } from "@shared/types";
+import { CubeIcon, GearIcon, PlusIcon } from "./Icons";
 
 interface Props {
   instances: Instance[];
@@ -20,7 +21,7 @@ function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, r
         <div className="brand">
           <span className="brand-mark">Ω</span>
           <span className="brand-text">
-            <span className="brand-name">Omega Client</span>
+            <span className="brand-name">Omega</span>
             <span className="brand-slogan">The last client you will ever need.</span>
           </span>
         </div>
@@ -33,8 +34,8 @@ function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, r
             className={`instance-item ${selectedId === instance.id ? "active" : ""}`}
             onClick={() => onSelect(instance.id)}
           >
-            <span className="instance-icon" style={{ background: instance.iconColor }}>
-              {instance.name.slice(0, 2).toUpperCase()}
+            <span className="instance-icon">
+              <CubeIcon size={18} />
             </span>
             <span className="instance-info">
               <span className="instance-name">{instance.name}</span>
@@ -50,10 +51,10 @@ function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, r
 
       <div className="sidebar-footer">
         <button className="btn btn-secondary" onClick={onNewInstance}>
-          + New Instance
+          <PlusIcon size={15} /> New Instance
         </button>
         <button className="btn btn-ghost" onClick={onSettings}>
-          Settings
+          <GearIcon size={15} /> Settings
         </button>
       </div>
     </aside>

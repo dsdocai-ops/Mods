@@ -9,6 +9,7 @@ interface Props {
 export default function Welcome({ onNewInstance }: Props) {
   return (
     <div className="welcome">
+      <p className="welcome-kicker">Welcome</p>
       <h1>Omega Client</h1>
       <p className="welcome-verse">
         &ldquo;I am the Alpha and the Omega, the first and the last, the beginning and the end&rdquo;

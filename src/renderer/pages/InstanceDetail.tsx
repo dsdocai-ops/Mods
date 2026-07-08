@@ -4,6 +4,7 @@ import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@sh
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
+import { PlayIcon, PlusIcon } from "../components/Icons";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
@@ -249,7 +250,7 @@ export default function InstanceDetail({
             </button>
           ) : (
             <button className="btn btn-primary btn-play" onClick={onLaunch}>
-              ▶ Play
+              <PlayIcon size={14} /> Play
             </button>
           )}
         </div>
@@ -280,7 +281,7 @@ export default function InstanceDetail({
               onChange={(e) => setFilter(e.target.value)}
             />
             <button className="btn btn-secondary" onClick={handleImport}>
-              + Import your mods
+              <PlusIcon size={14} /> Import your mods
             </button>
           </div>
 

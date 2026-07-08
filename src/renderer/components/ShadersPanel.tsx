@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useRef, useState } from "react";
 import type { ShaderPackInfo } from "@shared/types";
+import { PlusIcon, XIcon } from "./Icons";
 import { toast } from "../toast";
 
 interface Props {
@@ -67,7 +68,7 @@ export default function ShadersPanel({ modsDir }: Props) {
 
       <div className="mods-toolbar">
         <button className="btn btn-secondary" disabled={importing} onClick={handleImport}>
-          {importing ? "Importing..." : "+ Import shader packs"}
+          <PlusIcon size={14} /> {importing ? "Importing..." : "Import shader packs"}
         </button>
       </div>
 
@@ -87,7 +88,7 @@ export default function ShadersPanel({ modsDir }: Props) {
             </div>
             <div className="mod-row-actions">
               <button className="btn btn-ghost btn-danger" title="Remove shader pack" onClick={() => handleRemove(pack.fileName)}>
-                ✕
+                <XIcon size={14} />
               </button>
             </div>
           </div>

@@ -4,6 +4,7 @@ import type { AppSettings, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
 import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
 import SponsorCard from "../components/SponsorCard";
+import { PlusIcon } from "../components/Icons";
 import { toast } from "../toast";
 
 interface Props {
@@ -149,7 +150,7 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
 
       <div className="settings-actions">
         <button className="btn btn-secondary" disabled={signingIn} onClick={addMicrosoftAccount}>
-          {signingIn ? "Signing in..." : "+ Add Microsoft Account"}
+          <PlusIcon size={14} /> {signingIn ? "Signing in..." : "Add Microsoft Account"}
         </button>
       </div>
 
