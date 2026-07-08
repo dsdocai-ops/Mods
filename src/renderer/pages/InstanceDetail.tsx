@@ -9,6 +9,13 @@ import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
 import { toast } from "../toast";
 
+// The bundled Omega mod's own config (config/omega-client.json) is meant to be edited in-game
+// only (Right Shift, or the Ω button in the pause menu) - the generic editor below infers form
+// fields purely from JSON shape, with no per-field type/range validation, and a value it happily
+// accepts (e.g. a decimal typed into an int field) crashes the mod's config load on next launch.
+// Fabric and Forge ship the mod under different mod ids (see fabric.mod.json / mods.toml).
+const BUNDLED_OMEGA_MOD_IDS = ["omega-client", "omega_client_forge"];
+
 interface Props {
   instance: Instance;
   logLines: string[];
@@ -145,6 +152,10 @@ export default function InstanceDetail({
 
   const openConfig = useCallback(
     async (mod: ModInfo) => {
+      if (BUNDLED_OMEGA_MOD_IDS.includes(mod.modId)) {
+        toast(`${mod.name}'s settings are edited in-game only (Right Shift, or the Ω button in the pause menu).`, "info");
+        return;
+      }
       const path = await window.api.modConfig.find(instance.modsDir, mod.modId);
       if (!path) {
         toast(`No config file found for ${mod.name} yet - it may need to run once, or doesn't use JSON/TOML config.`, "info");

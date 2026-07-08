@@ -64,6 +64,25 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+/**
+ * Unlike every sibling handler (`mods:*`, `shaders:*`), `modconfig:read`/`write` take a full path
+ * rather than a bare filename, since findModConfigPath's return value can point at several
+ * candidate file names under different subdirectories. That path is renderer-supplied and reaches
+ * fs.readFileSync/writeFileSync with no containment check today - this restricts it to somewhere
+ * under a known instance's own config dir, the same "don't trust a renderer-controlled path"
+ * posture path.basename gives the filename-only handlers.
+ */
+function assertPathInsideKnownInstanceConfig(filePath: string): void {
+  const resolved = path.resolve(filePath);
+  const inside = instances.listInstances().some((inst) => {
+    const configDir = path.resolve(path.join(path.dirname(inst.modsDir), "config"));
+    return resolved === configDir || resolved.startsWith(configDir + path.sep);
+  });
+  if (!inside) {
+    throw new Error("Refusing to access a config file outside a known instance.");
+  }
+}
+
 app.whenReady().then(() => {
   // Clean up natives dirs leaked by a previous crash/hard-kill (normal exits delete their own).
   sweepStaleNativesDirs();
@@ -158,10 +177,14 @@ app.whenReady().then(() => {
   ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
-  ipcMain.handle("modconfig:read", (_e, filePath: string) => readModConfigFile(filePath));
-  ipcMain.handle("modconfig:write", (_e, filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
-    writeModConfigFile(filePath, format, data)
-  );
+  ipcMain.handle("modconfig:read", (_e, filePath: string) => {
+    assertPathInsideKnownInstanceConfig(filePath);
+    return readModConfigFile(filePath);
+  });
+  ipcMain.handle("modconfig:write", (_e, filePath: string, format: ConfigFormat, data: Record<string, unknown>) => {
+    assertPathInsideKnownInstanceConfig(filePath);
+    return writeModConfigFile(filePath, format, data);
+  });
 
   ipcMain.handle("java:detect", (_e, gameDir?: string) => javaModule.detectJavaCandidates(gameDir));
   ipcMain.handle("java:verify", (_e, javaPath: string) => javaModule.verifyJava(javaPath));
