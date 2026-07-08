@@ -6,7 +6,12 @@ import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
 import SponsorCard from "../components/SponsorCard";
 import { toast } from "../toast";
 
-export default function SettingsPage() {
+interface Props {
+  /** Called whenever the linked-account list changes (add/remove) - lets App.tsx's sign-in gate react immediately if the last account gets removed. */
+  onAccountsChanged?: () => void;
+}
+
+export default function SettingsPage({ onAccountsChanged }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [javaCandidates, setJavaCandidates] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
@@ -17,7 +22,11 @@ export default function SettingsPage() {
   const [licenseKey, setLicenseKey] = useState("");
   const [redeeming, setRedeeming] = useState(false);
 
-  const loadAccounts = () => window.api.accounts.list().then(setAccounts);
+  const loadAccounts = () =>
+    window.api.accounts.list().then((list) => {
+      setAccounts(list);
+      onAccountsChanged?.();
+    });
   const loadOwnedCosmetics = () => window.api.licensing.listOwned().then(setOwnedCosmetics);
 
   useEffect(() => {
@@ -110,15 +119,16 @@ export default function SettingsPage() {
 
       <h3 className="settings-subheading">Microsoft Accounts</h3>
       <p className="instance-subtitle">
-        Sign in to launch with your real Minecraft account instead of an offline session. Needs your own Microsoft
-        Azure app registration (free, ~5 minutes) - see the README for exact steps.
+        A Minecraft account is required to play - sign-in works out of the box below. Add more accounts here if you
+        play as more than one, or paste your own Azure app registration's client ID to use instead of the shipped
+        default (see the README's "Microsoft sign-in" section).
       </p>
 
       <label className="field">
         <span>Microsoft sign-in client ID</span>
         <input
           className="input"
-          placeholder="paste your Azure app's Application (client) ID"
+          placeholder="paste your own Azure app's Application (client) ID to override the shipped default"
           value={settings.msaClientId}
           onChange={(e) => setSettings({ ...settings, msaClientId: e.target.value })}
         />
@@ -145,15 +155,6 @@ export default function SettingsPage() {
 
       <h3 className="settings-subheading">Instance Defaults</h3>
       <p className="instance-subtitle">Applied to newly created instances.</p>
-
-      <label className="field">
-        <span>Default offline username</span>
-        <input
-          className="input"
-          value={settings.defaultOfflineUsername}
-          onChange={(e) => setSettings({ ...settings, defaultOfflineUsername: e.target.value })}
-        />
-      </label>
 
       <label className="field">
         <span>Default Java executable</span>

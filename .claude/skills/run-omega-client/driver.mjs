@@ -36,11 +36,18 @@ let page = null;
 const MOCK_INSTANCE = {
   id: 'inst-1', name: 'Demo Instance', gameDir: '/home/user/.minecraft-demo',
   versionId: '1.20.1', loader: 'fabric', modsDir: '/home/user/.minecraft-demo/mods',
-  offlineUsername: 'Steve',
+  offlineUsername: 'Steve', accountId: 'acc-1',
   jvm: { javaPath: '', minRamMb: 2048, maxRamMb: 4096, extraArgs: '', useSmoothPvpFlags: true },
   window: { width: 854, height: 480, fullscreen: false },
   createdAt: Date.now(), lastPlayedAt: null, iconColor: '#3B9CFF',
 };
+
+// A single already-linked account, present by default so the driver lands straight past
+// App.tsx's mandatory sign-in gate (SignInRequired) into the normal app - the realistic steady
+// state for testing every other screen. Set MOCK_SIGNED_OUT=1 before `launch` to start with zero
+// accounts instead, to specifically test the gate itself (its "Sign in with Microsoft" button
+// still works in that mode - the mock's addMicrosoft() always succeeds, unlike a real MSA login).
+const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 'demo-uuid-0000', addedAt: Date.now() };
 
 // Every method preload.ts exposes on window.api. Return shapes here MUST
 // match the real main-process handlers in src/main/*.ts exactly - a wrong
@@ -112,9 +119,17 @@ function installMockApi() {
       set: async () => {},
     },
     accounts: {
-      list: async () => ([]),
-      addMicrosoft: async () => { throw new Error('mock: no real MSA in this environment'); },
-      remove: async () => {},
+      // window.__mockAccounts is seeded by a separate addInitScript in the `launch` command below
+      // (MOCK_ACCOUNT by default, empty if MOCK_SIGNED_OUT=1) - real MSA login can't happen in
+      // this environment, so addMicrosoft() always "succeeds" with a fake account instead of
+      // throwing, so the sign-in gate's happy path is actually testable here.
+      list: async () => ([...window.__mockAccounts]),
+      addMicrosoft: async () => {
+        const account = { id: 'acc-' + Date.now(), type: 'microsoft', username: 'MockUser', uuid: 'mock-uuid-' + Date.now(), addedAt: Date.now() };
+        window.__mockAccounts.push(account);
+        return account;
+      },
+      remove: async (id) => { window.__mockAccounts = window.__mockAccounts.filter((a) => a.id !== id); },
     },
     launch: {
       start: async (instance) => { window.__calls.launch.push(instance); },
@@ -153,6 +168,7 @@ const COMMANDS = {
     page.on('console', (msg) => { if (msg.type() === 'error') console.log('CONSOLE ERROR:', msg.text()); });
     await page.addInitScript(installMockApi);
     await page.addInitScript((inst) => { window.__mockInstance = inst; }, MOCK_INSTANCE);
+    await page.addInitScript((acc) => { window.__mockAccounts = acc ? [acc] : []; }, process.env.MOCK_SIGNED_OUT ? null : MOCK_ACCOUNT);
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(500);
     console.log('launched. title:', await page.title());

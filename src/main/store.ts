@@ -10,12 +10,20 @@ interface StoreShape {
   settings: AppSettings;
 }
 
+// Omega Client's own Azure AD app registration (public client, personal-Microsoft-accounts-only,
+// "Allow public client flows" on) - shared by every user so sign-in works out of the box, the same
+// model MultiMC/Lunar-style launchers use. No secret is embedded here or ever needed: this is a
+// public client id, not a credential - the actual OAuth flow (msAuth.ts) uses PKCE, which is
+// specifically designed to be safe with a client id that ships in distributed app code. Still
+// overridable in Settings for anyone who'd rather use their own app registration.
+const DEFAULT_MSA_CLIENT_ID = "5f2f3f73-32a1-4694-af21-19681a58701d";
+
 const DEFAULT_STORE: StoreShape = {
   instances: [],
   settings: {
     defaultJvm: DEFAULT_JVM,
     defaultOfflineUsername: "Player",
-    msaClientId: "",
+    msaClientId: DEFAULT_MSA_CLIENT_ID,
     autoUpdateEnabled: true,
   },
 };
@@ -39,7 +47,11 @@ function readStore(): StoreShape {
       settings: {
         defaultJvm: { ...DEFAULT_JVM, ...(parsed.settings?.defaultJvm ?? {}) },
         defaultOfflineUsername: parsed.settings?.defaultOfflineUsername ?? "Player",
-        msaClientId: parsed.settings?.msaClientId ?? "",
+        // || not ?? deliberately: an existing install's launcher-store.json may have "" saved from
+        // before this default existed (when there was no working default at all) - that empty
+        // string should fall through to the new default too, not get stuck empty forever. A real
+        // custom client id a user has since set is truthy and passes through unchanged either way.
+        msaClientId: parsed.settings?.msaClientId || DEFAULT_MSA_CLIENT_ID,
         autoUpdateEnabled: parsed.settings?.autoUpdateEnabled ?? true,
       },
     };
