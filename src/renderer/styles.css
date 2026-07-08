@@ -337,50 +337,39 @@ body {
   max-width: 900px;
 }
 
-/* A real banner instead of flat text on the panel background - a blocky dusk skyline (see
-   InstanceSkyline in InstanceDetail.tsx) fills it, with the title/actions sitting on a dark scrim
-   at the bottom for legibility. Shared by all four instance tabs, so this is the one visual
-   investment that pays off everywhere in the app someone actually spends time in. */
+/* Text stays directly on the panel background - no image behind it - so legibility is never a
+   question. The identity comes from the block icon sitting next to the title instead of from a
+   background scene, which also sidesteps the earlier skyline's problem of being an invented shape
+   that didn't actually read as anything in particular. */
 .instance-header {
-  position: relative;
-  min-height: 132px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  margin-bottom: 26px;
-  display: flex;
-  align-items: flex-end;
-}
-
-.instance-skyline {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  display: block;
-}
-
-.instance-header-bar {
-  position: relative;
-  z-index: 1;
-  width: 100%;
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
+  margin-bottom: 26px;
   gap: 16px;
-  padding: 20px 24px;
-  background: linear-gradient(180deg, rgba(10, 10, 13, 0) 0%, rgba(10, 10, 13, 0.6) 75%, rgba(10, 10, 13, 0.78) 100%);
+}
+
+.instance-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.instance-header-icon {
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
 }
 
 .instance-header h1 {
   margin: 0 0 4px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 .instance-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .account-switcher {

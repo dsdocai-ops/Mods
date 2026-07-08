@@ -7,6 +7,7 @@ import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
+import GrassBlockIcon from "../components/GrassBlockIcon";
 import { toast } from "../toast";
 
 // The bundled Omega mod's own config (config/omega-client.json) is meant to be edited in-game
@@ -50,41 +51,6 @@ function TabIcon({ name }: { name: "mods" | "shaders" | "console" | "settings" }
     <svg {...common} strokeLinejoin="round">
       <circle cx="8" cy="8" r="2.3" />
       <path d="M8 1.8v1.7M8 12.5v1.7M14.2 8h-1.7M3.5 8H1.8M12.3 3.7l-1.2 1.2M4.9 11.1l-1.2 1.2M12.3 12.3l-1.2-1.2M4.9 4.9 3.7 3.7" />
-    </svg>
-  );
-}
-
-/**
- * A blocky dusk skyline behind the instance header - every tab on this page shares this header,
- * so it's the single highest-traffic spot to give the app an actual identity beyond flat text on
- * a dark panel. Built from plain <rect>s (not smooth paths) on purpose: hard-edged silhouettes
- * are what read as "Minecraft terrain" instead of generic mountains - same reasoning as the
- * Welcome screen's grass block. preserveAspectRatio="none" so it stretches to fill the header at
- * any window width without needing real image dimensions.
- */
-function InstanceSkyline() {
-  return (
-    <svg className="instance-skyline" viewBox="0 0 600 130" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="skySky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#15121b" />
-          <stop offset="60%" stopColor="#2a1620" />
-          <stop offset="100%" stopColor="#4a1f1f" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="600" height="130" fill="url(#skySky)" />
-      <circle cx="470" cy="70" r="26" fill="#e5484d" opacity="0.85" />
-      {/* far ridge - blocky steps, muted */}
-      <path
-        d="M0,90 h40 v-14 h30 v10 h35 v-20 h40 v16 h50 v-10 h45 v14 h60 v-18 h40 v12 h50 v-8 h50 v16 h60 v-12 h40 v22 H0 Z"
-        fill="#3a2530"
-        opacity="0.75"
-      />
-      {/* near ridge - taller, darker, in front */}
-      <path
-        d="M0,110 h60 v-24 h35 v14 h40 v-30 h45 v20 h55 v-12 h40 v18 h60 v-26 h35 v16 h50 v-10 h60 v-20 h40 v34 H0 Z"
-        fill="#211219"
-      />
     </svg>
   );
 }
@@ -301,33 +267,33 @@ export default function InstanceDetail({
   return (
     <div className="instance-detail">
       <header className="instance-header">
-        <InstanceSkyline />
-        <div className="instance-header-bar">
+        <div className="instance-header-identity">
+          <GrassBlockIcon size={52} className="instance-header-icon" />
           <div>
             <h1>{instance.name}</h1>
             <p className="instance-subtitle">
               {instance.versionId} &middot; {instance.loader} &middot; {enabledCount}/{mods.length} mods enabled
             </p>
           </div>
-          <div className="instance-actions">
-            <AccountSwitcher
-              instance={instance}
-              accounts={accounts}
-              onAccountChange={quickSetAccount}
-              onAccountsChanged={loadAccounts}
-              onManageAccounts={onOpenGlobalSettings}
-              openSignal={accountSwitchOpenSignal}
-            />
-            {isRunning ? (
-              <button className="btn btn-danger" onClick={onStop}>
-                Stop
-              </button>
-            ) : (
-              <button className="btn btn-primary btn-play" onClick={onLaunch}>
-                ▶ Play
-              </button>
-            )}
-          </div>
+        </div>
+        <div className="instance-actions">
+          <AccountSwitcher
+            instance={instance}
+            accounts={accounts}
+            onAccountChange={quickSetAccount}
+            onAccountsChanged={loadAccounts}
+            onManageAccounts={onOpenGlobalSettings}
+            openSignal={accountSwitchOpenSignal}
+          />
+          {isRunning ? (
+            <button className="btn btn-danger" onClick={onStop}>
+              Stop
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-play" onClick={onLaunch}>
+              ▶ Play
+            </button>
+          )}
         </div>
       </header>
 
