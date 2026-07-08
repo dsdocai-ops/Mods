@@ -9,16 +9,16 @@ interface Props {
 type ConfigData = Record<string, unknown>;
 
 /**
- * Lunar-style first-class feature toggles: edits the preinstalled Omega mod's config file
- * (config/omega-client.json) directly, so everything here is also live in the in-game menu
- * (Right Shift) and vice versa. The mod reads this file at game startup - if the game is already
- * running, changes apply on the next launch (in-game, use Right Shift instead).
+ * Read-only view of the preinstalled Omega mod's config file (config/omega-client.json) - lets you
+ * check current state without leaving the launcher, but every toggle/value is edited in-game only
+ * now (Right Shift, or the Omega button in the vanilla pause menu - see mod/README.md's menu list
+ * for exactly where each one lives: main menu, HUD..., Visual Settings..., or Particles...). Two
+ * front doors to the same file both trying to be authoritative was a real bug surface (the
+ * launcher's "Save" and an in-game change could silently clobber each other if both were open at
+ * once) - one editor removes that entirely, and in-game is the one that has to exist anyway.
  */
 export default function FeaturesPanel({ modsDir }: Props) {
-  const [filePath, setFilePath] = useState<string | null>(null);
   const [data, setData] = useState<ConfigData | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,10 +26,7 @@ export default function FeaturesPanel({ modsDir }: Props) {
       try {
         const path = await window.api.modConfig.ensureOmega(modsDir);
         const file = await window.api.modConfig.read(path);
-        if (!cancelled) {
-          setFilePath(file.path);
-          setData(file.data);
-        }
+        if (!cancelled) setData(file.data);
       } catch (err) {
         if (!cancelled) toast(`Couldn't load features config: ${err instanceof Error ? err.message : String(err)}`, "error");
       }
@@ -39,30 +36,11 @@ export default function FeaturesPanel({ modsDir }: Props) {
     };
   }, [modsDir]);
 
-  const set = (key: string, value: unknown) => {
-    setData((prev) => (prev ? { ...prev, [key]: value } : prev));
-    setDirty(true);
-  };
-
-  const save = async () => {
-    if (!filePath || !data) return;
-    setSaving(true);
-    try {
-      await window.api.modConfig.write(filePath, "json", data);
-      setDirty(false);
-      toast("Features saved - applies on next launch (or instantly via Right Shift in-game)", "success");
-    } catch (err) {
-      toast(`Couldn't save: ${err instanceof Error ? err.message : String(err)}`, "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (!data) return <p className="empty-hint">Loading features&hellip;</p>;
 
   const boolRow = (key: string, label: string, hint?: string) => (
-    <label className="field-checkbox feature-row" key={key}>
-      <input type="checkbox" checked={Boolean(data[key])} onChange={(e) => set(key, e.target.checked)} />
+    <label className="field-checkbox feature-row feature-row-readonly" key={key}>
+      <input type="checkbox" checked={Boolean(data[key])} disabled readOnly />
       <span>
         {label}
         {hint && <em className="feature-hint"> — {hint}</em>}
@@ -75,46 +53,23 @@ export default function FeaturesPanel({ modsDir }: Props) {
   return (
     <div className="settings-panel features-panel">
       <p className="instance-subtitle">
-        Built-in Omega features, preinstalled with every Fabric/Forge instance. Same settings as the in-game menu
-        (Right Shift) — the game reads them at startup.
+        Built-in Omega features, preinstalled with every Fabric/Forge instance. Read-only here - everything below is
+        set in-game (Right Shift, or the Omega button in the pause menu) so there's one place that's actually in
+        charge of this file, not two.
       </p>
 
       <h3 className="settings-subheading">Visual & PvP</h3>
       {boolRow("fullbrightEnabled", "Fullbright", "max brightness, no torch spam")}
       {boolRow("blockHighlightEnabled", "Block Highlight", "outline obsidian/anchors for combat clarity - color/block list in-game via Visual Settings...")}
-      {boolRow("customFovEnabled", "Custom FOV", "FOV/Zoom FOV numbers set in-game via Visual Settings...")}
-      <div className="field-row feature-numbers">
-        <label className="field">
-          <span>FOV</span>
-          <input
-            className="input"
-            type="number"
-            min={30}
-            max={110}
-            value={Number(data.customFov ?? 90)}
-            onChange={(e) => set("customFov", Number(e.target.value))}
-          />
-        </label>
-        <label className="field">
-          <span>Zoom FOV (hold C)</span>
-          <input
-            className="input"
-            type="number"
-            min={1}
-            max={70}
-            value={Number(data.zoomFov ?? 30)}
-            onChange={(e) => set("zoomFov", Number(e.target.value))}
-          />
-        </label>
-      </div>
+      {boolRow("customFovEnabled", "Custom FOV", `FOV ${Number(data.customFov ?? 90)} / Zoom ${Number(data.zoomFov ?? 30)} - set in-game via Visual Settings...`)}
       {boolRow("toggleSprintEnabled", "Toggle Sprint", "sprint without holding the key")}
       {boolRow("noHurtCamEnabled", "No Hurt Camera", "no screen shake when taking damage")}
       {boolRow("noFogEnabled", "No Fog", "removes terrain, water and nether fog")}
       {boolRow("clearWeatherEnabled", "Clear Weather", "visual only - never see or hear rain")}
-      {boolRow("showOmegaUsersEnabled", "Show Omega Users", "\u03a9 badge on nametags of other Omega players (needs server relay support)")}
+      {boolRow("showOmegaUsersEnabled", "Show Omega Users", "Omega badge on nametags of other Omega players (needs server relay support)")}
 
       <h3 className="settings-subheading">HUD</h3>
-      {boolRow("hudEnabled", "Info HUD", "individual rows below also toggleable in-game via HUD...")}
+      {boolRow("hudEnabled", "Info HUD", "individual rows below also live in-game via HUD...")}
       {boolRow("hudShowCoords", "Show coordinates")}
       {boolRow("hudShowFps", "Show FPS")}
       {boolRow("hudShowPing", "Show ping", "hidden in singleplayer")}
@@ -130,25 +85,12 @@ export default function FeaturesPanel({ modsDir }: Props) {
       {boolRow("critParticlesEnabled", "Crit particles")}
       {boolRow("explosionParticlesEnabled", "Explosion particles")}
       {boolRow("portalParticlesEnabled", "Portal particles")}
-      <label className="field">
-        <span>Particle density</span>
-        <select className="input" value={String(density)} onChange={(e) => set("particleDensity", Number(e.target.value))}>
-          <option value="1">100%</option>
-          <option value="0.75">75%</option>
-          <option value="0.5">50%</option>
-          <option value="0.25">25%</option>
-          <option value="0.1">10%</option>
-        </select>
-      </label>
+      <p className="feature-row feature-row-readonly">
+        Particle density: {Math.round(density * 100)}%<em className="feature-hint"> — set in-game via Particles...</em>
+      </p>
 
       <h3 className="settings-subheading">Building</h3>
-      {boolRow("schematicPreviewEnabled", "Schematic ghost preview", "manage schematics in-game via Right Shift")}
-
-      <div className="settings-actions">
-        <button className="btn btn-primary" disabled={saving || !dirty} onClick={save}>
-          {saving ? "Saving..." : dirty ? "Save Features" : "Saved"}
-        </button>
-      </div>
+      {boolRow("schematicPreviewEnabled", "Schematic ghost preview", "manage schematics in-game via Right Shift then Schematics...")}
     </div>
   );
 }

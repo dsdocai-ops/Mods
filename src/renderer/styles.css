@@ -895,6 +895,15 @@ body {
   padding: 4px 0;
 }
 
+.feature-row-readonly {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.feature-row-readonly input[type="checkbox"] {
+  cursor: default;
+}
+
 .feature-hint {
   color: var(--text-dim);
   font-style: normal;
