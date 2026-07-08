@@ -81,7 +81,7 @@ Screenshots land in `/tmp/shots/` (override with `SCREENSHOT_DIR`).
 | `ss [name]` | screenshot (full page) -> `$SCREENSHOT_DIR/<name>.png` |
 | `click <css-sel>` | click element via DOM `.click()` |
 | `click-text <text>` | click the button/link/tab whose text matches (exact, falling back to substring) |
-| `toggle-checkbox <label text>` | clicks the checkbox inside the `<label>` containing that text (the app's Features/Particles/etc. toggle-row pattern) |
+| `toggle-checkbox <label text>` | clicks the checkbox inside the `<label>` containing that text (the app's Mods/Particles/etc. toggle-row pattern) |
 | `type <text>` / `press <key>` | keyboard input |
 | `wait <css-sel>` | wait up to 10s for a selector |
 | `eval <js>` | evaluate an expression in the page, print JSON |
@@ -89,8 +89,8 @@ Screenshots land in `/tmp/shots/` (override with `SCREENSHOT_DIR`).
 | `calls` | print everything the app called on the mocked `window.api` (`launch`, `update`, `write` arrays) - use this to confirm a click invoked the right IPC method with the right payload |
 | `quit` | close the browser, stop the static server, exit |
 
-Every screen you can reach this way: the default Features tab, Mods, Shaders,
-Console, Instance Settings (all five instance tabs), the global Settings
+Every screen you can reach this way: the default Mods tab, Shaders,
+Console, Instance Settings (all four instance tabs), the global Settings
 page (`click-text Settings`), and the New Instance modal
 (`click-text "+ New Instance"`).
 

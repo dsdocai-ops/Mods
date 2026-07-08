@@ -84,7 +84,6 @@ function installMockApi() {
     shaders: { list: async () => [], import: async () => [], remove: async () => [] },
     modConfig: {
       find: async (_dir, modId) => (modId === 'omega-client' ? '/x/config/omega-client.json' : null),
-      ensureOmega: async () => '/x/config/omega-client.json',
       read: async () => ({ format: 'json', data: { fullbrightEnabled: false, hudEnabled: true } }),
       write: async (_path, _format, data) => { window.__calls.write.push(data); },
     },

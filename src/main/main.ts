@@ -12,7 +12,7 @@ import * as javaModule from "./java";
 import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
-import { ensureOmegaConfig, findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
+import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
@@ -158,7 +158,6 @@ app.whenReady().then(() => {
   ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
-  ipcMain.handle("modconfig:ensureOmega", (_e, modsDir: string) => ensureOmegaConfig(path.dirname(modsDir)));
   ipcMain.handle("modconfig:read", (_e, filePath: string) => readModConfigFile(filePath));
   ipcMain.handle("modconfig:write", (_e, filePath: string, format: ConfigFormat, data: Record<string, unknown>) =>
     writeModConfigFile(filePath, format, data)
