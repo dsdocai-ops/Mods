@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as shaders from "./shaders";
@@ -167,7 +167,6 @@ app.whenReady().then(() => {
     mods.setModEnabled(modsDir, modId, enabled)
   );
   ipcMain.handle("mods:remove", (_e, modsDir: string, modId: string) => mods.removeMod(modsDir, modId));
-  ipcMain.handle("mods:applyPreset", (_e, modsDir: string, tags: ModTag[]) => mods.applyTagPreset(modsDir, tags));
   ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
     mods.setModsEnabledBulk(modsDir, changes)
   );

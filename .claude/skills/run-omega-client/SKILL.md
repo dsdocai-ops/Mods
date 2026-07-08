@@ -112,7 +112,7 @@ non-blocking ones (missing assets)), `java.ts` (`detectJavaCandidates()`
 against this container's real installed JDK, `verifyJava()` spawning the
 real `java -version`), `mods.ts`/`modMetadata.ts` (builds two real jars with
 `adm-zip` - one with a genuine `fabric.mod.json`, one with a genuine
-`META-INF/mods.toml` - then lists, toggles, and tag-presets them for real),
+`META-INF/mods.toml` - then lists, toggles, and bulk-enables/disables them for real),
 and `licensing.ts` (a real HMAC-based license key check against
 `scripts/generate-license-key.cjs`'s formula, plus real `licenses.json` and
 `config/omega-client.json` writes). Prints `OK`/`FAIL` per check, exits

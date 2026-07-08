@@ -10,7 +10,6 @@ import type {
   LaunchLogEvent,
   ModConfigFile,
   ModInfo,
-  ModTag,
   PublicAccount,
   RedeemLicenseResult,
   ShaderPackInfo,
@@ -37,7 +36,6 @@ export interface LauncherApi {
     import(modsDir: string, sourcePaths: string[]): Promise<ModInfo[]>;
     setEnabled(modsDir: string, modId: string, enabled: boolean): Promise<ModInfo[]>;
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
-    applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
     setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
   };
   shaders: {

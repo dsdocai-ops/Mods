@@ -229,8 +229,8 @@ function runModsSection() {
   const afterReenable = mods.listMods(modsDir);
   check("setModEnabled(true) renames it back", afterReenable.find((m) => m.id === sodium.id)?.enabled === true);
 
-  const preset = mods.applyTagPreset(modsDir, ["cpvp"]);
-  check("applyTagPreset(['cpvp']) enables the crystal mod, disables the perf mod", preset.find((m) => m.id === crystal.id)?.enabled === true && preset.find((m) => m.id === sodium.id)?.enabled === false);
+  const bulked = mods.setModsEnabledBulk(modsDir, { [crystal.id]: false, [sodium.id]: false });
+  check("setModsEnabledBulk() applies multiple changes in one pass", bulked.find((m) => m.id === crystal.id)?.enabled === false && bulked.find((m) => m.id === sodium.id)?.enabled === false);
 
   runLicensingSection();
 }

@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import fs from "node:fs";
 import path from "node:path";
-import type { ModInfo, ModTag } from "../shared/types";
+import type { ModInfo } from "../shared/types";
 import { forgetModMetadata, noteModMetadataRenamed, readModMetadata } from "./modMetadata";
 
 const DISABLED_SUFFIX = ".disabled";
@@ -98,22 +98,12 @@ export function removeMod(modsDir: string, modId: string): ModInfo[] {
 /**
  * Applies many enable/disable changes in a single pass. `setModEnabled` in a loop would re-scan
  * and re-parse every jar in the folder once per mod changed - O(n^2) for an n-mod pack - so bulk
- * callers (presets, enable/disable-all) go through here instead: all the renames happen first,
- * and the directory is only re-scanned once at the end.
+ * callers (enable/disable-all) go through here instead: all the renames happen first, and the
+ * directory is only re-scanned once at the end.
  */
 export function setModsEnabledBulk(modsDir: string, changes: Record<string, boolean>): ModInfo[] {
   for (const [modId, enabled] of Object.entries(changes)) {
     renameModFile(modsDir, modId, enabled);
   }
   return listMods(modsDir);
-}
-
-/** Bulk-enable every mod carrying any of the given tags and bulk-disable the rest - powers preset buttons like "Smooth PvP". */
-export function applyTagPreset(modsDir: string, tags: ModTag[]): ModInfo[] {
-  const mods = listMods(modsDir);
-  const changes: Record<string, boolean> = {};
-  for (const mod of mods) {
-    changes[mod.id] = mod.tags.some((t) => tags.includes(t));
-  }
-  return setModsEnabledBulk(modsDir, changes);
 }

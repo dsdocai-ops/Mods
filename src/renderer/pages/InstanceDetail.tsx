@@ -1,7 +1,6 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
-import { MOD_TAG_PRESETS } from "@shared/types";
+import type { ConfigFormat, Instance, ModInfo, PublicAccount } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
@@ -210,16 +209,6 @@ export default function InstanceDetail({
     [instance.modsDir]
   );
 
-  const applyPreset = async (tags: ModTag[]) => {
-    const requestId = ++modsRequestRef.current;
-    try {
-      const updated = await window.api.mods.applyPreset(instance.modsDir, tags);
-      if (requestId === modsRequestRef.current) setMods(updated);
-    } catch (err) {
-      toast(`Couldn't apply preset: ${err instanceof Error ? err.message : String(err)}`, "error");
-    }
-  };
-
   const enableAll = async () => {
     const changes = Object.fromEntries(mods.filter((m) => !m.enabled).map((m) => [m.id, true]));
     const requestId = ++modsRequestRef.current;
@@ -330,13 +319,7 @@ export default function InstanceDetail({
             </button>
           </div>
 
-          <div className="preset-bar">
-            <span className="preset-label">Presets:</span>
-            {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
-              <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
-                {preset.label}
-              </button>
-            ))}
+          <div className="bulk-actions-bar">
             <button className="btn btn-chip" onClick={enableAll}>
               Enable all
             </button>

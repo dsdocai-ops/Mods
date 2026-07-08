@@ -78,7 +78,6 @@ function installMockApi() {
       import: async () => [],
       setEnabled: async () => {},
       remove: async () => {},
-      applyPreset: async () => {},
       setEnabledBulk: async () => {},
     },
     shaders: { list: async () => [], import: async () => [], remove: async () => [] },

@@ -8,7 +8,6 @@ import type {
   InstallProgress,
   Instance,
   LaunchLogEvent,
-  ModTag,
   PublicAccount,
   RedeemLicenseResult,
   ShaderPackInfo,
@@ -36,7 +35,6 @@ const api = {
     setEnabled: (modsDir: string, modId: string, enabled: boolean) =>
       ipcRenderer.invoke("mods:setEnabled", modsDir, modId, enabled),
     remove: (modsDir: string, modId: string) => ipcRenderer.invoke("mods:remove", modsDir, modId),
-    applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
     setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
       ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
   },

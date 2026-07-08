@@ -15,7 +15,6 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Built-in installer**: or start from an empty folder — the New Instance dialog downloads any Minecraft release straight from Mojang, with one-click Fabric (via Fabric's meta API) or Forge (via the official installer, run headlessly) on top. Live progress, sha1-verified downloads, resumable/idempotent.
 - **Mod toggles**: import your own mod `.jar`s and flip them on/off per-instance with a switch. Disabling renames `mod.jar` → `mod.jar.disabled`, which every loader already ignores — no destructive moves, nothing leaves the folder.
 - **Automatic mod metadata**: reads `fabric.mod.json`, `quilt.mod.json`, Forge's `META-INF/mods.toml` / `neoforge.mods.toml`, and legacy `mcmod.info` straight out of the jar to show real names/versions/descriptions, and auto-tags mods (`performance`, `pvp`, `visual`, `library`, ...) by keyword.
-- **Presets**: one click to bulk-switch mods by category - Smooth PvP, Crystal PvP, UHC, Bedwars, Survival, or Visual/HUD-only - driven by a single tag→preset map (`MOD_TAG_PRESETS` in `shared/types.ts`), so adding another preset is a one-line change, not new UI code.
 - **Smooth PvP JVM tuning**: optional G1GC flag preset (Aikar's-flags-style) aimed at cutting GC-pause frame hitches, which matter most in close-quarters PvP.
 - **Microsoft sign-in required**: the launcher gates everything (instances, settings, all of it) behind linking a real Minecraft account, via the standard Microsoft OAuth → Xbox Live → Minecraft token chain, the same public flow every third-party launcher uses. This works immediately with no setup - it ships its own Azure app registration, the same shared-client-id model MultiMC/Lunar/Feather-style launchers use - see "Microsoft sign-in" below for the (optional) steps to use your own instead. Tokens are encrypted at rest (Electron's OS-level `safeStorage`) and refreshed automatically before each launch.
 - **Real launch engine**: resolves Forge/Fabric version JSON inheritance chains, merges libraries/arguments, extracts natives, builds the classpath, and spawns the JVM directly — not a wrapper around another launcher.
@@ -32,7 +31,7 @@ src/
     store.ts             # JSON persistence (instances + settings) in userData
     instances.ts         # instance CRUD, installed-version detection
     modMetadata.ts        # jar metadata parsing (fabric.mod.json / mods.toml / mcmod.info)
-    mods.ts               # mod scan/import/enable-disable/preset logic
+    mods.ts               # mod scan/import/enable-disable logic
     toml.ts               # minimal TOML subset parser/serializer
     modConfig.ts           # per-mod config file discovery + read/write (JSON + TOML)
     java.ts               # local Java runtime discovery
@@ -98,7 +97,7 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 2. **New Instance** → browse to your existing Minecraft folder (`%APPDATA%\.minecraft` by default on Windows) to use what's already installed — or pick any empty folder and use **Install new version** to download a fresh Minecraft + Fabric/Forge right there.
 3. Pick a version, name the instance, create it.
 4. In the instance's **Mods** tab, click **Import your mods** and select the `.jar` files from your existing mods collection — they show up immediately as toggle rows with parsed name/version/tags.
-5. Flip mods on/off, or use a preset button (Smooth PvP, Crystal PvP, UHC, Bedwars, Survival, Visual/HUD only) to bulk-switch by tag - presets only affect mods you've actually imported and tagged; the launcher doesn't ship any mods itself.
+5. Flip mods on/off individually, or use **Enable all** / **Disable all** to bulk-switch everything at once.
 6. Click **Configure** on any mod to edit its settings without leaving the launcher (only works once the mod has generated a config file - usually after its first run).
 7. Hit **Play**. Console output streams live in the **Console** tab; **Stop** kills the process.
 
@@ -111,7 +110,6 @@ Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game m
 - **Mods folder = instance run directory's `mods/`.** Each instance's effective "game directory" passed to the JVM is the parent of its mods folder, so per-instance isolation falls out naturally if you ever point an instance's mods folder outside the shared install (not yet exposed in the UI, but the launch engine already supports it).
 - **The config editor doesn't preserve comments.** Saving through the UI regenerates the file from parsed data (JSON round-trips exactly; the TOML writer doesn't keep hand-written `#` comments). The UI warns about this before you save a TOML file.
 - **The companion mod is visual/QoL only, by design.** Fullbright, block highlighting, FOV/zoom, toggle-sprint, no-hurt-cam, no-fog, clear weather, the info HUD (coords/FPS/ping/direction/CPS/keystrokes), and the schematic tool - nothing that reveals info through walls (highlighting/preview are depth-tested) and nothing that automates combat input (no reach/velocity/aim changes; the CPS counter reads clicks, never makes them). See [`mod/README.md`](mod/README.md) for the reasoning and exact feature list.
-- **Presets are a tag→mods mapping, not a mod source.** "Crystal PvP", "UHC", "Bedwars", etc. only ever act on mods you've imported; the launcher recognizes them via keyword-based auto-tagging (`modMetadata.ts`), which is a heuristic and won't catch every mod's real purpose - check a mod's tags after importing it if a preset doesn't pick it up as expected.
 
 ## Monetization
 
