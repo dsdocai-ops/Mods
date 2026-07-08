@@ -6,7 +6,9 @@ import type { CreateInstanceInput, DetectedVersion, Instance, Loader } from "../
 import { DEFAULT_JVM } from "../shared/types";
 import * as store from "./store";
 
-const ICON_COLORS = ["#e63946", "#f77f00", "#2a9d8f", "#457b9d", "#9b5de5", "#43aa8b"];
+// Monochrome: distinct mid-tone grays instead of a rainbow, so each instance is still visually
+// distinguishable in the sidebar without breaking the black-and-white theme.
+const ICON_COLORS = ["#3a3a40", "#48484f", "#565660", "#2f2f35", "#606069", "#404048"];
 
 /**
  * A version id like "1.20.1-forge-47.2.0" or a fabric-loader id embeds the loader name;
