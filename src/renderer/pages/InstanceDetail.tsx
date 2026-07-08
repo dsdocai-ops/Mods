@@ -16,6 +16,44 @@ import { toast } from "../toast";
 // Fabric and Forge ship the mod under different mod ids (see fabric.mod.json / mods.toml).
 const BUNDLED_OMEGA_MOD_IDS = ["omega-client", "omega_client_forge"];
 
+// Small per-tab glyphs (stroke="currentColor" so they pick up the tab's own text color for free -
+// dim when inactive, red when active) - the tab bar used to be indistinguishable from a row of
+// buttons; a distinct icon per destination is what actually tells them apart at a glance.
+function TabIcon({ name }: { name: "mods" | "shaders" | "console" | "settings" }) {
+  const common = { width: 15, height: 15, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: 1.6 } as const;
+  if (name === "mods") {
+    return (
+      <svg {...common}>
+        <rect x="2" y="2" width="5" height="5" rx="1.2" />
+        <rect x="9" y="2" width="5" height="5" rx="1.2" />
+        <rect x="2" y="9" width="5" height="5" rx="1.2" />
+        <rect x="9" y="9" width="5" height="5" rx="1.2" />
+      </svg>
+    );
+  }
+  if (name === "shaders") {
+    return (
+      <svg {...common} strokeLinejoin="round" strokeLinecap="round">
+        <path d="M8 1.5 9.4 5.8 13.5 8 9.4 10.2 8 14.5 6.6 10.2 2.5 8 6.6 5.8Z" />
+      </svg>
+    );
+  }
+  if (name === "console") {
+    return (
+      <svg {...common} strokeLinejoin="round" strokeLinecap="round">
+        <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+        <path d="M4 6.5 6.5 8.5 4 10.5M8.5 10.5h3.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common} strokeLinejoin="round">
+      <circle cx="8" cy="8" r="2.3" />
+      <path d="M8 1.8v1.7M8 12.5v1.7M14.2 8h-1.7M3.5 8H1.8M12.3 3.7l-1.2 1.2M4.9 11.1l-1.2 1.2M12.3 12.3l-1.2-1.2M4.9 4.9 3.7 3.7" />
+    </svg>
+  );
+}
+
 interface Props {
   instance: Instance;
   logLines: string[];
@@ -257,15 +295,19 @@ export default function InstanceDetail({
 
       <nav className="tabs">
         <button className={tab === "mods" ? "tab active" : "tab"} onClick={() => setTab("mods")}>
+          <TabIcon name="mods" />
           Mods
         </button>
         <button className={tab === "shaders" ? "tab active" : "tab"} onClick={() => setTab("shaders")}>
+          <TabIcon name="shaders" />
           Shaders
         </button>
         <button className={tab === "console" ? "tab active" : "tab"} onClick={() => setTab("console")}>
+          <TabIcon name="console" />
           Console
         </button>
         <button className={tab === "settings" ? "tab active" : "tab"} onClick={() => setTab("settings")}>
+          <TabIcon name="settings" />
           Instance Settings
         </button>
       </nav>

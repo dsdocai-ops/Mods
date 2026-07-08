@@ -4,10 +4,13 @@
 }
 
 :root {
-  /* Dark, modern base with a vibrant indigo/violet/pink accent family - near-black surfaces and
-     off-white text stay the same neutral backdrop as before, but the interactive accent is now a
-     real color (and a gradient for hero elements) instead of plain white. Red/green still carry
-     only their functional meaning (destructive actions, the "instance running" dot).
+  /* Dark, modern base with a single red accent - near-black surfaces and off-white text stay the
+     same neutral backdrop as before. The gradient is now reserved for exactly two hero elements
+     (the brand mark and the primary/Play button) instead of being smeared across every control -
+     everything else uses a flat solid red, which reads as considered rather than "one AI-generated
+     gradient copy-pasted everywhere." --danger is a separate, slightly different red on purpose:
+     destructive actions need to stay visually distinguishable from the brand accent, not blend
+     into it.
 
      Redesign pass: Lunar-Client-style simplicity - generous corner radii everywhere, flat
      borderless surfaces separated by elevation (shadow) and subtle background steps instead of
@@ -20,11 +23,11 @@
   --border: #232329;
   --text: #f5f5f7;
   --text-dim: #96969f;
-  --accent: #7c6cff;
-  --accent-hover: #8f81ff;
-  --accent-2: #b48cff;
-  --accent-grad: linear-gradient(135deg, #5b8cff 0%, #9061f9 55%, #ec4899 100%);
-  --danger: #e2564f;
+  --accent: #e5484d;
+  --accent-hover: #f16a6e;
+  --accent-2: #ff8a5c;
+  --accent-grad: linear-gradient(135deg, #b32d2d 0%, #e5484d 55%, #ff7a4a 100%);
+  --danger: #c2483f;
 
   --radius-xl: 26px;
   --radius-lg: 20px;
@@ -131,7 +134,7 @@ body {
   font-weight: 800;
   font-size: 20px;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(124, 108, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(229, 72, 77, 0.4);
 }
 
 .brand-text {
@@ -433,35 +436,68 @@ body {
   margin: 0;
 }
 
-/* Tabs - a single rounded segmented control (pill selector) instead of an underlined tab strip. */
+/* Tabs - deliberately NOT another filled pill (that made them indistinguishable from buttons and
+   preset chips at a glance). An icon + underline nav instead: it reads as "where am I", while
+   buttons/chips stay solid pills that read as "click me" - two different jobs, two different
+   shapes. The underline animates in on hover before a tab is even clicked, and the icon+label
+   both take the accent color together when active, which is what makes this feel alive rather
+   than a static row of labels. */
 .tabs {
-  display: inline-flex;
-  gap: 2px;
-  background: var(--bg-panel-alt);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  margin-bottom: 24px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: none;
   border: none;
   color: var(--text-dim);
-  padding: 8px 18px;
+  padding: 11px 16px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  border-radius: var(--radius-pill);
-  transition: color 0.15s var(--ease), background-color 0.15s var(--ease);
+  position: relative;
+  transition: color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+
+.tab svg {
+  transition: stroke 0.15s var(--ease);
+  flex-shrink: 0;
 }
 
 .tab:hover {
   color: var(--text);
+  transform: translateY(-1px);
+}
+
+.tab::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.2s var(--ease);
+}
+
+.tab:hover::after {
+  transform: scaleX(0.35);
 }
 
 .tab.active {
-  color: #ffffff;
-  background: var(--accent-grad);
+  color: var(--accent);
+}
+
+.tab.active::after {
+  transform: scaleX(1);
 }
 
 .mods-toolbar {
@@ -626,8 +662,8 @@ body {
 }
 
 .switch input:checked + .slider {
-  background: var(--accent-grad);
-  box-shadow: 0 0 10px rgba(124, 108, 255, 0.45);
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(229, 72, 77, 0.45);
 }
 
 .switch input:checked + .slider::before {
@@ -742,7 +778,7 @@ body {
 
 .input:focus {
   background: var(--bg-raised);
-  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.3);
 }
 
 .settings-panel {
@@ -836,11 +872,11 @@ body {
 .btn-primary {
   background: var(--accent-grad);
   color: #ffffff;
-  box-shadow: 0 4px 18px rgba(124, 108, 255, 0.35);
+  box-shadow: 0 4px 18px rgba(229, 72, 77, 0.35);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 6px 24px rgba(124, 108, 255, 0.5);
+  box-shadow: 0 6px 24px rgba(229, 72, 77, 0.5);
 }
 
 .btn-play {
@@ -882,7 +918,7 @@ body {
 }
 
 .btn-chip.active {
-  background: var(--accent-grad);
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -905,7 +941,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: var(--accent-grad);
+  background: var(--accent);
   border-radius: var(--radius-pill);
   transition: width 0.25s var(--ease);
 }
