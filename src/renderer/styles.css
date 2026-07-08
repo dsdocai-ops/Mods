@@ -4,20 +4,23 @@
 }
 
 :root {
-  --bg: #0f1115;
-  --bg-panel: #161922;
-  --bg-panel-alt: #1c2029;
-  --border: #262b38;
-  --text: #e6e8ef;
-  --text-dim: #8a90a3;
-  --accent: #e63946;
-  --accent-hover: #ff4d5e;
-  --accent-2: #2a9d8f;
+  /* Monochrome, modern/clean theme: near-black surfaces, off-white text, white as the
+     one interactive accent. Red/green survive only where they carry real meaning
+     (destructive actions, the "instance running" dot) - not decoration. */
+  --bg: #0a0a0b;
+  --bg-panel: #131316;
+  --bg-panel-alt: #1a1a1e;
+  --border: #29292e;
+  --text: #f2f2f4;
+  --text-dim: #8e8e96;
+  --accent: #ffffff;
+  --accent-hover: #d4d4d8;
+  --accent-2: #a8a8b0;
   --danger: #d64545;
   --radius: 10px;
   --radius-sm: 7px;
-  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.25);
-  --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.5);
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
@@ -44,14 +47,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2b3040;
+  background: #2c2c31;
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #394057;
+  background: #3a3a41;
   background-clip: padding-box;
 }
 
@@ -86,7 +89,8 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), #ff8c42);
+  background: linear-gradient(135deg, #ffffff, #c4c4cc);
+  color: #0a0a0b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -482,7 +486,7 @@ body {
 }
 
 .mod-row:hover {
-  border-color: #363c4d;
+  border-color: #3a3a41;
   box-shadow: var(--shadow-soft);
   transform: translateY(-1px);
 }
@@ -554,34 +558,17 @@ body {
   color: var(--text-dim);
 }
 
-.tag-pvp {
-  color: #ff8c8c;
-  border-color: #4a2020;
-}
-
-.tag-performance {
-  color: #7fe0d3;
-  border-color: #1c4a44;
-}
-
-.tag-cpvp {
-  color: #c9a3ff;
-  border-color: #3f2a5c;
-}
-
-.tag-uhc {
-  color: #ffb37f;
-  border-color: #5c3a1c;
-}
-
-.tag-bedwars {
-  color: #ff86c2;
-  border-color: #5c1c40;
-}
-
+/* Monochrome: category tags used to be a different hue each (red/teal/purple/orange/pink/green) -
+   that reads as busy and dated next to a black-and-white shell, so every category now shares the
+   same neutral chip and differs only by label text, not color. */
+.tag-pvp,
+.tag-performance,
+.tag-cpvp,
+.tag-uhc,
+.tag-bedwars,
 .tag-survival {
-  color: #9fd77c;
-  border-color: #2f4a1c;
+  color: var(--text);
+  border-color: #3a3a40;
 }
 
 /* Switch */
@@ -604,7 +591,7 @@ body {
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background: #333849;
+  background: #333338;
   border-radius: 22px;
   transition: background-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
@@ -622,8 +609,12 @@ body {
 }
 
 .switch input:checked + .slider {
-  background: var(--accent-2);
-  box-shadow: 0 0 10px rgba(42, 157, 143, 0.55);
+  background: var(--text);
+  box-shadow: 0 0 10px rgba(242, 242, 244, 0.35);
+}
+
+.switch input:checked + .slider::before {
+  background: #0a0a0b;
 }
 
 .switch input:checked + .slider::before {
@@ -702,7 +693,7 @@ body {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.15);
+  box-shadow: 0 0 0 3px rgba(242, 242, 244, 0.15);
 }
 
 .settings-panel {
@@ -799,13 +790,13 @@ body {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
-  box-shadow: 0 2px 12px rgba(230, 57, 70, 0.25);
+  color: #0a0a0b;
+  box-shadow: 0 2px 12px rgba(242, 242, 244, 0.2);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: 0 4px 16px rgba(230, 57, 70, 0.35);
+  box-shadow: 0 4px 16px rgba(242, 242, 244, 0.3);
 }
 
 .btn-play {
@@ -843,7 +834,7 @@ body {
 .btn-chip.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #0a0a0b;
 }
 
 .mode-toggle {

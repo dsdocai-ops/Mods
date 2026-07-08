@@ -59,7 +59,7 @@ export default function AccountSwitcher({ instance, accounts, onAccountChange, o
   return (
     <div className="account-switcher" ref={rootRef}>
       <button className="btn btn-secondary account-switcher-trigger" onClick={() => setOpen((v) => !v)}>
-        <span className="account-switcher-dot" style={{ background: activeAccount ? "#4caf50" : "#8a90a3" }} />
+        <span className="account-switcher-dot" style={{ background: activeAccount ? "#4caf50" : "#8e8e96" }} />
         {label}
       </button>
 
