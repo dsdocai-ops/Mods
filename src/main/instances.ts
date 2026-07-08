@@ -6,9 +6,10 @@ import type { CreateInstanceInput, DetectedVersion, Instance, Loader } from "../
 import { DEFAULT_JVM } from "../shared/types";
 import * as store from "./store";
 
-// Monochrome: distinct mid-tone grays instead of a rainbow, so each instance is still visually
-// distinguishable in the sidebar without breaking the black-and-white theme.
-const ICON_COLORS = ["#3a3a40", "#48484f", "#565660", "#2f2f35", "#606069", "#404048"];
+// A curated vibrant palette (not a full rainbow) so each instance is easy to pick out in the
+// sidebar at a glance - matches the accent gradient's blue/violet/pink family plus a couple of
+// warmer/cooler complements, rather than random hues.
+const ICON_COLORS = ["#5b8cff", "#9061f9", "#ec4899", "#22c55e", "#f59e0b", "#22d3ee", "#ef4444", "#a855f7"];
 
 /**
  * A version id like "1.20.1-forge-47.2.0" or a fabric-loader id embeds the loader name;

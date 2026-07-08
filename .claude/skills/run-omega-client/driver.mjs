@@ -39,7 +39,7 @@ const MOCK_INSTANCE = {
   offlineUsername: 'Steve', accountId: 'acc-1',
   jvm: { javaPath: '', minRamMb: 2048, maxRamMb: 4096, extraArgs: '', useSmoothPvpFlags: true },
   window: { width: 854, height: 480, fullscreen: false },
-  createdAt: Date.now(), lastPlayedAt: null, iconColor: '#48484f',
+  createdAt: Date.now(), lastPlayedAt: null, iconColor: '#5b8cff',
 };
 
 // A single already-linked account, present by default so the driver lands straight past

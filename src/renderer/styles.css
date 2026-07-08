@@ -4,24 +4,26 @@
 }
 
 :root {
-  /* Monochrome, modern/clean theme: near-black surfaces, off-white text, white as the
-     one interactive accent. Red/green survive only where they carry real meaning
-     (destructive actions, the "instance running" dot) - not decoration.
+  /* Dark, modern base with a vibrant indigo/violet/pink accent family - near-black surfaces and
+     off-white text stay the same neutral backdrop as before, but the interactive accent is now a
+     real color (and a gradient for hero elements) instead of plain white. Red/green still carry
+     only their functional meaning (destructive actions, the "instance running" dot).
 
-     Redesign pass: Lunar-Client-style simplicity - generous corner radii everywhere,
-     flat borderless surfaces separated by elevation (shadow) and subtle background
-     steps instead of 1px outlines, and a lot more breathing room. Fewer visual
-     elements doing more work, rather than many thin-bordered boxes. */
-  --bg: #0a0a0b;
-  --bg-panel: #131316;
-  --bg-panel-alt: #1c1c20;
-  --bg-raised: #202024;
-  --border: #232327;
+     Redesign pass: Lunar-Client-style simplicity - generous corner radii everywhere, flat
+     borderless surfaces separated by elevation (shadow) and subtle background steps instead of
+     1px outlines, and a lot more breathing room. Fewer visual elements doing more work, rather
+     than many thin-bordered boxes. */
+  --bg: #0a0a0d;
+  --bg-panel: #131317;
+  --bg-panel-alt: #1c1c22;
+  --bg-raised: #202028;
+  --border: #232329;
   --text: #f5f5f7;
-  --text-dim: #93939c;
-  --accent: #ffffff;
-  --accent-hover: #d4d4d8;
-  --accent-2: #a8a8b0;
+  --text-dim: #96969f;
+  --accent: #7c6cff;
+  --accent-hover: #8f81ff;
+  --accent-2: #b48cff;
+  --accent-grad: linear-gradient(135deg, #5b8cff 0%, #9061f9 55%, #ec4899 100%);
   --danger: #e2564f;
 
   --radius-xl: 26px;
@@ -87,10 +89,28 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+/* Ambient color wash behind the brand header - a soft blurred glow instead of a flat panel, the
+   one place in the whole shell allowed to feel decorative rather than purely functional. Clipped
+   by .sidebar's own overflow:hidden, so it never bleeds past the rounded corners. */
+.sidebar::before {
+  content: "";
+  position: absolute;
+  top: -120px;
+  left: -60px;
+  width: 320px;
+  height: 320px;
+  background: var(--accent-grad);
+  opacity: 0.22;
+  filter: blur(60px);
+  pointer-events: none;
 }
 
 .sidebar-header {
   padding: 20px 18px 14px 18px;
+  position: relative;
 }
 
 .brand {
@@ -103,14 +123,15 @@ body {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #ffffff, #c4c4cc);
-  color: #0a0a0b;
+  background: var(--accent-grad);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
   font-size: 20px;
   flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(124, 108, 255, 0.4);
 }
 
 .brand-text {
@@ -163,6 +184,7 @@ body {
 
 .instance-item.active {
   background: var(--bg-raised);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .running-dot {
@@ -240,7 +262,12 @@ body {
 
 .welcome {
   max-width: 560px;
-  margin-top: 40px;
+  margin-top: 20px;
+  position: relative;
+}
+
+.welcome-hero {
+  margin-bottom: 8px;
 }
 
 .welcome h1 {
@@ -433,8 +460,8 @@ body {
 }
 
 .tab.active {
-  color: #0a0a0b;
-  background: var(--accent);
+  color: #ffffff;
+  background: var(--accent-grad);
 }
 
 .mods-toolbar {
@@ -599,12 +626,12 @@ body {
 }
 
 .switch input:checked + .slider {
-  background: var(--text);
-  box-shadow: 0 0 10px rgba(242, 242, 244, 0.35);
+  background: var(--accent-grad);
+  box-shadow: 0 0 10px rgba(124, 108, 255, 0.45);
 }
 
 .switch input:checked + .slider::before {
-  background: #0a0a0b;
+  background: #ffffff;
 }
 
 .switch input:checked + .slider::before {
@@ -694,7 +721,7 @@ body {
   top: 2px;
   width: 5px;
   height: 10px;
-  border: solid #0a0a0b;
+  border: solid #ffffff;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -715,7 +742,7 @@ body {
 
 .input:focus {
   background: var(--bg-raised);
-  box-shadow: 0 0 0 3px rgba(242, 242, 244, 0.18);
+  box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.3);
 }
 
 .settings-panel {
@@ -807,14 +834,13 @@ body {
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: #0a0a0b;
-  box-shadow: 0 4px 18px rgba(242, 242, 244, 0.22);
+  background: var(--accent-grad);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(124, 108, 255, 0.35);
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 6px 22px rgba(242, 242, 244, 0.32);
+  box-shadow: 0 6px 24px rgba(124, 108, 255, 0.5);
 }
 
 .btn-play {
@@ -856,8 +882,8 @@ body {
 }
 
 .btn-chip.active {
-  background: var(--accent);
-  color: #0a0a0b;
+  background: var(--accent-grad);
+  color: #ffffff;
 }
 
 .mode-toggle {
@@ -879,7 +905,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-grad);
   border-radius: var(--radius-pill);
   transition: width 0.25s var(--ease);
 }
