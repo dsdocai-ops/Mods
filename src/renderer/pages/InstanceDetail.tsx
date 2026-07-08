@@ -6,7 +6,6 @@ import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
-import FeaturesPanel from "../components/FeaturesPanel";
 import ShadersPanel from "../components/ShadersPanel";
 import { toast } from "../toast";
 
@@ -23,7 +22,7 @@ interface Props {
   accountSwitchOpenSignal: number;
 }
 
-type Tab = "features" | "mods" | "shaders" | "console" | "settings";
+type Tab = "mods" | "shaders" | "console" | "settings";
 
 export default function InstanceDetail({
   instance,
@@ -38,7 +37,7 @@ export default function InstanceDetail({
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState<Tab>("features");
+  const [tab, setTab] = useState<Tab>("mods");
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
@@ -246,9 +245,6 @@ export default function InstanceDetail({
       </header>
 
       <nav className="tabs">
-        <button className={tab === "features" ? "tab active" : "tab"} onClick={() => setTab("features")}>
-          Features
-        </button>
         <button className={tab === "mods" ? "tab active" : "tab"} onClick={() => setTab("mods")}>
           Mods
         </button>
@@ -305,8 +301,6 @@ export default function InstanceDetail({
           </div>
         </div>
       )}
-
-      {tab === "features" && <FeaturesPanel modsDir={instance.modsDir} />}
 
       {tab === "shaders" && <ShadersPanel modsDir={instance.modsDir} />}
 

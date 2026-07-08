@@ -61,9 +61,9 @@ export function writeModConfigFile(filePath: string, format: ConfigFormat, data:
 
 /**
  * Field-for-field mirror of the companion mod's ModConfig.java defaults (both loaders share the
- * same file name and shape). The launcher's Features tab needs a file to edit before the mod's
- * first run has created one - and since Gson keeps Java-side defaults for any field a JSON omits,
- * writing the full default set here is always safe.
+ * same file name and shape). Licensing needs a file to write a redeemed cosmetic into before the
+ * mod's first run has created one - and since Gson keeps Java-side defaults for any field a JSON
+ * omits, writing the full default set here is always safe.
  */
 const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
   fullbrightEnabled: false,
