@@ -1,11 +1,13 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { memo } from "react";
 import type { Instance } from "@shared/types";
-import { CubeIcon, GearIcon, PlusIcon } from "./Icons";
+import { CubeIcon, GearIcon, HomeIcon, PlusIcon } from "./Icons";
 
 interface Props {
   instances: Instance[];
   selectedId: string | null;
+  isHome: boolean;
+  onHome: () => void;
   onSelect: (id: string) => void;
   onNewInstance: () => void;
   onSettings: () => void;
@@ -14,7 +16,7 @@ interface Props {
 
 // Memoized: App re-renders on every batched log flush while a game is running, but none of the
 // sidebar's props change then (App passes useCallback-stable handlers to keep this effective).
-function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, runningIds }: Props) {
+function Sidebar({ instances, selectedId, isHome, onHome, onSelect, onNewInstance, onSettings, runningIds }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -27,6 +29,18 @@ function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, r
         </div>
       </div>
 
+      <nav className="sidebar-nav">
+        <button className={`instance-item ${isHome ? "active" : ""}`} onClick={onHome}>
+          <span className="instance-icon">
+            <HomeIcon size={18} />
+          </span>
+          <span className="instance-info">
+            <span className="instance-name">Home</span>
+          </span>
+        </button>
+      </nav>
+
+      <p className="sidebar-section-label">Instances</p>
       <div className="instance-list">
         {instances.map((instance) => (
           <button

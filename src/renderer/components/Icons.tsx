@@ -28,6 +28,30 @@ export function PlayIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function HomeIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4 10.2L12 3.6l8 6.6V20a1 1 0 0 1-1 1h-4.6v-6.4h-4.8V21H5a1 1 0 0 1-1-1v-9.8z" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M6 9.5l6 6 6-6" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4 12h16M13 5l7 7-7 7" />
+    </svg>
+  );
+}
+
 export function GearIcon({ size = 16 }: IconProps) {
   return (
     <svg {...base(size)}>

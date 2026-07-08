@@ -5,7 +5,7 @@ import Sidebar from "./components/Sidebar";
 import InstanceDetail from "./pages/InstanceDetail";
 import SettingsPage from "./pages/Settings";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
-import Welcome from "./pages/Welcome";
+import Home from "./pages/Home";
 import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import { toast } from "./toast";
@@ -59,9 +59,9 @@ export default function App() {
   const flushScheduledRef = useRef(false);
 
   useEffect(() => {
-    refreshInstances().then((list) => {
-      if (list.length > 0) setView({ kind: "instance", id: list[0].id });
-    });
+    // Land on Home (the mockup's landing screen) - it owns profile selection and PLAY, so
+    // there's no auto-jump into the first instance's detail view anymore.
+    refreshInstances();
 
     const flushLogBuffer = () => {
       flushScheduledRef.current = false;
@@ -165,6 +165,7 @@ export default function App() {
   const handleSelect = useCallback((id: string) => setView({ kind: "instance", id }), []);
   const handleNewInstance = useCallback(() => setShowNewInstance(true), []);
   const handleOpenSettings = useCallback(() => setView({ kind: "settings" }), []);
+  const handleHome = useCallback(() => setView({ kind: "welcome" }), []);
 
   // Gates literally everything else in the app - sidebar, instances, settings - behind a linked
   // Microsoft account. Rendered instead of the app shell, not layered over it.
@@ -190,14 +191,26 @@ export default function App() {
       <Sidebar
         instances={instances}
         selectedId={view.kind === "instance" ? view.id : null}
+        isHome={view.kind === "welcome"}
+        onHome={handleHome}
         onSelect={handleSelect}
         onNewInstance={handleNewInstance}
         onSettings={handleOpenSettings}
         runningIds={runningIds}
       />
 
-      <main className="main-area">
-        {view.kind === "welcome" && <Welcome onNewInstance={handleNewInstance} />}
+      <main className={view.kind === "welcome" ? "main-area main-area-flush" : "main-area"}>
+        {view.kind === "welcome" && (
+          <Home
+            instances={instances}
+            accounts={accounts}
+            runningIds={runningIds}
+            onNewInstance={handleNewInstance}
+            onOpenInstance={handleSelect}
+            onLaunch={handleLaunch}
+            onStop={handleStop}
+          />
+        )}
         {view.kind === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
         {view.kind === "instance" && selectedInstance && (
           <InstanceDetail
