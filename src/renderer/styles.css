@@ -1286,6 +1286,21 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+/* Spinner for the "Checking…" state of the update-check button. */
+.spin {
+  display: inline-flex;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .mod-row-actions {
   display: flex;
   align-items: center;

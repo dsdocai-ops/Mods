@@ -52,8 +52,8 @@ const api = {
       ipcRenderer.invoke("modrinth:install", modsDir, projectId, loader, versionId),
     checkUpdates: (modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]> =>
       ipcRenderer.invoke("modrinth:checkUpdates", modsDir, loader, versionId),
-    applyUpdates: (modsDir: string, updates: ModrinthUpdate[]): Promise<ModrinthInstallResult> =>
-      ipcRenderer.invoke("modrinth:applyUpdates", modsDir, updates),
+    applyUpdates: (modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string): Promise<ModrinthInstallResult> =>
+      ipcRenderer.invoke("modrinth:applyUpdates", modsDir, updates, loader, versionId),
     onProgress: (callback: (progress: ModrinthInstallProgress) => void) => {
       const listener = (_e: Electron.IpcRendererEvent, progress: ModrinthInstallProgress) => callback(progress);
       ipcRenderer.on("modrinth:installProgress", listener);

@@ -247,7 +247,7 @@ app.whenReady().then(() => {
     modrinth.checkModrinthUpdates(modsDir, loader, versionId)
   );
 
-  ipcMain.handle("modrinth:applyUpdates", async (_e, modsDir: string, updates: ModrinthUpdate[]) => {
+  ipcMain.handle("modrinth:applyUpdates", async (_e, modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string) => {
     // Shares the single install-in-flight guard: updating and installing both write jars into the
     // same modsDir and stream over the same progress channel, so they must not overlap.
     if (modrinthInstallInFlight) {
@@ -255,7 +255,7 @@ app.whenReady().then(() => {
     }
     modrinthInstallInFlight = true;
     try {
-      return await modrinth.applyModrinthUpdates(modsDir, updates, (progress) =>
+      return await modrinth.applyModrinthUpdates(modsDir, updates, loader, versionId, (progress) =>
         sendToRenderer("modrinth:installProgress", progress)
       );
     } finally {

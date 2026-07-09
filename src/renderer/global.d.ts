@@ -49,7 +49,7 @@ export interface LauncherApi {
     search(query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]>;
     install(modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
     checkUpdates(modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]>;
-    applyUpdates(modsDir: string, updates: ModrinthUpdate[]): Promise<ModrinthInstallResult>;
+    applyUpdates(modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
     onProgress(callback: (progress: ModrinthInstallProgress) => void): () => void;
   };
   shaders: {

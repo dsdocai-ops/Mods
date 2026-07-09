@@ -55,6 +55,7 @@ export default function InstanceDetail({
   const [modsView, setModsView] = useState<"installed" | "discover">("installed");
   const [updates, setUpdates] = useState<ModrinthUpdate[]>([]);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
@@ -66,13 +67,20 @@ export default function InstanceDetail({
     data: Record<string, unknown>;
   } | null>(null);
 
-  // Best-effort update check against Modrinth (hash-lookup) - stays silent on failure so an offline
-  // machine or a Modrinth outage simply shows no update prompts rather than nagging with errors.
-  const checkUpdates = async () => {
+  // Best-effort update check against Modrinth (hash-lookup). An automatic check (on load) stays
+  // silent on failure so an offline machine or a Modrinth outage simply shows no update prompts; a
+  // manual check (the "Check for updates" button) surfaces the result - an error toast, or an
+  // "up to date" note when nothing's found - so the click visibly did something.
+  const checkUpdates = async (manual = false) => {
+    setCheckingUpdates(true);
     try {
-      setUpdates(await window.api.modrinth.checkUpdates(instance.modsDir, instance.loader, instance.versionId));
-    } catch {
-      /* offline / unreachable - no update prompts */
+      const found = await window.api.modrinth.checkUpdates(instance.modsDir, instance.loader, instance.versionId);
+      setUpdates(found);
+      if (manual && found.length === 0) toast("All mods are up to date", "success");
+    } catch (err) {
+      if (manual) toast(`Couldn't check for updates: ${err instanceof Error ? err.message : String(err)}`, "error");
+    } finally {
+      setCheckingUpdates(false);
     }
   };
 
@@ -206,8 +214,12 @@ export default function InstanceDetail({
     if (updates.length === 0 || bulkUpdating) return;
     setBulkUpdating(true);
     try {
-      const result = await window.api.modrinth.applyUpdates(instance.modsDir, updates);
-      toast(`Updated ${result.installedFiles.length} mod${result.installedFiles.length === 1 ? "" : "s"}`, "success");
+      const result = await window.api.modrinth.applyUpdates(instance.modsDir, updates, instance.loader, instance.versionId);
+      const newDeps = result.installedFiles.length - updates.length;
+      toast(
+        `Updated ${updates.length} mod${updates.length === 1 ? "" : "s"}${newDeps > 0 ? ` (+${newDeps} new dependenc${newDeps === 1 ? "y" : "ies"})` : ""}`,
+        "success"
+      );
       setUpdates([]);
       await loadMods();
     } catch (err) {
@@ -222,8 +234,9 @@ export default function InstanceDetail({
       const target = updatesRef.current.find((u) => u.fileName === mod.fileName);
       if (!target || bulkUpdatingRef.current) return;
       try {
-        await window.api.modrinth.applyUpdates(instance.modsDir, [target]);
-        toast(`Updated ${mod.name} to v${target.newVersion}`, "success");
+        const result = await window.api.modrinth.applyUpdates(instance.modsDir, [target], instance.loader, instance.versionId);
+        const newDeps = result.installedFiles.length - 1;
+        toast(`Updated ${mod.name} to v${target.newVersion}${newDeps > 0 ? ` (+${newDeps} new dependenc${newDeps === 1 ? "y" : "ies"})` : ""}`, "success");
         setUpdates((prev) => prev.filter((u) => u.fileName !== mod.fileName));
         await loadMods();
       } catch (err) {
@@ -377,6 +390,17 @@ export default function InstanceDetail({
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                 />
+                <button
+                  className="btn btn-secondary"
+                  disabled={checkingUpdates || bulkUpdating}
+                  title="Check Modrinth for newer versions of your installed mods"
+                  onClick={() => checkUpdates(true)}
+                >
+                  <span className={checkingUpdates ? "spin" : undefined}>
+                    <RefreshIcon size={14} />
+                  </span>
+                  {checkingUpdates ? "Checking…" : "Check for updates"}
+                </button>
                 <button className="btn btn-secondary" onClick={handleImport}>
                   <PlusIcon size={14} /> Import your mods
                 </button>

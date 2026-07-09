@@ -119,12 +119,15 @@ function installMockApi() {
       checkUpdates: async () => (window.__modrinthUpdated ? [] : [
         { fileName: 'sodium-fabric-0.5.jar', newVersion: '0.6.0', projectId: 'AANobbMI', url: '', newFileName: 'sodium-fabric-0.6.0.jar', sha1: 'deadbeef', enabled: true },
       ]),
+      // Signature matches preload: (modsDir, updates, loader, versionId). Returns one extra file
+      // beyond the updated jars to stand in for a newly-required dependency the updated build pulled
+      // in, so the "+N new dependency" path is demoable offline.
       applyUpdates: async (modsDir, updates) => {
         const emit = window.__modrinthProgress;
         if (emit) emit({ phase: 'done', name: '', done: updates.length, total: updates.length, detail: `Updated ${updates.length} mod(s).` });
         window.__modrinthUpdated = true;
         window.__calls.write.push({ modrinthApplyUpdates: updates.map((u) => u.fileName) });
-        return { installedFiles: updates.map((u) => u.newFileName), skippedDependencies: [] };
+        return { installedFiles: [...updates.map((u) => u.newFileName), 'fabric-api-0.92.0.jar'], skippedDependencies: [] };
       },
       onProgress: (cb) => { window.__modrinthProgress = cb; return () => { window.__modrinthProgress = null; }; },
     },

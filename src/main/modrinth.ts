@@ -136,10 +136,82 @@ interface PlannedDownload {
 }
 
 /**
+ * Depth-first walk of a project's required-dependency graph, appending each resolvable jar to
+ * `plan`. `satisfied` doubles as the visited-set AND the "already have this, skip it" set: install
+ * seeds it empty, update seeds it with the projects already present in modsDir so a dependency
+ * that's already installed isn't downloaded again. `isRoot` decides whether "no compatible build"
+ * is a hard error (the thing the user actually asked for) or a soft skip (a transitive dependency,
+ * recorded in `skipped` and surfaced as a warning). Only *required* dependencies are followed -
+ * optional ones are the user's choice, embedded ones already ship inside the jar.
+ */
+async function resolveProject(
+  projectId: string,
+  pinnedVersionId: string | undefined,
+  isRoot: boolean,
+  loader: Loader,
+  loaders: string[],
+  gameVersion: string,
+  satisfied: Set<string>,
+  plan: PlannedDownload[],
+  skipped: string[],
+  onProgress: (progress: ModrinthInstallProgress) => void
+): Promise<void> {
+  if (satisfied.has(projectId) || plan.length >= MAX_INSTALL_FILES) return;
+  satisfied.add(projectId);
+  onProgress({ phase: "resolving", name: projectId, done: plan.length, total: plan.length, detail: "Resolving dependencies..." });
+
+  let version: ModrinthVersion | null = null;
+  if (pinnedVersionId) version = await apiJson(`/version/${pinnedVersionId}`).catch(() => null);
+  if (!version) version = await bestVersion(projectId, loaders, gameVersion);
+
+  if (!version) {
+    if (isRoot) throw new Error(`No ${loader} build of this mod exists for Minecraft ${gameVersion}.`);
+    skipped.push(projectId);
+    return;
+  }
+  const file = primaryFile(version);
+  if (!file?.url) {
+    if (isRoot) throw new Error("Modrinth returned no downloadable file for this mod.");
+    skipped.push(projectId);
+    return;
+  }
+
+  plan.push({ name: version.name || version.version_number || file.filename, url: file.url, filename: file.filename, sha1: file.hashes?.sha1 });
+
+  for (const dep of version.dependencies ?? []) {
+    if (dep.dependency_type !== "required" || !dep.project_id) continue;
+    await resolveProject(dep.project_id, dep.version_id, false, loader, loaders, gameVersion, satisfied, plan, skipped, onProgress);
+  }
+}
+
+/**
+ * The set of Modrinth project ids already installed in modsDir, found by hashing the jars and asking
+ * Modrinth (`/version_files`) which version each hash is. Used to seed an update's `satisfied` set so
+ * dependency resolution skips mods you already have. Best-effort: on any failure it returns what it
+ * has (an empty set just means updates may re-download an already-present dependency, never wrong).
+ */
+async function presentProjectIds(modsDir: string): Promise<Set<string>> {
+  const projects = new Set<string>();
+  if (!fs.existsSync(modsDir)) return projects;
+  const jars = fs.readdirSync(modsDir, { withFileTypes: true }).filter((e) => e.isFile() && isJarLike(e.name));
+  if (jars.length === 0) return projects;
+
+  const hashes = jars.map((e) => sha1OfFile(path.join(modsDir, e.name)));
+  const response = await apiJson("/version_files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hashes, algorithm: "sha1" }),
+  }).catch(() => ({}));
+  for (const version of Object.values((response ?? {}) as Record<string, ModrinthVersion>)) {
+    if (version?.project_id) projects.add(version.project_id);
+  }
+  return projects;
+}
+
+/**
  * Downloads a Modrinth project - and every *required* dependency, recursively - into modsDir.
- * Optional/incompatible/embedded dependencies are ignored (embedded ones ship inside the jar
- * already; optional ones are the user's choice). Required deps with no build matching this
- * instance's loader/version are recorded and reported rather than aborting the whole install.
+ * Required deps with no build matching this instance's loader/version are recorded and reported
+ * rather than aborting the whole install.
  */
 export async function installFromModrinth(
   modsDir: string,
@@ -156,47 +228,8 @@ export async function installFromModrinth(
   fs.mkdirSync(modsDir, { recursive: true });
 
   const plan: PlannedDownload[] = [];
-  const visited = new Set<string>();
   const skippedDependencies: string[] = [];
-
-  // Depth-first over the required-dependency graph. visited breaks cycles/diamonds; isRoot decides
-  // whether "no compatible build" is a hard error (the thing the user actually clicked) or a soft
-  // skip (a transitive dep we just note).
-  const resolve = async (id: string, pinnedVersionId: string | undefined, isRoot: boolean): Promise<void> => {
-    if (visited.has(id) || plan.length >= MAX_INSTALL_FILES) return;
-    visited.add(id);
-    onProgress({ phase: "resolving", name: id, done: plan.length, total: plan.length, detail: "Resolving dependencies..." });
-
-    let version: ModrinthVersion | null = null;
-    if (pinnedVersionId) {
-      version = await apiJson(`/version/${pinnedVersionId}`).catch(() => null);
-    }
-    if (!version) version = await bestVersion(id, loaders, gameVersion);
-
-    if (!version) {
-      if (isRoot) {
-        throw new Error(`No ${loader} build of this mod exists for Minecraft ${gameVersion}.`);
-      }
-      skippedDependencies.push(id);
-      return;
-    }
-
-    const file = primaryFile(version);
-    if (!file?.url) {
-      if (isRoot) throw new Error("Modrinth returned no downloadable file for this mod.");
-      skippedDependencies.push(id);
-      return;
-    }
-
-    plan.push({ name: version.name || version.version_number || file.filename, url: file.url, filename: file.filename, sha1: file.hashes?.sha1 });
-
-    for (const dep of version.dependencies ?? []) {
-      if (dep.dependency_type !== "required") continue;
-      if (dep.project_id) await resolve(dep.project_id, dep.version_id, false);
-    }
-  };
-
-  await resolve(projectId, undefined, true);
+  await resolveProject(projectId, undefined, true, loader, loaders, gameVersion, new Set(), plan, skippedDependencies, onProgress);
 
   let done = 0;
   const total = plan.length;
@@ -282,20 +315,34 @@ export async function checkModrinthUpdates(modsDir: string, loader: Loader, vers
  * Applies the updates from checkModrinthUpdates: downloads each newer jar into modsDir (preserving
  * the mod's enabled/disabled state via the `.disabled` suffix) and removes the old jar when the file
  * name changed. A same-name update just overwrites in place (downloadFile re-fetches on hash
- * mismatch). Reuses the mod-install progress channel.
+ * mismatch). Then it resolves any *new* required dependencies the updated builds introduce and
+ * installs the ones not already present, so an update that started needing (say) a new library mod
+ * doesn't silently fail to load. Reuses the mod-install progress channel.
  */
 export async function applyModrinthUpdates(
   modsDir: string,
   updates: ModrinthUpdate[],
+  loader: Loader,
+  versionId: string,
   onProgress: (progress: ModrinthInstallProgress) => void
 ): Promise<ModrinthInstallResult> {
+  const loaders = loadersFor(loader);
+  const gameVersion = minecraftVersionOf(versionId);
   fs.mkdirSync(modsDir, { recursive: true });
-  const installedFiles: string[] = [];
-  let done = 0;
-  const total = updates.length;
 
+  // What's already installed (by Modrinth project id) so dependency resolution below skips it. Seed
+  // it before touching disk, then add the updated projects themselves - a mod never counts as its
+  // own new dependency.
+  const satisfied = await presentProjectIds(modsDir);
+  for (const update of updates) if (update.projectId) satisfied.add(update.projectId);
+
+  const installedFiles: string[] = [];
+  const skippedDependencies: string[] = [];
+  let done = 0;
+
+  // Phase 1: the updated jars themselves.
   for (const update of updates) {
-    onProgress({ phase: "downloading", name: update.newFileName, done, total, detail: `Updating ${update.newFileName} (${done + 1}/${total})...` });
+    onProgress({ phase: "downloading", name: update.newFileName, done, total: updates.length, detail: `Updating ${update.newFileName} (${done + 1}/${updates.length})...` });
     // path.basename guards the Modrinth-supplied name against "../" traversal, same as installFromModrinth.
     const targetName = path.basename(update.newFileName) + (update.enabled ? "" : DISABLED_SUFFIX);
     const targetPath = path.join(modsDir, targetName);
@@ -310,6 +357,37 @@ export async function applyModrinthUpdates(
     done++;
   }
 
-  onProgress({ phase: "done", name: "", done, total, detail: `Updated ${done} mod${done === 1 ? "" : "s"}.` });
-  return { installedFiles, skippedDependencies: [] };
+  // Phase 2: new required dependencies the updated versions introduce. Re-read each updated version
+  // (bestVersion returns the same latest build checkModrinthUpdates matched) purely for its
+  // dependency list, then resolve required deps - skipping anything in `satisfied` (already present
+  // or already updated). New deps are installed enabled.
+  if (loaders.length > 0) {
+    const depPlan: PlannedDownload[] = [];
+    for (const update of updates) {
+      if (!update.projectId) continue;
+      const version = await bestVersion(update.projectId, loaders, gameVersion);
+      for (const dep of version?.dependencies ?? []) {
+        if (dep.dependency_type !== "required" || !dep.project_id) continue;
+        await resolveProject(dep.project_id, dep.version_id, false, loader, loaders, gameVersion, satisfied, depPlan, skippedDependencies, onProgress);
+      }
+    }
+
+    const total = updates.length + depPlan.length;
+    for (const item of depPlan) {
+      onProgress({ phase: "downloading", name: item.name, done, total, detail: `Installing new dependency ${item.name} (${done + 1}/${total})...` });
+      await downloadFile(item.url, path.join(modsDir, path.basename(item.filename)), item.sha1);
+      installedFiles.push(path.basename(item.filename));
+      done++;
+    }
+  }
+
+  const newDeps = installedFiles.length - updates.length;
+  onProgress({
+    phase: "done",
+    name: "",
+    done,
+    total: done,
+    detail: `Updated ${updates.length} mod${updates.length === 1 ? "" : "s"}${newDeps > 0 ? ` (+${newDeps} new dependenc${newDeps === 1 ? "y" : "ies"})` : ""}.`,
+  });
+  return { installedFiles, skippedDependencies };
 }
