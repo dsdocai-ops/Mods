@@ -14,7 +14,7 @@ import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } fro
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
-import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
+import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 import * as licensing from "./licensing";
@@ -120,14 +120,11 @@ app.whenReady().then(() => {
   ipcMain.handle("instances:list", () => instances.listInstances());
   ipcMain.handle("instances:create", async (_e, input: CreateInstanceInput) => {
     const instance = instances.createInstance(input);
-    // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance
-    // exists. Neither call ever throws (each logs and moves on), and they touch disjoint jars, so
-    // running them concurrently instead of one-after-the-other roughly halves the network time on
-    // a fresh instance (each is a separate Modrinth round trip + download the first time around).
-    await Promise.all([
-      ensureOmegaMods(instance, (line) => console.log(line)),
-      ensureShaderSupport(instance, (line) => console.log(line)),
-    ]);
+    // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance exists
+    // (this never throws - it logs and moves on). It pulls its own Fabric API dependency, but does
+    // NOT silently install third-party shader mods (Iris/Sodium/Oculus) - those are user-initiated
+    // from the Shaders tab, see installShaderSupport / the shaders:installLoader handler.
+    await ensureOmegaMods(instance, (line) => console.log(line));
     return instance;
   });
   ipcMain.handle("instances:update", (_e, instance: Instance) => instances.updateInstance(instance));
@@ -176,6 +173,10 @@ app.whenReady().then(() => {
   ipcMain.handle("shaders:list", (_e, modsDir: string) => shaders.listShaderPacks(modsDir));
   ipcMain.handle("shaders:import", (_e, modsDir: string, sourcePaths: string[]) => shaders.importShaderPacks(modsDir, sourcePaths));
   ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
+  ipcMain.handle("shaders:hasLoader", (_e, instance: Instance) => hasShaderLoader(instance));
+  ipcMain.handle("shaders:installLoader", (_e, instance: Instance) =>
+    installShaderSupport(instance, (line) => sendToRenderer("launch:log", { instanceId: instance.id, stream: "status", data: line }))
+  );
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
   ipcMain.handle("modconfig:read", (_e, filePath: string) => {
@@ -280,12 +281,11 @@ app.whenReady().then(() => {
     pendingLaunches.add(instance.id);
     const onLog = (event: LaunchLogEvent) => sendToRenderer("launch:log", event);
     try {
-      // Keep the preinstalled Omega mod (and shader loader) current on every launch - also
-      // self-heals a deleted jar. Run concurrently: see the instances:create handler above for why.
-      await Promise.all([
-        ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
-        ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
-      ]);
+      // Keep the preinstalled Omega mod current on every launch - also self-heals a deleted jar.
+      // Shader mods are deliberately NOT touched here: they're third-party and user-installed (see
+      // the shaders:installLoader handler), so re-adding them behind the user's back on every launch
+      // is exactly the silent behaviour we don't want.
+      await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);

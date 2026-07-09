@@ -66,6 +66,8 @@ const api = {
       ipcRenderer.invoke("shaders:import", modsDir, sourcePaths),
     remove: (modsDir: string, fileName: string): Promise<ShaderPackInfo[]> =>
       ipcRenderer.invoke("shaders:remove", modsDir, fileName),
+    hasLoader: (instance: Instance): Promise<boolean> => ipcRenderer.invoke("shaders:hasLoader", instance),
+    installLoader: (instance: Instance): Promise<{ installed: string[] }> => ipcRenderer.invoke("shaders:installLoader", instance),
   },
   modConfig: {
     find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),

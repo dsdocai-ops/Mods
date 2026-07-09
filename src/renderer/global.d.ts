@@ -56,6 +56,8 @@ export interface LauncherApi {
     list(modsDir: string): Promise<ShaderPackInfo[]>;
     import(modsDir: string, sourcePaths: string[]): Promise<ShaderPackInfo[]>;
     remove(modsDir: string, fileName: string): Promise<ShaderPackInfo[]>;
+    hasLoader(instance: Instance): Promise<boolean>;
+    installLoader(instance: Instance): Promise<{ installed: string[] }>;
   };
   modConfig: {
     find(modsDir: string, modId: string): Promise<string | null>;

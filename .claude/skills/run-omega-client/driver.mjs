@@ -131,7 +131,19 @@ function installMockApi() {
       },
       onProgress: (cb) => { window.__modrinthProgress = cb; return () => { window.__modrinthProgress = null; }; },
     },
-    shaders: { list: async () => [], import: async () => [], remove: async () => [] },
+    shaders: {
+      list: async () => [],
+      import: async () => [],
+      remove: async () => [],
+      // Report no loader by default so the opt-in "Install shader loader" card renders; install
+      // "succeeds" and flips it present.
+      hasLoader: async () => !!window.__shaderLoaderInstalled,
+      installLoader: async () => {
+        window.__shaderLoaderInstalled = true;
+        window.__calls.write.push({ shaderInstallLoader: true });
+        return { installed: ['iris-fabric-1.7.0.jar', 'sodium-fabric-0.5.8.jar'] };
+      },
+    },
     modConfig: {
       find: async (_dir, modId) => (modId === 'omega-client' ? '/x/config/omega-client.json' : null),
       read: async () => ({ format: 'json', data: { fullbrightEnabled: false, hudEnabled: true } }),

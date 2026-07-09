@@ -451,7 +451,7 @@ export default function InstanceDetail({
         </div>
       )}
 
-      {tab === "shaders" && <ShadersPanel modsDir={instance.modsDir} />}
+      {tab === "shaders" && <ShadersPanel instance={instance} />}
 
       {tab === "console" && <ConsoleLog lines={logLines} />}
 
