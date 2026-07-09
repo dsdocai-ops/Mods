@@ -202,6 +202,8 @@ export interface AppSettings {
   msaClientId: string;
   /** Background-check the rolling release for a newer build on startup and download it silently. On by default; portable installs ignore this (they can't self-update either way). */
   autoUpdateEnabled: boolean;
+  /** Show the "mods are downloaded from the internet" disclaimer in the Discover browser. On by default; the disclaimer's "Don't show again" button and a Settings toggle both flip this. */
+  showModDownloadWarning: boolean;
 }
 
 /**

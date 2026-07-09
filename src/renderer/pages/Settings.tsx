@@ -111,6 +111,16 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
         </button>
       </div>
 
+      <h3 className="settings-subheading">Mods</h3>
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.showModDownloadWarning}
+          onChange={(e) => setSettings({ ...settings, showModDownloadWarning: e.target.checked })}
+        />
+        <span>Show a warning that mods are downloaded from the internet when browsing the Discover tab</span>
+      </label>
+
       <h3 className="settings-subheading">Instance Defaults</h3>
       <p className="instance-subtitle">Applied to newly created instances.</p>
 

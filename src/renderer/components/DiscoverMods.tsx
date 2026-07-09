@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useRef, useState } from "react";
 import type { Instance, ModrinthInstallProgress, ModrinthSearchHit } from "@shared/types";
-import { DownloadIcon, SearchIcon } from "./Icons";
+import { DownloadIcon, InfoIcon, SearchIcon, XIcon } from "./Icons";
 import { toast } from "../toast";
 
 interface Props {
@@ -24,12 +24,30 @@ export default function DiscoverMods({ instance, installedFileNames, onInstalled
   const [searching, setSearching] = useState(false);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ModrinthInstallProgress | null>(null);
+  // null while we're still reading the persisted setting - avoids the disclaimer flashing in then
+  // vanishing for someone who already turned it off.
+  const [showWarning, setShowWarning] = useState<boolean | null>(null);
 
   // Only ever commit the newest search's results - typing "sod" then "sodium" fast can land the
   // shorter query's response last otherwise, showing results for text the user already moved past.
   const searchRequestRef = useRef(0);
 
   useEffect(() => window.api.modrinth.onProgress(setProgress), []);
+  useEffect(() => {
+    window.api.settings.get().then((s) => setShowWarning(s.showModDownloadWarning));
+  }, []);
+
+  // Persisted "Don't show again": flip the setting off so the disclaimer never returns until it's
+  // re-enabled from Settings. Best-effort - a failed write just means it shows again next time.
+  const dontShowAgain = async () => {
+    setShowWarning(false);
+    try {
+      const current = await window.api.settings.get();
+      await window.api.settings.set({ ...current, showModDownloadWarning: false });
+    } catch {
+      /* non-fatal - the setting simply stays on */
+    }
+  };
 
   const runSearch = async () => {
     const requestId = ++searchRequestRef.current;
@@ -78,6 +96,32 @@ export default function DiscoverMods({ instance, installedFileNames, onInstalled
 
   return (
     <div className="discover">
+      {showWarning && (
+        <div className="download-warning" role="alert">
+          <span className="download-warning-icon">
+            <InfoIcon size={16} />
+          </span>
+          <div className="download-warning-body">
+            <p className="download-warning-title">Mods are downloaded from the internet</p>
+            <p className="download-warning-text">
+              Results and files come from Modrinth's public catalog, not from Omega. Only install mods from authors you
+              trust - a mod runs with the same access as the game itself.
+            </p>
+            <div className="download-warning-actions">
+              <button className="btn btn-sm" onClick={() => setShowWarning(false)}>
+                Got it
+              </button>
+              <button className="btn btn-sm btn-ghost" onClick={dontShowAgain}>
+                Don&rsquo;t show again
+              </button>
+            </div>
+          </div>
+          <button className="download-warning-close" title="Dismiss" onClick={() => setShowWarning(false)}>
+            <XIcon size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="mods-toolbar">
         <div className="search-wrap">
           <SearchIcon size={15} />

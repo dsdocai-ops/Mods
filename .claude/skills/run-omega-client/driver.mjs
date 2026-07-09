@@ -176,6 +176,7 @@ function installMockApi() {
         defaultOfflineUsername: 'Player',
         msaClientId: '',
         autoUpdateEnabled: true,
+        showModDownloadWarning: true,
       }),
       set: async () => {},
     },
