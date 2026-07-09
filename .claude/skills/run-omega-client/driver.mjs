@@ -36,7 +36,7 @@ let page = null;
 const MOCK_INSTANCE = {
   id: 'inst-1', name: 'Demo Instance', gameDir: '/home/user/.minecraft-demo',
   versionId: '1.20.1', loader: 'fabric', modsDir: '/home/user/.minecraft-demo/mods',
-  offlineUsername: 'Steve', accountId: 'acc-1',
+  offlineUsername: 'Steve', accountId: 'acc-1', autoUpdateMods: false,
   jvm: { javaPath: '', minRamMb: 2048, maxRamMb: 4096, extraArgs: '', useSmoothPvpFlags: true },
   window: { width: 854, height: 480, fullscreen: false },
   createdAt: Date.now(), lastPlayedAt: null, iconColor: '#48484f',

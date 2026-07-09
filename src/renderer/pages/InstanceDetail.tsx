@@ -516,6 +516,15 @@ export default function InstanceDetail({
             <span>Use smooth-PvP GC tuning (reduces stutter/frame hitches during fights)</span>
           </label>
 
+          <label className="field-checkbox">
+            <input
+              type="checkbox"
+              checked={!!draft.autoUpdateMods}
+              onChange={(e) => setDraft({ ...draft, autoUpdateMods: e.target.checked })}
+            />
+            <span>Automatically update mods from Modrinth before launching this instance</span>
+          </label>
+
           <label className="field">
             <span>Extra JVM args</span>
             <input

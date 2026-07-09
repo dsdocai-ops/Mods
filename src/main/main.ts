@@ -286,6 +286,22 @@ app.whenReady().then(() => {
       // the shaders:installLoader handler), so re-adding them behind the user's back on every launch
       // is exactly the silent behaviour we don't want.
       await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
+
+      // Opt-in per instance (Instance Settings > "Automatically update mods on launch"): bring this
+      // instance's Modrinth-sourced mods up to date before launching. Non-fatal - a Modrinth outage
+      // or offline machine must never block the game from starting, so it logs and launches anyway.
+      if (instance.autoUpdateMods) {
+        try {
+          const status = (line: string) => onLog({ instanceId: instance.id, stream: "status", data: line });
+          const found = await modrinth.checkModrinthUpdates(instance.modsDir, instance.loader, instance.versionId);
+          if (found.length > 0) {
+            status(`Auto-updating ${found.length} mod${found.length === 1 ? "" : "s"} from Modrinth...`);
+            await modrinth.applyModrinthUpdates(instance.modsDir, found, instance.loader, instance.versionId, (p) => status(p.detail));
+          }
+        } catch (err) {
+          onLog({ instanceId: instance.id, stream: "status", data: `warning: mod auto-update skipped: ${err instanceof Error ? err.message : String(err)}` });
+        }
+      }
       const msaClientId = store.getSettings().msaClientId;
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);

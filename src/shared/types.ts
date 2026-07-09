@@ -70,6 +70,13 @@ export interface Instance {
   offlineUsername: string;
   /** If set, launch with this signed-in Microsoft/Minecraft account instead of an offline session. */
   accountId?: string;
+  /**
+   * When true, this instance's Modrinth-sourced mods are checked for newer builds and updated right
+   * before it launches. Off by default and opt-in per instance - auto-changing mods before a launch
+   * is exactly the kind of surprise a competitive/frozen setup doesn't want. Optional so instances
+   * saved before this field existed read as "off". See main.ts's launch:start handler.
+   */
+  autoUpdateMods?: boolean;
   jvm: JvmSettings;
   window: WindowSettings;
   createdAt: number;
