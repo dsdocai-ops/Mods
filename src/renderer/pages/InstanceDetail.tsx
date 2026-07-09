@@ -4,7 +4,7 @@ import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@sh
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
-import { PlayIcon, PlusIcon } from "../components/Icons";
+import { ArrowRightIcon, PlayIcon, PlusIcon } from "../components/Icons";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
@@ -26,11 +26,15 @@ interface Props {
   onInstanceChanged: () => void;
   onDeleted: () => void;
   onOpenGlobalSettings: () => void;
+  /** Returns to the Play screen (the instances hub this detail view is opened from). */
+  onBack: () => void;
+  /** Which tab to open on first render - the sidebar's Mods item deep-links straight to "mods". */
+  initialTab?: Tab;
   /** Bumped when the game signals a switch-account request for this instance - see AccountSwitcher. */
   accountSwitchOpenSignal: number;
 }
 
-type Tab = "mods" | "shaders" | "console" | "settings";
+export type Tab = "mods" | "shaders" | "console" | "settings";
 
 export default function InstanceDetail({
   instance,
@@ -41,11 +45,13 @@ export default function InstanceDetail({
   onInstanceChanged,
   onDeleted,
   onOpenGlobalSettings,
+  onBack,
+  initialTab = "mods",
   accountSwitchOpenSignal,
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState<Tab>("mods");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
@@ -228,6 +234,12 @@ export default function InstanceDetail({
 
   return (
     <div className="instance-detail">
+      <button className="back-link" onClick={onBack}>
+        <span className="back-arrow">
+          <ArrowRightIcon size={14} />
+        </span>
+        Back to Play
+      </button>
       <header className="instance-header">
         <div>
           <h1>{instance.name}</h1>

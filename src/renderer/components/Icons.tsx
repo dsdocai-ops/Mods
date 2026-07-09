@@ -104,3 +104,49 @@ export function PuzzleIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/** T-shirt outline - the design sheet's Cosmetics icon. */
+export function ShirtIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8.5 3.5L4 6l1.6 3.2 2.1-.7V20a1 1 0 0 0 1 1h6.6a1 1 0 0 0 1-1V8.5l2.1.7L20 6l-4.5-2.5a3.2 3.2 0 0 1-7 0z" />
+    </svg>
+  );
+}
+
+export function DiscordIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19.3 5.4A17 17 0 0 0 15 4l-.2.4a12.6 12.6 0 0 1 3.7 1.9 12 12 0 0 0-10.1 0A12.6 12.6 0 0 1 12.2 4.4L12 4a17 17 0 0 0-4.3 1.4C4.9 9.6 4.2 13.6 4.5 17.6a17 17 0 0 0 5.2 2.6l.4-.6a11 11 0 0 1-1.7-.8l.4-.3a8.5 8.5 0 0 0 7.2 0l.4.3c-.5.3-1.1.6-1.7.8l.4.6a17 17 0 0 0 5.2-2.6c.4-4.7-.7-8.6-2.6-12.2zM9.7 15.2c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.6.8 1.5 1.7c0 1-.7 1.7-1.5 1.7zm4.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.6.8 1.5 1.7c0 1-.7 1.7-1.5 1.7z" />
+    </svg>
+  );
+}
+
+export function GitHubIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z" />
+    </svg>
+  );
+}
+
+export function GlobeIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3z" />
+    </svg>
+  );
+}
+
+/** Small external-link glyph shown after "Browse mods" / social labels in the design sheet. */
+export function ExternalLinkIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+    </svg>
+  );
+}

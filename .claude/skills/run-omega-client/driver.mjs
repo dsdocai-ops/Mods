@@ -56,9 +56,15 @@ const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 
 // ipcMain.handle(...) calls before changing any shape here.
 function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
+  // A couple of extra instances so the Play screen's instance grid has something to show beyond
+  // the single MOCK_INSTANCE (which the rest of the app keys off).
+  const EXTRA_INSTANCES = [
+    { ...window.__mockInstance, id: 'inst-2', name: 'CPvP Practice', versionId: '1.8.9', loader: 'forge' },
+    { ...window.__mockInstance, id: 'inst-3', name: 'Bedwars', versionId: '1.20.4', loader: 'fabric' },
+  ];
   window.api = {
     instances: {
-      list: async () => [window.__mockInstance],
+      list: async () => [window.__mockInstance, ...EXTRA_INSTANCES],
       create: async (input) => ({ ...window.__mockInstance, ...input, id: 'inst-' + Date.now() }),
       update: async (instance) => { window.__calls.update.push(instance); return instance; },
       delete: async () => {},

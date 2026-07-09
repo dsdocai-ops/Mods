@@ -1,20 +1,32 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent, PublicAccount } from "@shared/types";
-import Sidebar from "./components/Sidebar";
-import InstanceDetail from "./pages/InstanceDetail";
+import Sidebar, { type NavKey } from "./components/Sidebar";
+import InstanceDetail, { type Tab } from "./pages/InstanceDetail";
 import SettingsPage from "./pages/Settings";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
 import Home from "./pages/Home";
+import Play from "./pages/Play";
+import Cosmetics from "./pages/Cosmetics";
+import About from "./pages/About";
 import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import { toast } from "./toast";
 
-type View = { kind: "instance"; id: string } | { kind: "settings" } | { kind: "welcome" };
+// One view per sidebar nav item, plus the instance-detail view (reached from Home/Play). Instance
+// detail carries which tab to open and which nav item to highlight while it's showing (Play, unless
+// deep-linked from the Mods nav item).
+type View =
+  | { kind: "home" }
+  | { kind: "play" }
+  | { kind: "cosmetics" }
+  | { kind: "settings" }
+  | { kind: "about" }
+  | { kind: "instance"; id: string; initialTab: Tab; nav: "play" | "mods" };
 
 export default function App() {
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [view, setView] = useState<View>({ kind: "welcome" });
+  const [view, setView] = useState<View>({ kind: "home" });
   const [showNewInstance, setShowNewInstance] = useState(false);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
@@ -28,6 +40,13 @@ export default function App() {
   // null = still loading (don't flash the sign-in gate before we actually know); [] = no account
   // linked yet, gates the whole app - see SignInRequired.
   const [accounts, setAccounts] = useState<PublicAccount[] | null>(null);
+
+  // Kept current every render so the stable `navigate`/`openInstance` callbacks (which must not
+  // change identity, or the memoized Sidebar re-renders on every log flush) can read the latest
+  // instances and the last-opened instance without depending on them.
+  const instancesRef = useRef<Instance[]>(instances);
+  instancesRef.current = instances;
+  const activeInstanceIdRef = useRef<string | null>(null);
 
   useEffect(() => window.api.updates.onReady(setUpdateVersion), []);
 
@@ -101,7 +120,8 @@ export default function App() {
 
     const unsubscribeSwitchAccount = window.api.launch.onSwitchAccountRequested((instanceId: string) => {
       setSwitchAccountRequest({ instanceId, token: Date.now() });
-      setView({ kind: "instance", id: instanceId });
+      activeInstanceIdRef.current = instanceId;
+      setView({ kind: "instance", id: instanceId, initialTab: "mods", nav: "play" });
     });
 
     return () => {
@@ -161,11 +181,34 @@ export default function App() {
   };
 
   // Stable references so the memoized Sidebar doesn't re-render on every log flush (App re-renders
-  // ~30x/s while a game streams output; the sidebar's props don't actually change then).
-  const handleSelect = useCallback((id: string) => setView({ kind: "instance", id }), []);
+  // ~30x/s while a game streams output; the sidebar's active-nav prop doesn't actually change then).
+  const openInstance = useCallback((id: string, nav: "play" | "mods" = "play", initialTab: Tab = "mods") => {
+    activeInstanceIdRef.current = id;
+    setView({ kind: "instance", id, initialTab, nav });
+  }, []);
   const handleNewInstance = useCallback(() => setShowNewInstance(true), []);
   const handleOpenSettings = useCallback(() => setView({ kind: "settings" }), []);
-  const handleHome = useCallback(() => setView({ kind: "welcome" }), []);
+
+  const navigate = useCallback(
+    (key: NavKey) => {
+      if (key === "mods") {
+        // Mods is per-instance in this launcher, so the Mods nav item deep-links to the last-opened
+        // instance's Mods tab (falling back to the first instance). With none, send them to Play to
+        // create one.
+        const list = instancesRef.current;
+        const active = list.find((i) => i.id === activeInstanceIdRef.current) ?? list[0] ?? null;
+        if (active) openInstance(active.id, "mods", "mods");
+        else setView({ kind: "play" });
+        return;
+      }
+      setView({ kind: key });
+    },
+    [openInstance]
+  );
+
+  // Which sidebar item to highlight for the current view - instance detail highlights whichever nav
+  // item opened it (Play, or Mods when deep-linked).
+  const activeNav: NavKey = view.kind === "instance" ? view.nav : view.kind;
 
   // Gates literally everything else in the app - sidebar, instances, settings - behind a linked
   // Microsoft account. Rendered instead of the app shell, not layered over it.
@@ -188,29 +231,32 @@ export default function App() {
           </button>
         </div>
       )}
-      <Sidebar
-        instances={instances}
-        selectedId={view.kind === "instance" ? view.id : null}
-        isHome={view.kind === "welcome"}
-        onHome={handleHome}
-        onSelect={handleSelect}
-        onNewInstance={handleNewInstance}
-        onSettings={handleOpenSettings}
-        runningIds={runningIds}
-      />
+      <Sidebar active={activeNav} onNavigate={navigate} />
 
-      <main className={view.kind === "welcome" ? "main-area main-area-flush" : "main-area"}>
-        {view.kind === "welcome" && (
+      <main className={view.kind === "home" ? "main-area main-area-flush" : "main-area"}>
+        {view.kind === "home" && (
           <Home
             instances={instances}
             accounts={accounts}
             runningIds={runningIds}
             onNewInstance={handleNewInstance}
-            onOpenInstance={handleSelect}
+            onOpenInstance={(id) => openInstance(id)}
             onLaunch={handleLaunch}
             onStop={handleStop}
           />
         )}
+        {view.kind === "play" && (
+          <Play
+            instances={instances}
+            runningIds={runningIds}
+            onNewInstance={handleNewInstance}
+            onOpenInstance={(id) => openInstance(id)}
+            onLaunch={handleLaunch}
+            onStop={handleStop}
+          />
+        )}
+        {view.kind === "cosmetics" && <Cosmetics />}
+        {view.kind === "about" && <About />}
         {view.kind === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
         {view.kind === "instance" && selectedInstance && (
           <InstanceDetail
@@ -218,16 +264,19 @@ export default function App() {
             instance={selectedInstance}
             logLines={logs[selectedInstance.id] ?? []}
             isRunning={runningIds.has(selectedInstance.id)}
+            initialTab={view.initialTab}
             onLaunch={() => handleLaunch(selectedInstance)}
             onStop={() => handleStop(selectedInstance)}
             onInstanceChanged={refreshInstances}
             onOpenGlobalSettings={handleOpenSettings}
+            onBack={() => setView({ kind: "play" })}
             accountSwitchOpenSignal={switchAccountRequest.instanceId === selectedInstance.id ? switchAccountRequest.token : 0}
             onDeleted={async () => {
               try {
                 await window.api.instances.delete(selectedInstance.id);
                 const list = await refreshInstances();
-                setView(list.length > 0 ? { kind: "instance", id: list[0].id } : { kind: "welcome" });
+                if (list.length > 0) openInstance(list[0].id);
+                else setView({ kind: "play" });
               } catch (err) {
                 toast(`Couldn't delete ${selectedInstance.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
               }
@@ -247,7 +296,7 @@ export default function App() {
               await window.api.instances.update({ ...instance, accountId: accounts[0].id });
             }
             await refreshInstances();
-            setView({ kind: "instance", id: instance.id });
+            openInstance(instance.id);
           }}
         />
       )}

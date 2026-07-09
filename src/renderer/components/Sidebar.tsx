@@ -1,22 +1,38 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { memo } from "react";
-import type { Instance } from "@shared/types";
-import { CubeIcon, GearIcon, HomeIcon, PlusIcon } from "./Icons";
+import { DISCORD_URL, GITHUB_URL, WEBSITE_URL } from "@shared/links";
+import {
+  DiscordIcon,
+  GearIcon,
+  GitHubIcon,
+  GlobeIcon,
+  HomeIcon,
+  InfoIcon,
+  PlayIcon,
+  PuzzleIcon,
+  ShirtIcon,
+} from "./Icons";
+
+// The sidebar's fixed nav keys - one per item in the design mockup's sidebar.
+export type NavKey = "home" | "play" | "mods" | "cosmetics" | "settings" | "about";
 
 interface Props {
-  instances: Instance[];
-  selectedId: string | null;
-  isHome: boolean;
-  onHome: () => void;
-  onSelect: (id: string) => void;
-  onNewInstance: () => void;
-  onSettings: () => void;
-  runningIds: Set<string>;
+  active: NavKey;
+  onNavigate: (key: NavKey) => void;
 }
 
-// Memoized: App re-renders on every batched log flush while a game is running, but none of the
-// sidebar's props change then (App passes useCallback-stable handlers to keep this effective).
-function Sidebar({ instances, selectedId, isHome, onHome, onSelect, onNewInstance, onSettings, runningIds }: Props) {
+const NAV_ITEMS: { key: NavKey; label: string; icon: (size: number) => JSX.Element }[] = [
+  { key: "home", label: "Home", icon: (s) => <HomeIcon size={s} /> },
+  { key: "play", label: "Play", icon: (s) => <PlayIcon size={s} /> },
+  { key: "mods", label: "Mods", icon: (s) => <PuzzleIcon size={s} /> },
+  { key: "cosmetics", label: "Cosmetics", icon: (s) => <ShirtIcon size={s} /> },
+  { key: "settings", label: "Settings", icon: (s) => <GearIcon size={s} /> },
+  { key: "about", label: "About", icon: (s) => <InfoIcon size={s} /> },
+];
+
+// Memoized: App re-renders on every batched log flush while a game is running, but the sidebar's
+// props (active nav + stable handler) don't change then.
+function Sidebar({ active, onNavigate }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -30,46 +46,32 @@ function Sidebar({ instances, selectedId, isHome, onHome, onSelect, onNewInstanc
       </div>
 
       <nav className="sidebar-nav">
-        <button className={`instance-item ${isHome ? "active" : ""}`} onClick={onHome}>
-          <span className="instance-icon">
-            <HomeIcon size={18} />
-          </span>
-          <span className="instance-info">
-            <span className="instance-name">Home</span>
-          </span>
-        </button>
-      </nav>
-
-      <p className="sidebar-section-label">Instances</p>
-      <div className="instance-list">
-        {instances.map((instance) => (
+        {NAV_ITEMS.map((item) => (
           <button
-            key={instance.id}
-            className={`instance-item ${selectedId === instance.id ? "active" : ""}`}
-            onClick={() => onSelect(instance.id)}
+            key={item.key}
+            className={`instance-item ${active === item.key ? "active" : ""}`}
+            onClick={() => onNavigate(item.key)}
           >
-            <span className="instance-icon">
-              <CubeIcon size={18} />
-            </span>
+            <span className="instance-icon">{item.icon(18)}</span>
             <span className="instance-info">
-              <span className="instance-name">{instance.name}</span>
-              <span className="instance-meta">
-                {instance.versionId} &middot; {instance.loader}
-              </span>
+              <span className="instance-name">{item.label}</span>
             </span>
-            {runningIds.has(instance.id) && <span className="running-dot" title="Running" />}
           </button>
         ))}
-        {instances.length === 0 && <p className="empty-hint">No instances yet.</p>}
-      </div>
+      </nav>
 
       <div className="sidebar-footer">
-        <button className="btn btn-secondary" onClick={onNewInstance}>
-          <PlusIcon size={15} /> New Instance
-        </button>
-        <button className="btn btn-ghost" onClick={onSettings}>
-          <GearIcon size={15} /> Settings
-        </button>
+        <div className="sidebar-social">
+          <button className="social-btn" title="Discord" onClick={() => window.api.external.open(DISCORD_URL)}>
+            <DiscordIcon size={18} />
+          </button>
+          <button className="social-btn" title="GitHub" onClick={() => window.api.external.open(GITHUB_URL)}>
+            <GitHubIcon size={18} />
+          </button>
+          <button className="social-btn" title="Website" onClick={() => window.api.external.open(WEBSITE_URL)}>
+            <GlobeIcon size={18} />
+          </button>
+        </div>
       </div>
     </aside>
   );
