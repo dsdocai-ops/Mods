@@ -552,9 +552,9 @@ input[type="checkbox"] {
   margin-left: 12px;
 }
 
-/* Hero panel - the design sheet's monochrome Minecraft landscape behind the OMEGA wordmark.
-   The asset is a wide 4:1 band, so it sits as a horizontal strip through the panel's middle
-   (rather than a blurry full-bleed upscale), vignetted into the black shell on every side. */
+/* Hero panel - the Minecraft landscape fills the whole right side (full-bleed cover), with the
+   OMEGA wordmark centered on top. A dark overlay keeps the white wordmark legible and blends the
+   image's left edge into the content column, matching the mockup's dimmed hero. */
 .home-hero {
   flex: 1;
   min-width: 0;
@@ -562,29 +562,18 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   border-left: 1px solid #161616;
-  background: #050505;
+  background: url(./assets/hero.jpg) center / cover no-repeat, #050505;
   position: relative;
   overflow: hidden;
 }
 
-.home-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url(./assets/hero-bw.jpg) center / auto 52% no-repeat;
-  opacity: 0.85;
-}
-
-/* Vignette: opaque black exactly at the band's edges (it spans 24%-76% of the panel height),
-   opening up toward the middle, plus side fades into the content column and window edge. */
 .home-hero::after {
   content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, #050505 25%, transparent 46%, transparent 58%, #050505 75%),
-    linear-gradient(90deg, #050505 0%, transparent 32%),
-    linear-gradient(270deg, #050505 0%, transparent 32%);
+    linear-gradient(90deg, #050505 0%, rgba(5, 5, 5, 0.55) 22%, rgba(5, 5, 5, 0.25) 50%, rgba(5, 5, 5, 0.4) 100%),
+    linear-gradient(180deg, rgba(5, 5, 5, 0.35) 0%, transparent 30%, transparent 65%, rgba(5, 5, 5, 0.5) 100%);
 }
 
 .hero-wordmark {
