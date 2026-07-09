@@ -48,6 +48,15 @@ public class ModConfig {
 
     public boolean toggleSprintEnabled = false;
 
+    /**
+     * Whether the launcher applies its low-latency G1GC ("smooth PvP") JVM tuning when starting this
+     * instance. Toggled from the in-game Omega menu like every other setting, but unlike the rest it
+     * takes effect on the *next* launch, not live: JVM garbage-collector flags are fixed when the JVM
+     * starts and can't change while the game is running. The launcher reads this field from
+     * config/omega-client.json before spawning Java - see launch.ts's readSmoothPvpPreference.
+     */
+    public boolean smoothPvpEnabled = true;
+
     public boolean hudEnabled = true;
     public boolean hudShowCoords = true;
     public boolean hudShowFps = true;

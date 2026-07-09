@@ -79,6 +79,7 @@ const OMEGA_CONFIG_DEFAULTS: Record<string, unknown> = {
   customFov: 90,
   zoomFov: 30,
   toggleSprintEnabled: false,
+  smoothPvpEnabled: true,
   hudEnabled: true,
   hudShowCoords: true,
   hudShowFps: true,

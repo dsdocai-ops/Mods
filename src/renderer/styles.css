@@ -1377,6 +1377,12 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+/* Explanatory note replacing a former control (e.g. the moved-in-game smooth-PvP toggle). */
+.field-note {
+  margin: 4px 0 12px 0;
+  max-width: 640px;
+}
+
 /* Spinner for the "Checking…" state of the update-check button. */
 .spin {
   display: inline-flex;

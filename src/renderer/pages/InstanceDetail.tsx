@@ -507,14 +507,10 @@ export default function InstanceDetail({
             />
           </label>
 
-          <label className="field-checkbox">
-            <input
-              type="checkbox"
-              checked={draft.jvm.useSmoothPvpFlags}
-              onChange={(e) => setDraft({ ...draft, jvm: { ...draft.jvm, useSmoothPvpFlags: e.target.checked } })}
-            />
-            <span>Use smooth-PvP GC tuning (reduces stutter/frame hitches during fights)</span>
-          </label>
+          <p className="instance-subtitle field-note">
+            Smooth PvP (low-latency GC tuning) is now toggled in-game in the Omega menu (Right Shift) - like every
+            other feature. It applies on the next launch, since JVM tuning can't change mid-game.
+          </p>
 
           <label className="field-checkbox">
             <input

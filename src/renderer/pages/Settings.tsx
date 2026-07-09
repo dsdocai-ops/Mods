@@ -165,17 +165,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
         </label>
       </div>
 
-      <label className="field-checkbox">
-        <input
-          type="checkbox"
-          checked={settings.defaultJvm.useSmoothPvpFlags}
-          onChange={(e) =>
-            setSettings({ ...settings, defaultJvm: { ...settings.defaultJvm, useSmoothPvpFlags: e.target.checked } })
-          }
-        />
-        <span>Enable smooth-PvP GC tuning by default</span>
-      </label>
-
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={save}>
           Save
