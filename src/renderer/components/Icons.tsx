@@ -28,6 +28,24 @@ export function PlayIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** Down-arrow into a tray - the "install / download into the client" action in the mod browser. */
+export function DownloadIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 3.5v10.5m0 0l-4-4m4 4l4-4M4.5 16v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-3.8-3.8" />
+    </svg>
+  );
+}
+
 export function HomeIcon({ size = 16 }: IconProps) {
   return (
     <svg {...base(size)}>

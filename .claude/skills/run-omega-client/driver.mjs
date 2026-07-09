@@ -87,6 +87,34 @@ function installMockApi() {
       applyPreset: async () => {},
       setEnabledBulk: async () => {},
     },
+    // Modrinth mod browser. The real handlers live in src/main/modrinth.ts and hit
+    // api.modrinth.com (blocked in this sandbox), so these stand in with a couple of fixed hits and
+    // a fake progress stream so the Discover UI renders and its install flow is exercisable. icon_url
+    // is left blank so no real network image is needed (the card's fallback swatch shows instead).
+    modrinth: {
+      search: async (query) => {
+        const all = [
+          { projectId: 'AANobbMI', slug: 'sodium', title: 'Sodium', description: 'A modern rendering engine that massively improves frame rates and reduces stuttering.', author: 'jellysquid3', downloads: 24000000, iconUrl: '', categories: ['performance', 'fabric'] },
+          { projectId: 'gvQqBUqZ', slug: 'lithium', title: 'Lithium', description: 'No-compromises game logic/server optimization mod. Improves tick performance.', author: 'jellysquid3', downloads: 18000000, iconUrl: '', categories: ['performance', 'fabric'] },
+          { projectId: 'P7dR8mSH', slug: 'fabric-api', title: 'Fabric API', description: 'Core library for the most common hooks and intercompatibility measures utilized by mods.', author: 'modmuss50', downloads: 42000000, iconUrl: '', categories: ['library', 'fabric'] },
+          { projectId: 'YL57xq9U', slug: 'iris', title: 'Iris Shaders', description: 'A modern shaders mod compatible with Sodium and most OptiFine shaderpacks.', author: 'coderbot', downloads: 9000000, iconUrl: '', categories: ['visual', 'fabric'] },
+        ];
+        const q = (query || '').toLowerCase();
+        return q ? all.filter((h) => h.title.toLowerCase().includes(q) || h.description.toLowerCase().includes(q)) : all;
+      },
+      install: async (modsDir, projectId) => {
+        // Emit a little fake progress stream like the real main process does, then resolve.
+        const emit = window.__modrinthProgress;
+        if (emit) {
+          emit({ phase: 'resolving', name: projectId, done: 0, total: 0, detail: 'Resolving dependencies...' });
+          emit({ phase: 'downloading', name: 'mod.jar', done: 0, total: 1, detail: 'Downloading (1/1)...' });
+          emit({ phase: 'done', name: '', done: 1, total: 1, detail: 'Installed 1 file.' });
+        }
+        window.__calls.write.push({ modrinthInstall: projectId });
+        return { installedFiles: ['mock-installed.jar'], skippedDependencies: [] };
+      },
+      onProgress: (cb) => { window.__modrinthProgress = cb; return () => { window.__modrinthProgress = null; }; },
+    },
     shaders: { list: async () => [], import: async () => [], remove: async () => [] },
     modConfig: {
       find: async (_dir, modId) => (modId === 'omega-client' ? '/x/config/omega-client.json' : null),

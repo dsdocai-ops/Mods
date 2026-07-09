@@ -3,9 +3,10 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, Loader, ModTag } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
+import * as modrinth from "./modrinth";
 import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
@@ -217,6 +218,28 @@ app.whenReady().then(() => {
       return versionId;
     } finally {
       installInFlight = false;
+    }
+  });
+
+  ipcMain.handle("modrinth:search", (_e, query: string, loader: Loader, versionId: string) =>
+    modrinth.searchModrinth(query, loader, versionId)
+  );
+
+  // One Modrinth install at a time: concurrent installs into the same modsDir could both try to
+  // write the same shared dependency jar, and the single progress channel couldn't tell two
+  // installs apart. (Separate from installInFlight above, which guards version installs.)
+  let modrinthInstallInFlight = false;
+  ipcMain.handle("modrinth:install", async (_e, modsDir: string, projectId: string, loader: Loader, versionId: string) => {
+    if (modrinthInstallInFlight) {
+      throw new Error("Another mod is already installing - wait for it to finish.");
+    }
+    modrinthInstallInFlight = true;
+    try {
+      return await modrinth.installFromModrinth(modsDir, projectId, loader, versionId, (progress) =>
+        sendToRenderer("modrinth:installProgress", progress)
+      );
+    } finally {
+      modrinthInstallInFlight = false;
     }
   });
 

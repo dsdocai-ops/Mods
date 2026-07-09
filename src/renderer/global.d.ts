@@ -8,8 +8,12 @@ import type {
   InstallProgress,
   Instance,
   LaunchLogEvent,
+  Loader,
   ModConfigFile,
   ModInfo,
+  ModrinthInstallProgress,
+  ModrinthInstallResult,
+  ModrinthSearchHit,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -39,6 +43,11 @@ export interface LauncherApi {
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
     setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
+  };
+  modrinth: {
+    search(query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]>;
+    install(modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
+    onProgress(callback: (progress: ModrinthInstallProgress) => void): () => void;
   };
   shaders: {
     list(modsDir: string): Promise<ShaderPackInfo[]>;

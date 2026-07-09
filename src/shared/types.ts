@@ -127,6 +127,43 @@ export interface InstallProgress {
   detail: string;
 }
 
+/**
+ * One search result from Modrinth's `/v2/search` endpoint (the in-launcher "Discover" browser),
+ * flattened to just what a result card needs. `projectId`/`slug` identify the project for the
+ * follow-up install call.
+ */
+export interface ModrinthSearchHit {
+  projectId: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  downloads: number;
+  iconUrl: string;
+  categories: string[];
+}
+
+/**
+ * Progress streamed while a Modrinth project (and its required dependencies) is resolved and
+ * downloaded into an instance's modsDir - see main/modrinth.ts. Mirrors InstallProgress's shape so
+ * the renderer can drive the same kind of little progress line.
+ */
+export interface ModrinthInstallProgress {
+  phase: "resolving" | "downloading" | "done";
+  /** Human-readable name of whatever is being handled right now (the mod or a dependency). */
+  name: string;
+  done: number;
+  total: number;
+  detail: string;
+}
+
+/** What a completed Modrinth install returns: the jar file names written into modsDir (mod + any auto-installed required deps). */
+export interface ModrinthInstallResult {
+  installedFiles: string[];
+  /** Required dependencies that had no build matching this instance's loader/version and were skipped - surfaced as a warning. */
+  skippedDependencies: string[];
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   stream: "stdout" | "stderr" | "status" | "exit";

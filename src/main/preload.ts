@@ -8,6 +8,10 @@ import type {
   InstallProgress,
   Instance,
   LaunchLogEvent,
+  Loader,
+  ModrinthInstallProgress,
+  ModrinthInstallResult,
+  ModrinthSearchHit,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -39,6 +43,17 @@ const api = {
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
     setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
       ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
+  },
+  modrinth: {
+    search: (query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]> =>
+      ipcRenderer.invoke("modrinth:search", query, loader, versionId),
+    install: (modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult> =>
+      ipcRenderer.invoke("modrinth:install", modsDir, projectId, loader, versionId),
+    onProgress: (callback: (progress: ModrinthInstallProgress) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, progress: ModrinthInstallProgress) => callback(progress);
+      ipcRenderer.on("modrinth:installProgress", listener);
+      return () => ipcRenderer.removeListener("modrinth:installProgress", listener);
+    },
   },
   shaders: {
     list: (modsDir: string): Promise<ShaderPackInfo[]> => ipcRenderer.invoke("shaders:list", modsDir),
