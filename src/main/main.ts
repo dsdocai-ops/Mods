@@ -193,6 +193,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle("licensing:redeem", (_e, key: string) => licensing.redeemLicenseKey(key));
   ipcMain.handle("licensing:listOwned", () => licensing.getOwnedCosmetics());
+  ipcMain.handle("licensing:getActive", () => licensing.getActiveCosmetic());
+  ipcMain.handle("licensing:setActive", (_e, cosmeticId: string) => licensing.setActiveCosmetic(cosmeticId));
 
   ipcMain.handle("install:listVersions", () => listInstallableVersions());
 

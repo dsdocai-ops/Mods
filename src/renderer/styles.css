@@ -876,6 +876,98 @@ input[type="checkbox"] {
   display: inline-flex;
 }
 
+/* Live preview of the active badge at the top of the Cosmetics page. */
+.cosmetic-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin: 8px 0 20px 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.cosmetic-preview-badge {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.cosmetic-preview-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.cosmetic-preview-name {
+  margin: 2px 0 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Grid of selectable badges. */
+.cosmetic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cosmetic-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.cosmetic-card:hover {
+  border-color: var(--border-strong);
+}
+
+.cosmetic-card-active {
+  border-color: var(--accent);
+  background: var(--bg-panel-alt);
+}
+
+.cosmetic-card-locked {
+  opacity: 0.72;
+}
+
+.cosmetic-swatch {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.cosmetic-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cosmetic-state {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.cosmetic-card-active .cosmetic-state {
+  color: var(--accent);
+}
+
 .sponsored-card {
   margin-top: 28px;
   padding: 16px 18px;

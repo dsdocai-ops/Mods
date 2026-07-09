@@ -12,6 +12,8 @@ const LICENSES_FILE = "licenses.json";
 
 interface StoredLicenses {
   ownedCosmetics: string[];
+  /** Which owned cosmetic is currently broadcast in-game ("" = none/default). The mod only broadcasts one at a time (ModConfig.ownedCosmeticId is a single string), so this is the chosen one. */
+  activeCosmetic: string;
 }
 
 // Plain JSON, not encrypted like accountStore.ts's tokens - there's no secret here to protect
@@ -24,13 +26,16 @@ function licensesFilePath(): string {
 
 function readLicenses(): StoredLicenses {
   const file = licensesFilePath();
-  if (!fs.existsSync(file)) return { ownedCosmetics: [] };
+  if (!fs.existsSync(file)) return { ownedCosmetics: [], activeCosmetic: "" };
   try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf-8"));
-    const ownedCosmetics = (parsed as Partial<StoredLicenses>)?.ownedCosmetics;
-    return { ownedCosmetics: Array.isArray(ownedCosmetics) ? ownedCosmetics : [] };
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as Partial<StoredLicenses>;
+    const ownedCosmetics = Array.isArray(parsed?.ownedCosmetics) ? parsed.ownedCosmetics : [];
+    // activeCosmetic is optional in older files; default to whichever cosmetic was owned last (the
+    // previous single-string behaviour) so an upgrade doesn't blank someone's badge.
+    const activeCosmetic = typeof parsed?.activeCosmetic === "string" ? parsed.activeCosmetic : ownedCosmetics[ownedCosmetics.length - 1] ?? "";
+    return { ownedCosmetics, activeCosmetic };
   } catch {
-    return { ownedCosmetics: [] };
+    return { ownedCosmetics: [], activeCosmetic: "" };
   }
 }
 
@@ -44,33 +49,61 @@ export function getOwnedCosmetics(): string[] {
   return readLicenses().ownedCosmetics;
 }
 
-/**
- * Records a cosmetic as owned and writes it into every instance's mod config (ownedCosmeticId, read
- * by the mod at launch and broadcast over the presence channel - see CosmeticCatalog.java for known
- * ids). Real and independently callable/testable today, even though redeemLicenseKey() below can't
- * reach it yet - this is what a real payment-provider integration will call once one exists.
- */
-export function unlockCosmetic(cosmeticId: string): void {
-  const licenses = readLicenses();
-  if (!licenses.ownedCosmetics.includes(cosmeticId)) {
-    licenses.ownedCosmetics.push(cosmeticId);
-    writeLicenses(licenses);
-  }
+/** The cosmetic currently broadcast in-game ("" = none). */
+export function getActiveCosmetic(): string {
+  return readLicenses().activeCosmetic;
+}
 
+/**
+ * Writes `cosmeticId` into every instance's mod config as ownedCosmeticId - the single value the mod
+ * reads at launch and broadcasts over the presence channel (see CosmeticCatalog.java). "" clears it
+ * back to the default badge. Best-effort per instance: one unreadable/unwritable config (corrupt
+ * JSON, permissions, disk full) is skipped rather than aborting the loop for every instance after it.
+ */
+function applyActiveCosmeticToInstances(cosmeticId: string): void {
   for (const instance of listInstances()) {
-    // One instance's config being unreadable/unwritable (corrupt JSON, permissions, disk full)
-    // must not abort the loop and leave every instance after it in the list un-unlocked - each
-    // instance is independent, so a failure here is caught and skipped rather than propagated.
     try {
       const configPath = ensureOmegaConfig(path.dirname(instance.modsDir));
       const configFile = readModConfigFile(configPath);
       writeModConfigFile(configPath, configFile.format, { ...configFile.data, ownedCosmeticId: cosmeticId });
     } catch {
-      // Best-effort: licenses.json (source of truth for the Settings UI) is already updated above,
-      // and the mod re-derives ownedCosmeticId from this same write path the next time any config
-      // change touches this instance.
+      // licenses.json (the launcher UI's source of truth) is already updated by the caller, and the
+      // mod re-derives ownedCosmeticId from this same write path the next time any config change
+      // touches this instance.
     }
   }
+}
+
+/**
+ * Records a cosmetic as owned, makes it the active badge, and pushes it into every instance's config.
+ * Real and independently callable/testable today - this is what a real payment-provider integration
+ * calls, and what redeemLicenseKey() calls on a valid key.
+ */
+export function unlockCosmetic(cosmeticId: string): void {
+  const licenses = readLicenses();
+  if (!licenses.ownedCosmetics.includes(cosmeticId)) {
+    licenses.ownedCosmetics.push(cosmeticId);
+  }
+  // Newly unlocked cosmetics become active (the thing you just paid for is presumably what you want
+  // to show) - matches the previous single-string behaviour, now switchable via setActiveCosmetic.
+  licenses.activeCosmetic = cosmeticId;
+  writeLicenses(licenses);
+  applyActiveCosmeticToInstances(cosmeticId);
+}
+
+/**
+ * Chooses which owned cosmetic is broadcast in-game (or "" for none). Rejects a cosmetic the user
+ * doesn't own so the config can't be pointed at an unowned id. Returns the active value actually set.
+ */
+export function setActiveCosmetic(cosmeticId: string): string {
+  const licenses = readLicenses();
+  if (cosmeticId !== "" && !licenses.ownedCosmetics.includes(cosmeticId)) {
+    throw new Error("You don't own that cosmetic.");
+  }
+  licenses.activeCosmetic = cosmeticId;
+  writeLicenses(licenses);
+  applyActiveCosmeticToInstances(cosmeticId);
+  return cosmeticId;
 }
 
 // Replace with your own secret before shipping - keys are generated with the matching formula in

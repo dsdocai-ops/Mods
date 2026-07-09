@@ -56,6 +56,9 @@ const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 
 // ipcMain.handle(...) calls before changing any shape here.
 function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
+  // Cosmetics demo state: owns the gold badge, active by default.
+  window.__owned = ['gold_badge'];
+  window.__active = 'gold_badge';
   // A couple of extra instances so the Play screen's instance grid has something to show beyond
   // the single MOCK_INSTANCE (which the rest of the app keys off).
   const EXTRA_INSTANCES = [
@@ -157,8 +160,20 @@ function installMockApi() {
       verify: async () => ({ ok: true, version: '17.0.9' }),
     },
     licensing: {
-      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "That license key isn't valid." }; },
-      listOwned: async () => ([]),
+      // Owns the gold badge by default (active), so the Cosmetics grid shows owned/active/locked
+      // states and the picker is exercisable offline. azure stays locked ("Buy") until "redeemed".
+      redeem: async (key) => {
+        window.__calls.write.push({ licensingRedeem: key });
+        if (typeof key === 'string' && key.startsWith('azure_badge-')) {
+          if (!window.__owned.includes('azure_badge')) window.__owned.push('azure_badge');
+          window.__active = 'azure_badge';
+          return { ok: true, cosmeticId: 'azure_badge', message: 'Unlocked: azure_badge' };
+        }
+        return { ok: false, message: "That license key isn't valid." };
+      },
+      listOwned: async () => ([...window.__owned]),
+      getActive: async () => window.__active,
+      setActive: async (id) => { window.__active = id; window.__calls.write.push({ setActiveCosmetic: id }); return id; },
     },
     install: {
       listVersions: async () => ([{ id: '1.20.1', type: 'release', url: '' }]),

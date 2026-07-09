@@ -1,24 +1,27 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
-import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
-import { ShirtIcon } from "../components/Icons";
+import { COSMETIC_CATALOG, DEFAULT_BADGE_HEX, STRIPE_COSMETIC_PAYMENT_LINK_URL, cosmeticById } from "@shared/cosmetics";
 import { toast } from "../toast";
 
 /**
- * The Cosmetics screen, reached from the sidebar's Cosmetics item. Manages the in-game cosmetic
- * badges other Omega Client players see next to your name (same presence mechanism as the free Ω
- * badge): buy one, then redeem the license key you're given. Previously lived as a section inside
- * the Settings page - moved to its own top-level screen to match the design mockup's sidebar.
+ * The Cosmetics screen (sidebar > Cosmetics). Shows the catalog of Ω badges with a live color
+ * preview, which ones you own, and lets you pick which owned one is broadcast in-game (the mod only
+ * shows one at a time). Buy opens the Stripe link; redeem validates a license key and unlocks.
  */
 export default function Cosmetics() {
-  const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
+  const [owned, setOwned] = useState<string[]>([]);
+  const [active, setActive] = useState<string>("");
   const [licenseKey, setLicenseKey] = useState("");
   const [redeeming, setRedeeming] = useState(false);
 
-  const loadOwnedCosmetics = () => window.api.licensing.listOwned().then(setOwnedCosmetics);
+  const reload = () =>
+    Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive()]).then(([o, a]) => {
+      setOwned(o);
+      setActive(a);
+    });
 
   useEffect(() => {
-    loadOwnedCosmetics();
+    reload();
   }, []);
 
   const redeemLicenseKey = async () => {
@@ -29,7 +32,7 @@ export default function Cosmetics() {
       toast(result.message, result.ok ? "success" : "info");
       if (result.ok) {
         setLicenseKey("");
-        loadOwnedCosmetics();
+        reload();
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
@@ -38,44 +41,88 @@ export default function Cosmetics() {
     }
   };
 
+  const choose = async (cosmeticId: string) => {
+    try {
+      await window.api.licensing.setActive(cosmeticId);
+      setActive(cosmeticId);
+      const name = cosmeticId === "" ? "Default badge" : cosmeticById(cosmeticId)?.name ?? cosmeticId;
+      toast(`${name} is now active`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    }
+  };
+
+  const activeColor = active ? cosmeticById(active)?.colorHex ?? DEFAULT_BADGE_HEX : DEFAULT_BADGE_HEX;
+  const activeName = active ? cosmeticById(active)?.name ?? active : "Default badge";
+
   return (
     <div className="settings-panel">
       <p className="welcome-kicker">Cosmetics</p>
       <h1 className="page-title">Cosmetics</h1>
       <p className="instance-subtitle">
-        A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Buy one, then redeem the license key you're
-        given below.
+        A colored Ω badge other Omega Client players see next to your name in-game (needs a server/proxy relaying the
+        presence channel). Buy one, redeem the license key you&rsquo;re given, then choose which owned badge is active.
       </p>
 
-      <div className="settings-actions">
-        <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)}>
-          Buy a cosmetic
-        </button>
+      <div className="cosmetic-preview">
+        <span className="cosmetic-preview-badge" style={{ color: activeColor }}>
+          &#937;
+        </span>
+        <div>
+          <p className="cosmetic-preview-label">Active badge</p>
+          <p className="cosmetic-preview-name">{activeName}</p>
+        </div>
       </div>
 
-      <h3 className="settings-subheading">Owned</h3>
-      <div className="account-list">
-        {ownedCosmetics.length === 0 && <p className="empty-hint">No cosmetics owned yet.</p>}
-        {ownedCosmetics.map((cosmeticId) => (
-          <div key={cosmeticId} className="account-row">
-            <span className="cosmetic-icon">
-              <ShirtIcon size={16} />
-            </span>
-            <span className="account-name">{cosmeticId}</span>
-          </div>
-        ))}
+      <h3 className="settings-subheading">Badges</h3>
+      <div className="cosmetic-grid">
+        {/* Default / none is always available to switch back to. */}
+        <button
+          className={`cosmetic-card ${active === "" ? "cosmetic-card-active" : ""}`}
+          onClick={() => choose("")}
+        >
+          <span className="cosmetic-swatch" style={{ color: DEFAULT_BADGE_HEX }}>
+            &#937;
+          </span>
+          <span className="cosmetic-name">Default</span>
+          <span className="cosmetic-state">{active === "" ? "Active" : "Use"}</span>
+        </button>
+
+        {COSMETIC_CATALOG.map((cosmetic) => {
+          const isOwned = owned.includes(cosmetic.id);
+          const isActive = active === cosmetic.id;
+          return (
+            <button
+              key={cosmetic.id}
+              className={`cosmetic-card ${isActive ? "cosmetic-card-active" : ""} ${isOwned ? "" : "cosmetic-card-locked"}`}
+              onClick={() =>
+                isOwned ? choose(cosmetic.id) : window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)
+              }
+              title={cosmetic.description}
+            >
+              <span className="cosmetic-swatch" style={{ color: cosmetic.colorHex }}>
+                &#937;
+              </span>
+              <span className="cosmetic-name">{cosmetic.name}</span>
+              <span className="cosmetic-state">{isActive ? "Active" : isOwned ? "Use" : "Buy"}</span>
+            </button>
+          );
+        })}
       </div>
 
       <h3 className="settings-subheading">Redeem a license key</h3>
+      <p className="instance-subtitle">Bought a cosmetic? Paste the key you were given to unlock it.</p>
       <div className="field-row">
         <label className="field">
           <span>License key</span>
           <input
             className="input"
-            placeholder="paste the license key you were given"
+            placeholder="e.g. gold_badge-a1b2c3d4e5f6"
             value={licenseKey}
             onChange={(e) => setLicenseKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") redeemLicenseKey();
+            }}
           />
         </label>
         <div className="settings-actions">

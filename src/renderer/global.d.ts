@@ -71,6 +71,8 @@ export interface LauncherApi {
   licensing: {
     redeem(key: string): Promise<RedeemLicenseResult>;
     listOwned(): Promise<string[]>;
+    getActive(): Promise<string>;
+    setActive(cosmeticId: string): Promise<string>;
   };
   install: {
     listVersions(): Promise<InstallableVersion[]>;

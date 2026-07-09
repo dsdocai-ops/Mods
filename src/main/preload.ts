@@ -82,6 +82,8 @@ const api = {
   licensing: {
     redeem: (key: string): Promise<RedeemLicenseResult> => ipcRenderer.invoke("licensing:redeem", key),
     listOwned: (): Promise<string[]> => ipcRenderer.invoke("licensing:listOwned"),
+    getActive: (): Promise<string> => ipcRenderer.invoke("licensing:getActive"),
+    setActive: (cosmeticId: string): Promise<string> => ipcRenderer.invoke("licensing:setActive", cosmeticId),
   },
   install: {
     listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),
