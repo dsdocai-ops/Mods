@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { memo } from "react";
 import type { ModInfo } from "@shared/types";
-import { GearIcon, XIcon } from "./Icons";
+import { GearIcon, RefreshIcon, XIcon } from "./Icons";
 
 interface Props {
   mod: ModInfo;
@@ -11,6 +11,10 @@ interface Props {
   onToggle: (mod: ModInfo, enabled: boolean) => void;
   onRemove: (mod: ModInfo) => void;
   onConfigure: (mod: ModInfo) => void;
+  /** The newer version available on Modrinth for this jar, if any - shows an update badge + button. */
+  updateVersion?: string;
+  /** Update just this one mod (the row's own Update button). Undefined while a bulk update is running. */
+  onUpdate?: (mod: ModInfo) => void;
 }
 
 const TAG_LABELS: Record<string, string> = {
@@ -27,7 +31,7 @@ const TAG_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) {
+function ModRow({ mod, onToggle, onRemove, onConfigure, updateVersion, onUpdate }: Props) {
   return (
     <div className={`mod-row ${mod.enabled ? "" : "mod-row-disabled"}`}>
       <div className="mod-info">
@@ -35,6 +39,7 @@ function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) {
           <span className="mod-name">{mod.name}</span>
           <span className="mod-version">v{mod.version}</span>
           <span className="mod-loader">{mod.loader}</span>
+          {updateVersion && <span className="mod-update-badge">Update &rarr; v{updateVersion}</span>}
         </div>
         {mod.description && <p className="mod-description">{mod.description}</p>}
         <div className="mod-tags">
@@ -47,6 +52,11 @@ function ModRow({ mod, onToggle, onRemove, onConfigure }: Props) {
       </div>
 
       <div className="mod-row-actions">
+        {updateVersion && onUpdate && (
+          <button className="btn btn-chip btn-update" title={`Update to v${updateVersion}`} onClick={() => onUpdate(mod)}>
+            <RefreshIcon size={13} /> Update
+          </button>
+        )}
         <button className="btn btn-chip" title="Edit this mod's config" onClick={() => onConfigure(mod)}>
           <GearIcon size={13} /> Configure
         </button>

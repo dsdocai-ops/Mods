@@ -14,6 +14,7 @@ import type {
   ModrinthInstallProgress,
   ModrinthInstallResult,
   ModrinthSearchHit,
+  ModrinthUpdate,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -47,6 +48,8 @@ export interface LauncherApi {
   modrinth: {
     search(query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]>;
     install(modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
+    checkUpdates(modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]>;
+    applyUpdates(modsDir: string, updates: ModrinthUpdate[]): Promise<ModrinthInstallResult>;
     onProgress(callback: (progress: ModrinthInstallProgress) => void): () => void;
   };
   shaders: {

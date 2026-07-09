@@ -1,8 +1,12 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Loader, ModrinthInstallProgress, ModrinthInstallResult, ModrinthSearchHit } from "../shared/types";
+import type { Loader, ModrinthInstallProgress, ModrinthInstallResult, ModrinthSearchHit, ModrinthUpdate } from "../shared/types";
 import { downloadFile, fetchWithRetry } from "./installer";
+import { forgetModMetadata } from "./modMetadata";
+
+const DISABLED_SUFFIX = ".disabled";
 
 /**
  * In-launcher mod browser backed by Modrinth's public REST API (api.modrinth.com/v2) - the
@@ -53,9 +57,10 @@ export function minecraftVersionOf(versionId: string): string {
   return matches ? matches[matches.length - 1] : versionId;
 }
 
-async function apiJson(pathAndQuery: string): Promise<any> {
+async function apiJson(pathAndQuery: string, init?: RequestInit): Promise<any> {
   const response = await fetchWithRetry(`${API_BASE}${pathAndQuery}`, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    ...init,
+    headers: { "User-Agent": USER_AGENT, Accept: "application/json", ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
     throw new Error(`Modrinth request failed (${response.status}) for ${pathAndQuery}`);
@@ -104,6 +109,7 @@ interface ModrinthFile {
 interface ModrinthVersion {
   name: string;
   version_number: string;
+  project_id?: string;
   files: ModrinthFile[];
   dependencies?: Array<{ project_id?: string; version_id?: string; dependency_type?: string }>;
 }
@@ -204,4 +210,106 @@ export async function installFromModrinth(
 
   onProgress({ phase: "done", name: "", done, total, detail: `Installed ${done} file${done === 1 ? "" : "s"}.` });
   return { installedFiles: plan.map((p) => path.basename(p.filename)), skippedDependencies };
+}
+
+function isJarLike(fileName: string): boolean {
+  const stripped = fileName.endsWith(DISABLED_SUFFIX) ? fileName.slice(0, -DISABLED_SUFFIX.length) : fileName;
+  return stripped.toLowerCase().endsWith(".jar");
+}
+
+function sha1OfFile(filePath: string): string {
+  return crypto.createHash("sha1").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+/**
+ * Finds which installed jars have a newer compatible build on Modrinth. Rather than tracking where
+ * each jar came from, it sha1-hashes every jar in modsDir and asks Modrinth's `/version_files/update`
+ * endpoint for the latest version matching this instance's loader + Minecraft version - the same
+ * hash-lookup mechanism other launchers use. Jars Modrinth doesn't recognize (hand-built mods, the
+ * bundled Omega mod) simply don't come back and are ignored. Enabled and disabled jars are both
+ * checked; the `.disabled` state is carried through so an update preserves it.
+ */
+export async function checkModrinthUpdates(modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]> {
+  const loaders = loadersFor(loader);
+  if (loaders.length === 0 || !fs.existsSync(modsDir)) return [];
+  const gameVersion = minecraftVersionOf(versionId);
+
+  const jars = fs.readdirSync(modsDir, { withFileTypes: true }).filter((e) => e.isFile() && isJarLike(e.name));
+  if (jars.length === 0) return [];
+
+  // Content-hash every jar. Two jars with identical bytes (an enabled + a .disabled copy) would
+  // collide on one hash - fine, Modrinth's response is keyed by hash and we map back to whichever
+  // file(s) carry it below.
+  const byHash = new Map<string, Array<{ fileName: string; enabled: boolean }>>();
+  for (const entry of jars) {
+    const hash = sha1OfFile(path.join(modsDir, entry.name));
+    const list = byHash.get(hash) ?? [];
+    list.push({ fileName: entry.name, enabled: !entry.name.endsWith(DISABLED_SUFFIX) });
+    byHash.set(hash, list);
+  }
+
+  const body = { hashes: [...byHash.keys()], algorithm: "sha1", loaders, game_versions: gameVersion ? [gameVersion] : [] };
+  const response = await apiJson("/version_files/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const updates: ModrinthUpdate[] = [];
+  for (const [inputHash, version] of Object.entries((response ?? {}) as Record<string, ModrinthVersion>)) {
+    const locals = byHash.get(inputHash);
+    if (!locals) continue;
+    const file = primaryFile(version);
+    const newSha1 = file?.hashes?.sha1;
+    // Same hash back = already on the latest build for this loader/version - not an update.
+    if (!file?.url || !newSha1 || newSha1 === inputHash) continue;
+    for (const local of locals) {
+      updates.push({
+        fileName: local.fileName,
+        newVersion: version.version_number,
+        projectId: version.project_id ?? "",
+        url: file.url,
+        newFileName: file.filename,
+        sha1: newSha1,
+        enabled: local.enabled,
+      });
+    }
+  }
+  return updates;
+}
+
+/**
+ * Applies the updates from checkModrinthUpdates: downloads each newer jar into modsDir (preserving
+ * the mod's enabled/disabled state via the `.disabled` suffix) and removes the old jar when the file
+ * name changed. A same-name update just overwrites in place (downloadFile re-fetches on hash
+ * mismatch). Reuses the mod-install progress channel.
+ */
+export async function applyModrinthUpdates(
+  modsDir: string,
+  updates: ModrinthUpdate[],
+  onProgress: (progress: ModrinthInstallProgress) => void
+): Promise<ModrinthInstallResult> {
+  fs.mkdirSync(modsDir, { recursive: true });
+  const installedFiles: string[] = [];
+  let done = 0;
+  const total = updates.length;
+
+  for (const update of updates) {
+    onProgress({ phase: "downloading", name: update.newFileName, done, total, detail: `Updating ${update.newFileName} (${done + 1}/${total})...` });
+    // path.basename guards the Modrinth-supplied name against "../" traversal, same as installFromModrinth.
+    const targetName = path.basename(update.newFileName) + (update.enabled ? "" : DISABLED_SUFFIX);
+    const targetPath = path.join(modsDir, targetName);
+    await downloadFile(update.url, targetPath, update.sha1);
+
+    const oldPath = path.join(modsDir, path.basename(update.fileName));
+    if (path.resolve(oldPath) !== path.resolve(targetPath) && fs.existsSync(oldPath)) {
+      fs.unlinkSync(oldPath);
+      forgetModMetadata(oldPath);
+    }
+    installedFiles.push(targetName);
+    done++;
+  }
+
+  onProgress({ phase: "done", name: "", done, total, detail: `Updated ${done} mod${done === 1 ? "" : "s"}.` });
+  return { installedFiles, skippedDependencies: [] };
 }

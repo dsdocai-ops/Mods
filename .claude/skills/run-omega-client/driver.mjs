@@ -113,6 +113,19 @@ function installMockApi() {
         window.__calls.write.push({ modrinthInstall: projectId });
         return { installedFiles: ['mock-installed.jar'], skippedDependencies: [] };
       },
+      // Reports one pretend update for the mocked Sodium jar (matches mods.list's fileName) so the
+      // "N updates available" banner and per-row badge/button render. Clears once "updated" so the
+      // demo flow (click Update all -> banner disappears) behaves.
+      checkUpdates: async () => (window.__modrinthUpdated ? [] : [
+        { fileName: 'sodium-fabric-0.5.jar', newVersion: '0.6.0', projectId: 'AANobbMI', url: '', newFileName: 'sodium-fabric-0.6.0.jar', sha1: 'deadbeef', enabled: true },
+      ]),
+      applyUpdates: async (modsDir, updates) => {
+        const emit = window.__modrinthProgress;
+        if (emit) emit({ phase: 'done', name: '', done: updates.length, total: updates.length, detail: `Updated ${updates.length} mod(s).` });
+        window.__modrinthUpdated = true;
+        window.__calls.write.push({ modrinthApplyUpdates: updates.map((u) => u.fileName) });
+        return { installedFiles: updates.map((u) => u.newFileName), skippedDependencies: [] };
+      },
       onProgress: (cb) => { window.__modrinthProgress = cb; return () => { window.__modrinthProgress = null; }; },
     },
     shaders: { list: async () => [], import: async () => [], remove: async () => [] },

@@ -1,11 +1,11 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
+import type { ConfigFormat, Instance, ModInfo, ModrinthUpdate, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import DiscoverMods from "../components/DiscoverMods";
-import { ArrowRightIcon, PlayIcon, PlusIcon } from "../components/Icons";
+import { ArrowRightIcon, PlayIcon, PlusIcon, RefreshIcon } from "../components/Icons";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
@@ -53,6 +53,8 @@ export default function InstanceDetail({
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [modsView, setModsView] = useState<"installed" | "discover">("installed");
+  const [updates, setUpdates] = useState<ModrinthUpdate[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
@@ -64,9 +66,20 @@ export default function InstanceDetail({
     data: Record<string, unknown>;
   } | null>(null);
 
+  // Best-effort update check against Modrinth (hash-lookup) - stays silent on failure so an offline
+  // machine or a Modrinth outage simply shows no update prompts rather than nagging with errors.
+  const checkUpdates = async () => {
+    try {
+      setUpdates(await window.api.modrinth.checkUpdates(instance.modsDir, instance.loader, instance.versionId));
+    } catch {
+      /* offline / unreachable - no update prompts */
+    }
+  };
+
   const loadMods = async () => {
     const list = await window.api.mods.list(instance.modsDir);
     setMods(list);
+    checkUpdates();
   };
 
   const loadAccounts = () => window.api.accounts.list().then(setAccounts);
@@ -178,6 +191,48 @@ export default function InstanceDetail({
       }
     },
     [instance.modsDir]
+  );
+
+  // Kept current so the useCallback-stable per-row updateOne (needed to preserve ModRow's memo)
+  // can read the latest updates/busy state without changing identity every render.
+  const updatesRef = useRef<ModrinthUpdate[]>(updates);
+  updatesRef.current = updates;
+  const bulkUpdatingRef = useRef(bulkUpdating);
+  bulkUpdatingRef.current = bulkUpdating;
+
+  const updateByFile = useMemo(() => new Map(updates.map((u) => [u.fileName, u] as const)), [updates]);
+
+  const updateAll = async () => {
+    if (updates.length === 0 || bulkUpdating) return;
+    setBulkUpdating(true);
+    try {
+      const result = await window.api.modrinth.applyUpdates(instance.modsDir, updates);
+      toast(`Updated ${result.installedFiles.length} mod${result.installedFiles.length === 1 ? "" : "s"}`, "success");
+      setUpdates([]);
+      await loadMods();
+    } catch (err) {
+      toast(`Couldn't update mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const updateOne = useCallback(
+    async (mod: ModInfo) => {
+      const target = updatesRef.current.find((u) => u.fileName === mod.fileName);
+      if (!target || bulkUpdatingRef.current) return;
+      try {
+        await window.api.modrinth.applyUpdates(instance.modsDir, [target]);
+        toast(`Updated ${mod.name} to v${target.newVersion}`, "success");
+        setUpdates((prev) => prev.filter((u) => u.fileName !== mod.fileName));
+        await loadMods();
+      } catch (err) {
+        toast(`Couldn't update ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+      }
+    },
+    // instance is stable for this component's life (App keys InstanceDetail by instance.id), so this
+    // is effectively a constant identity - exactly what ModRow's memo needs.
+    [instance.modsDir] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const applyPreset = async (tags: ModTag[]) => {
@@ -304,6 +359,17 @@ export default function InstanceDetail({
 
           {modsView === "installed" ? (
             <>
+              {updates.length > 0 && (
+                <div className="update-bar">
+                  <span className="update-bar-label">
+                    <RefreshIcon size={15} /> {updates.length} update{updates.length === 1 ? "" : "s"} available from Modrinth
+                  </span>
+                  <button className="btn btn-primary btn-sm" disabled={bulkUpdating} onClick={updateAll}>
+                    {bulkUpdating ? "Updating..." : "Update all"}
+                  </button>
+                </div>
+              )}
+
               <div className="mods-toolbar">
                 <input
                   className="input"
@@ -339,7 +405,15 @@ export default function InstanceDetail({
                   </p>
                 )}
                 {filteredMods.map((mod) => (
-                  <ModRow key={mod.id} mod={mod} onToggle={handleToggle} onRemove={handleRemove} onConfigure={openConfig} />
+                  <ModRow
+                    key={mod.id}
+                    mod={mod}
+                    onToggle={handleToggle}
+                    onRemove={handleRemove}
+                    onConfigure={openConfig}
+                    updateVersion={updateByFile.get(mod.fileName)?.newVersion}
+                    onUpdate={bulkUpdating ? undefined : updateOne}
+                  />
                 ))}
               </div>
             </>

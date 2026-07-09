@@ -1249,6 +1249,43 @@ input[type="checkbox"] {
   opacity: 0.55;
 }
 
+/* "N updates available" banner above the installed mod list. */
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px;
+  margin-bottom: 14px;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+}
+
+.update-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Per-row "Update -> vX" indicator next to the mod version. */
+.mod-update-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+  color: var(--text);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-update {
+  white-space: nowrap;
+}
+
 .mod-row-actions {
   display: flex;
   align-items: center;

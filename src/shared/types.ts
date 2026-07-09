@@ -164,6 +164,24 @@ export interface ModrinthInstallResult {
   skippedDependencies: string[];
 }
 
+/**
+ * One installed jar that Modrinth has a newer compatible build for - found by hashing the jars in
+ * modsDir and asking Modrinth's `/version_files/update` endpoint (no local provenance tracking
+ * needed). The trailing fields are opaque download details the renderer just hands back to
+ * modrinth:applyUpdates; only `fileName`/`newVersion` are meant for display.
+ */
+export interface ModrinthUpdate {
+  /** Current on-disk file name, including a `.disabled` suffix if the mod is currently disabled. */
+  fileName: string;
+  /** The newer version number available on Modrinth (e.g. "0.6.0"). */
+  newVersion: string;
+  projectId: string;
+  url: string;
+  newFileName: string;
+  sha1: string;
+  enabled: boolean;
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   stream: "stdout" | "stderr" | "status" | "exit";

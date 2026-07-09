@@ -12,6 +12,7 @@ import type {
   ModrinthInstallProgress,
   ModrinthInstallResult,
   ModrinthSearchHit,
+  ModrinthUpdate,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -49,6 +50,10 @@ const api = {
       ipcRenderer.invoke("modrinth:search", query, loader, versionId),
     install: (modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult> =>
       ipcRenderer.invoke("modrinth:install", modsDir, projectId, loader, versionId),
+    checkUpdates: (modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]> =>
+      ipcRenderer.invoke("modrinth:checkUpdates", modsDir, loader, versionId),
+    applyUpdates: (modsDir: string, updates: ModrinthUpdate[]): Promise<ModrinthInstallResult> =>
+      ipcRenderer.invoke("modrinth:applyUpdates", modsDir, updates),
     onProgress: (callback: (progress: ModrinthInstallProgress) => void) => {
       const listener = (_e: Electron.IpcRendererEvent, progress: ModrinthInstallProgress) => callback(progress);
       ipcRenderer.on("modrinth:installProgress", listener);

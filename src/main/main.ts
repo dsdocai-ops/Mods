@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, Loader, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, Loader, ModrinthUpdate, ModTag } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as modrinth from "./modrinth";
@@ -236,6 +236,26 @@ app.whenReady().then(() => {
     modrinthInstallInFlight = true;
     try {
       return await modrinth.installFromModrinth(modsDir, projectId, loader, versionId, (progress) =>
+        sendToRenderer("modrinth:installProgress", progress)
+      );
+    } finally {
+      modrinthInstallInFlight = false;
+    }
+  });
+
+  ipcMain.handle("modrinth:checkUpdates", (_e, modsDir: string, loader: Loader, versionId: string) =>
+    modrinth.checkModrinthUpdates(modsDir, loader, versionId)
+  );
+
+  ipcMain.handle("modrinth:applyUpdates", async (_e, modsDir: string, updates: ModrinthUpdate[]) => {
+    // Shares the single install-in-flight guard: updating and installing both write jars into the
+    // same modsDir and stream over the same progress channel, so they must not overlap.
+    if (modrinthInstallInFlight) {
+      throw new Error("Another mod operation is already running - wait for it to finish.");
+    }
+    modrinthInstallInFlight = true;
+    try {
+      return await modrinth.applyModrinthUpdates(modsDir, updates, (progress) =>
         sendToRenderer("modrinth:installProgress", progress)
       );
     } finally {

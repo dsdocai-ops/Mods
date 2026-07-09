@@ -37,6 +37,16 @@ export function DownloadIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** Circular update arrows - the "update available / update all" affordance for installed mods. */
+export function RefreshIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M20 11.5a8 8 0 0 0-14-4.4M4 4v3.1h3.1" />
+      <path d="M4 12.5a8 8 0 0 0 14 4.4M20 20v-3.1h-3.1" />
+    </svg>
+  );
+}
+
 export function SearchIcon({ size = 16 }: IconProps) {
   return (
     <svg {...base(size)}>

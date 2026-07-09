@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { searchModrinth, installFromModrinth, minecraftVersionOf } = require("../dist-electron/main/modrinth.js");
+const { searchModrinth, installFromModrinth, checkModrinthUpdates, minecraftVersionOf } = require("../dist-electron/main/modrinth.js");
 
 // Sodium: one of the most-downloaded Fabric mods, stable slug/id, exists for 1.20.1 - a safe fixture.
 const PROJECT_ID = "AANobbMI"; // sodium
@@ -53,6 +53,17 @@ function assert(condition, message) {
       assert(fs.statSync(full).size > 0, `installed file is empty: ${file}`);
       assert(file.toLowerCase().endsWith(".jar"), `installed file is not a jar: ${file}`);
     }
+
+    // Exercise the hash-based update endpoint against the jars we just installed. We installed the
+    // latest compatible build, so no updates are expected - the point is to validate the
+    // /version_files/update response shape (a wrong shape would throw or mis-parse here).
+    console.log("Checking for updates on the freshly-installed jars...");
+    const found = await checkModrinthUpdates(modsDir, LOADER, VERSION_ID);
+    assert(Array.isArray(found), "checkModrinthUpdates did not return an array");
+    for (const u of found) {
+      assert(typeof u.fileName === "string" && typeof u.newVersion === "string" && typeof u.url === "string", "update entry has an unexpected shape");
+    }
+    console.log(`  update check returned ${found.length} update(s) (0 expected right after installing latest)`);
 
     console.log(
       `SMOKE OK: installed ${result.installedFiles.length} jar(s) [${result.installedFiles.join(", ")}]` +
