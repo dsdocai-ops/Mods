@@ -197,6 +197,24 @@ jobs:
       - run: npm run build:electron
       - run: node scripts/install-smoke.cjs
 
+  # Runs the compiled Modrinth mod-browser client against the real api.modrinth.com / cdn.modrinth.com
+  # (search + a real one-mod install) - the only environment where that network path executes, since
+  # the dev sandbox blocks these hosts. Deliberately its OWN job and NOT in the release gate below:
+  # a Modrinth outage is a third-party flake and must never block shipping the launcher (same
+  # philosophy as mod-jars / launcher-mac / launcher-linux). It still runs on every branch push as a
+  # visible check, so a real shape regression in our code is caught before it merges.
+  modrinth-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:electron
+      - run: node scripts/modrinth-smoke.cjs
+
   # Publishes everything to a rolling "latest-build" GitHub Release - the repo's Releases page
   # shows plain download links, unlike run artifacts which GitHub's mobile app/site often hides.
   #
