@@ -166,21 +166,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
         <span>Enable smooth-PvP GC tuning by default</span>
       </label>
 
-      <h3 className="settings-subheading">Updates</h3>
-      <p className="instance-subtitle">
-        Only applies to <code>OmegaClient-Setup.exe</code> installs - the portable exe can't replace itself in place,
-        so re-download it manually instead. Check for updates manually any time from the About page.
-      </p>
-
-      <label className="field-checkbox">
-        <input
-          type="checkbox"
-          checked={settings.autoUpdateEnabled}
-          onChange={(e) => setSettings({ ...settings, autoUpdateEnabled: e.target.checked })}
-        />
-        <span>Automatically check for updates on startup</span>
-      </label>
-
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={save}>
           Save
