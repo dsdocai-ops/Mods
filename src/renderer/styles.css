@@ -1488,6 +1488,45 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+/* Sign-in gate: inline error + the advanced client-ID override. */
+.sign-in-error {
+  margin: 14px auto 0;
+  max-width: 420px;
+  padding: 10px 14px;
+  background: rgba(230, 57, 70, 0.12);
+  border: 1px solid rgba(230, 57, 70, 0.5);
+  border-radius: 10px;
+  color: #f2b8bd;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.sign-in-advanced-toggle {
+  display: block;
+  margin: 16px auto 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sign-in-advanced-toggle:hover {
+  color: var(--text);
+}
+
+.sign-in-advanced {
+  max-width: 420px;
+  margin: 10px auto 0;
+  text-align: left;
+}
+
+.sign-in-advanced .instance-subtitle {
+  margin-bottom: 8px;
+}
+
 /* Error-boundary fallback - shown instead of a blank white window when a render error escapes. */
 .error-screen {
   align-items: center;
