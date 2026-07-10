@@ -45,6 +45,7 @@ public final class CosmeticCatalog {
             "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null),
             "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null),
             "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE),
+            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE),
             "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS),
             "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT),
             "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT)

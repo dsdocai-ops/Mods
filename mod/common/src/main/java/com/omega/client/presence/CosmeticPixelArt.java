@@ -103,6 +103,32 @@ public final class CosmeticPixelArt {
             bbbbbbbbbbbbbb
             """);
 
+    /** Nightfall cape: crescent moon and scattered stars over black, purple flame gradient rising from a notched hem. 10x16. */
+    public static final PixelArt NIGHTFALL_CAPE = parse("""
+            k=000000
+            m=C9B8F0
+            s=F5F0FF
+            p=4C2D99
+            q=8B3FE8
+            r=C77DFF
+            kkkkkkkkkk
+            kkkkkkkkkk
+            kskkkkkkkk
+            kkkkkkkksk
+            kkkkmmkkkk
+            kkkmmmkkkk
+            kskmmmkkkk
+            kkkkmmkksk
+            kkkkskkkkk
+            kkkpppkkkk
+            kkpppppkkk
+            kkqqqqqqkk
+            kqqqqqqqqk
+            rrrrrrrrrr
+            rrrrrrrrrr
+            .rrrrrrrr.
+            """);
+
     /** Crimson cape: gold trim top and fringed bottom, gold Ω emblem. 10x16. */
     public static final PixelArt CRIMSON_CAPE = parse("""
             c=C62839

@@ -8,6 +8,7 @@ export const KNOWN_COSMETIC_IDS = [
   "gold_badge",
   "azure_badge",
   "crimson_cape",
+  "nightfall_cape",
   "seraph_wings",
   "obsidian_top_hat",
   "navy_captain_hat",
