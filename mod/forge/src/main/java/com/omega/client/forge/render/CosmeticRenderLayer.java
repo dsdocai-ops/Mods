@@ -35,8 +35,7 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
         if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return;
         if (player.isInvisible() || player.isSpectator()) return;
         CosmeticCatalog.Cosmetic cosmetic = CosmeticCatalog.get(OmegaPresence.cosmeticOf(player.getUUID()));
-        if (cosmetic == null) return;
-        List<CosmeticGeometry.Quad> quads = CosmeticGeometry.quadsFor(cosmetic.kind());
+        List<CosmeticGeometry.Quad> quads = CosmeticGeometry.quadsFor(cosmetic);
         if (quads.isEmpty()) return;
 
         poseStack.pushPose();
@@ -45,7 +44,7 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
         Matrix4f pose = poseStack.last().pose();
         VertexConsumer buffer = buffers.getBuffer(RenderType.debugQuads());
         for (CosmeticGeometry.Quad quad : quads) {
-            int rgb = quad.secondary() ? cosmetic.secondaryRgb() : cosmetic.primaryRgb();
+            int rgb = quad.rgb();
             float r = ((rgb >> 16) & 0xFF) / 255f * quad.shade();
             float g = ((rgb >> 8) & 0xFF) / 255f * quad.shade();
             float b = (rgb & 0xFF) / 255f * quad.shade();

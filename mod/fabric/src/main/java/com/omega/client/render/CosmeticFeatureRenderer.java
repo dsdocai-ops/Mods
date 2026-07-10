@@ -19,7 +19,8 @@ import org.joml.Matrix4f;
 
 /**
  * Draws gear cosmetics (hat/cape/wings - see CosmeticCatalog.Kind) on players known to be running
- * Omega Client, from CosmeticGeometry's pre-baked quads. Registered through Fabric API's
+ * Omega Client: each cosmetic's pixel art (CosmeticPixelArt), extruded by CosmeticGeometry into
+ * per-pixel colored quads the way vanilla extrudes item textures. Registered through Fabric API's
  * LivingEntityFeatureRendererRegistrationCallback (see OmegaClient) - a documented API, keeping
  * this consistent with the project's zero-Mixin-unless-impossible rule; the nametag badge kind
  * stays in EntityRendererMixin, which genuinely needed one.
@@ -41,8 +42,7 @@ public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return;
         if (player.isInvisible() || player.isSpectator()) return;
         CosmeticCatalog.Cosmetic cosmetic = CosmeticCatalog.get(OmegaPresence.cosmeticOf(player.getUuid()));
-        if (cosmetic == null) return;
-        List<CosmeticGeometry.Quad> quads = CosmeticGeometry.quadsFor(cosmetic.kind());
+        List<CosmeticGeometry.Quad> quads = CosmeticGeometry.quadsFor(cosmetic);
         if (quads.isEmpty()) return;
 
         matrices.push();
@@ -51,7 +51,7 @@ public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         VertexConsumer buffer = vertexConsumers.getBuffer(RenderLayer.getDebugQuads());
         for (CosmeticGeometry.Quad quad : quads) {
-            int rgb = quad.secondary() ? cosmetic.secondaryRgb() : cosmetic.primaryRgb();
+            int rgb = quad.rgb();
             float r = ((rgb >> 16) & 0xFF) / 255f * quad.shade();
             float g = ((rgb >> 8) & 0xFF) / 255f * quad.shade();
             float b = (rgb & 0xFF) / 255f * quad.shade();

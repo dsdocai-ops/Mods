@@ -1,20 +1,27 @@
 #!/usr/bin/env node
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 //
-// Renders a gear cosmetic (hat/cape/wings) in candidate colors on a blocky stand-in player, from
-// the REAL geometry the mod ships: it javac-compiles GeometryDump.java together with the actual
-// CosmeticCatalog/CosmeticGeometry sources (all zero-Minecraft-imports, so they compile standalone
-// even though the full mod build is CI-only), runs the dump, and paints the resulting quads with a
-// tiny orthographic projector + painter's algorithm. The preview and the in-game shape can't drift,
-// because they're the same vertex data.
+// Renders a gear cosmetic (hat/cape/wings) on a blocky stand-in player, from the REAL pipeline the
+// mod ships: it javac-compiles GeometryDump.java together with the actual CosmeticCatalog/
+// CosmeticGeometry/CosmeticPixelArt sources (all zero-Minecraft-imports, so they compile standalone
+// even though the full mod build is CI-only), runs the dump - production pixel-art parser +
+// production extruder - and paints the resulting quads with a tiny orthographic projector +
+// painter's algorithm. The preview and the in-game shape can't drift, because they're the same
+// vertex data.
 //
 // For BADGE cosmetics use preview-badge.mjs (nametag readability is a different question).
 //
-// Usage: node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --kind hat|cape|wings \
-//          --primary <#RRGGBB|0xRRGGBB> --secondary <#RRGGBB|0xRRGGBB> [--out file.png]
+// Usage:
+//   node preview-cosmetic.mjs --id <cosmetic_id>              # a cosmetic already in the catalog
+//   node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings   # candidate art BEFORE wiring it in
+//   (either form takes [--out file.png])
 //
-// Colors are applied at render time - trying a new palette needs no recompile. Screenshot path is
-// printed (default $SCREENSHOT_DIR/cosmetic-preview-<kind>.png, SCREENSHOT_DIR defaulting to /tmp/shots).
+// The art file uses CosmeticPixelArt's text format (palette lines "c=RRGGBB", then pixel rows,
+// '.' = transparent) - the same text that will be pasted into CosmeticPixelArt.java, parsed by the
+// same parser. A malformed grid fails here, before it ever reaches the mod.
+//
+// Screenshot path is printed (default $SCREENSHOT_DIR/cosmetic-preview-<name>.png, SCREENSHOT_DIR
+// defaulting to /tmp/shots).
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -26,48 +33,49 @@ const skillDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(skillDir, "../../..");
 
 const args = process.argv.slice(2);
-const opts = { kind: "", primary: "", secondary: "", out: "" };
+const opts = { id: "", art: "", kind: "", out: "" };
 for (let i = 0; i < args.length; i++) {
   const key = args[i].replace(/^--/, "");
   if (key in opts) opts[key] = args[++i] ?? "";
 }
 
-function normalize(input) {
-  const m = /^(?:#|0x)?([0-9a-fA-F]{6})$/.exec((input ?? "").trim());
-  return m ? parseInt(m[1], 16) : null;
-}
-
-const kind = opts.kind.toLowerCase();
-if (kind === "badge") {
+if (opts.kind.toLowerCase() === "badge") {
   console.error("Badges have no geometry - preview them with preview-badge.mjs (nametag readability).");
   process.exit(1);
 }
-const primary = normalize(opts.primary);
-const secondary = normalize(opts.secondary ?? opts.primary);
-if (!["hat", "cape", "wings"].includes(kind) || primary === null || secondary === null) {
-  console.error("Usage: node preview-cosmetic.mjs --kind hat|cape|wings --primary #RRGGBB --secondary #RRGGBB [--out file.png]");
+const candidateMode = Boolean(opts.art);
+if (candidateMode ? !["hat", "cape", "wings"].includes(opts.kind.toLowerCase()) : !opts.id) {
+  console.error("Usage: node preview-cosmetic.mjs --id <cosmetic_id> [--out file.png]");
+  console.error("       node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings [--out file.png]");
   process.exit(1);
 }
 
 // Compile the dumper against the REAL mod sources and run it (fast enough to redo every run).
 const classesDir = fs.mkdtempSync(path.join(process.env.TMPDIR || "/tmp", "omega-geom-"));
-let geometry;
+let dump;
 try {
   execFileSync("javac", [
     "-d", classesDir,
     path.join(skillDir, "GeometryDump.java"),
     path.join(repoRoot, "mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java"),
     path.join(repoRoot, "mod/common/src/main/java/com/omega/client/presence/CosmeticGeometry.java"),
+    path.join(repoRoot, "mod/common/src/main/java/com/omega/client/presence/CosmeticPixelArt.java"),
   ], { stdio: ["ignore", "inherit", "inherit"] });
-  geometry = JSON.parse(
-    execFileSync("java", ["-cp", classesDir, "com.omega.client.presence.GeometryDump"], { encoding: "utf-8" })
-  );
+  const javaArgs = ["-cp", classesDir, "com.omega.client.presence.GeometryDump"];
+  if (candidateMode) javaArgs.push(path.resolve(opts.art), opts.kind.toLowerCase());
+  dump = JSON.parse(execFileSync("java", javaArgs, { encoding: "utf-8" }));
 } finally {
   fs.rmSync(classesDir, { recursive: true, force: true });
 }
 
-const gearQuads = geometry[kind];
-const playerQuads = geometry.player;
+const name = candidateMode ? "candidate" : opts.id;
+const entry = dump.cosmetics[name];
+if (!entry) {
+  console.error(`No gear cosmetic "${name}" in the catalog. Available: ${Object.keys(dump.cosmetics).join(", ")}`);
+  process.exit(1);
+}
+const gearQuads = entry.quads;
+const playerQuads = dump.player;
 
 // --- tiny orthographic projector (model space: y down, +z = player's back) ---
 const toHex = (rgb) => "#" + rgb.toString(16).padStart(6, "0").toUpperCase();
@@ -108,8 +116,8 @@ function project(quads, yawDeg, pitchDeg, scale, cx, cy) {
     polys.push({ pts, depth: depth / 4, area, quad });
   }
   // Painter's algorithm, far first (camera sits at +depth). Centroid depth alone misorders nested
-  // near-coplanar detail (a hat band hugging the crown), so bias big faces slightly earlier -
-  // small accents drawn on top of the large surface they sit against.
+  // near-coplanar detail, so bias big faces slightly earlier - small accents drawn on top of the
+  // large surface they sit against.
   polys.sort((a, b) => (a.depth - 0.05 * (a.area / maxArea)) - (b.depth - 0.05 * (b.area / maxArea)));
   return polys;
 }
@@ -121,15 +129,20 @@ function svgView(label, yawDeg, pitchDeg) {
   const polys = project([...playerQuads, ...gearQuads], yawDeg, pitchDeg, scale, W / 2, H / 2 - 20);
   let shapes = "";
   for (const { pts, quad } of polys) {
-    const fill =
-      quad.rgb !== undefined
-        ? shadedCss(quad.rgb, quad.shade)
-        : shadedCss(quad.secondary ? secondary : primary, quad.shade);
+    const fill = shadedCss(quad.rgb, quad.shade);
     const d = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    shapes += `<polygon points="${d}" fill="${fill}" stroke="${fill}" stroke-width="0.6"/>`;
+    shapes += `<polygon points="${d}" fill="${fill}" stroke="${fill}" stroke-width="0.4"/>`;
   }
   return `<figure><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${shapes}</svg><figcaption>${label}</figcaption></figure>`;
 }
+
+// Palette legend from the gear's actual colors, most-used first.
+const colorCounts = new Map();
+for (const quad of gearQuads) colorCounts.set(quad.rgb, (colorCounts.get(quad.rgb) ?? 0) + 1);
+const legend = [...colorCounts.entries()]
+  .sort((a, b) => b[1] - a[1])
+  .map(([rgb]) => `<span class="swatch" style="background:${toHex(rgb)}"></span>${toHex(rgb)}`)
+  .join("");
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   body { margin: 0; background: #1b1b1b; color: #ddd; font-family: monospace; padding: 18px; }
@@ -140,11 +153,8 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   figure { margin: 0; background: linear-gradient(#26262c, #17171a); border: 1px solid #333; }
   figcaption { text-align: center; font-size: 12px; color: #999; padding: 5px 0 7px; text-transform: uppercase; letter-spacing: 1px; }
 </style></head><body>
-  <h1>${kind} preview - real CosmeticGeometry quads</h1>
-  <div class="legend">
-    <span class="swatch" style="background:${toHex(primary)}"></span>primary ${toHex(primary)}
-    <span class="swatch" style="background:${toHex(secondary)}"></span>secondary ${toHex(secondary)}
-  </div>
+  <h1>${name} (${entry.kind}) - real parser + extruder output</h1>
+  <div class="legend">palette:${legend}</div>
   <div class="views">
     ${svgView("back ¾", 30, 12)}
     ${svgView("side", 90, 8)}
@@ -152,7 +162,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   </div>
 </body></html>`;
 
-const outFile = opts.out || path.join(process.env.SCREENSHOT_DIR || "/tmp/shots", `cosmetic-preview-${kind}.png`);
+const outFile = opts.out || path.join(process.env.SCREENSHOT_DIR || "/tmp/shots", `cosmetic-preview-${name}.png`);
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 
 const browser = await chromium.launch();
