@@ -100,7 +100,7 @@ public final class GeometryDump {
     private static CosmeticCatalog.Cosmetic loadCandidate(String artFile, String kindArg) throws Exception {
         String spec = Files.readString(Path.of(artFile));
         CosmeticCatalog.Kind kind = CosmeticCatalog.Kind.valueOf(kindArg.toUpperCase());
-        return new CosmeticCatalog.Cosmetic("candidate", kind, CosmeticCatalog.DEFAULT_BADGE_RGB, CosmeticPixelArt.parse(spec));
+        return new CosmeticCatalog.Cosmetic("candidate", kind, CosmeticCatalog.DEFAULT_BADGE_RGB, CosmeticPixelArt.parse(spec), null);
     }
 
     private static void appendCosmetic(StringBuilder json, CosmeticCatalog.Cosmetic cosmetic, boolean first) {

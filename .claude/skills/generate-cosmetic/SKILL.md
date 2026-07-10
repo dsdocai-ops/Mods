@@ -1,6 +1,6 @@
 ---
 name: generate-cosmetic
-description: Generate a new Omega Client cosmetic - a colored nametag badge, or pixel-art gear (hat, cape, wings) rendered on the player like an extruded Minecraft item texture, with capes/wings animated by a real sway/flap system - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, or to make one animated/swaying/flapping - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap" - including authoring the pixel art, wiring it into the catalog/licensing pipeline, previewing its animation, and minting a license key for it.
+description: Generate a new Omega Client cosmetic - a colored nametag badge, or pixel-art gear (hat, cape, wings) rendered on the player like an extruded Minecraft item texture, with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, or to give one a particle trail/sparkle effect - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail" - including authoring the pixel art, wiring it into the catalog/licensing pipeline, previewing its animation, and minting a license key for it.
 ---
 
 <!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
@@ -27,6 +27,11 @@ renderers, not baked into the geometry. HAT and BADGE are rigid by design
 (nothing should swing loose off someone's head) - see "The animation model"
 below.
 
+**CAPE and WINGS can also opt into a colored particle trail** from their tip
+(the cape's hem, each wingtip) - an *authoring choice* per cosmetic
+(`trailColor`, nullable), not automatic for every CAPE/WINGS. See "The
+particle trail model" below.
+
 All paths below are relative to the repo root (`/home/user/Mods` in this
 container).
 
@@ -45,9 +50,11 @@ cosmetic's pixel art extruded into per-pixel quads - anchored to the head
 `KNOWN_COSMETIC_IDS|COSMETICS` if this list rots):
 
 1. `mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java` -
-   the `COSMETICS` map entry: `new Cosmetic(id, Kind, badgeRgb, art)` where
-   `art` is a `CosmeticPixelArt` constant (null for badges; badgeRgb is only
-   read for badges - pass `DEFAULT_BADGE_RGB` for gear)
+   the `COSMETICS` map entry: `new Cosmetic(id, Kind, badgeRgb, art, trailColor)`
+   where `art` is a `CosmeticPixelArt` constant (null for badges; badgeRgb is
+   only read for badges - pass `DEFAULT_BADGE_RGB` for gear) and `trailColor`
+   is a nullable boxed `Integer` RGB (null = no particle trail; only ever fires
+   for CAPE/WINGS - see "The particle trail model")
 2. `src/shared/cosmetics.ts` - `KNOWN_COSMETIC_IDS` (what `licensing.ts` will
    redeem)
 3. `scripts/generate-license-key.cjs` - its own private `KNOWN_COSMETIC_IDS`
@@ -104,6 +111,42 @@ one motion profile, every WINGS shares another - see the constants at the top
 of `CosmeticAnimation`'s CAPE/WINGS branches). Proportionate to a vanity
 cosmetic, consistent with the flat baked shading `CosmeticGeometry` already
 uses instead of real lighting.
+
+## The particle trail model
+
+`CosmeticGeometry.tipPointsFor(cosmetic)` returns the free tip(s) of a CAPE
+(one: the hem center) or WINGS (two: each wingtip) as `TipPoint`s - the same
+`pivot` a mesh Quad there would carry, at `depth01` 1.0. Both renderers, for
+any cosmetic with a non-null `trailColor`, animate each tip point through
+`CosmeticAnimation.animatePoint(...)` (the exact same rotation `animate()`
+applies to mesh vertices - the trail swings in lockstep with the visible hem/
+wingtip, not a separately-approximated point), convert it to a world position
+via `CosmeticTrail.toWorld(...)` (pure trig - see that class's doc for the
+full derivation and its known approximation: head yaw stands in for body yaw,
+close enough for a decorative effect), roll a chance to skip most frames
+(`CosmeticTrail.shouldEmit`, ~6/sec per tip), and spawn one colored dust
+particle (`DustParticleEffect` on Fabric, `DustParticleOptions` on Forge -
+both take an RGB `Vector3f` + a scale) tinted to `trailColor`.
+
+**This is the least locally-verifiable part of the whole cosmetic pipeline.**
+`CosmeticTrail`'s coordinate math is pure/common and was numerically sanity-
+checked (a standalone script confirmed the tip lands "behind" the wearer at
+all four cardinal yaws, and the derived height roughly matched what the mesh
+previews already showed) - trust that part. The actual particle-spawning
+calls in `CosmeticFeatureRenderer.spawnTrail` / `CosmeticRenderLayer.spawnTrail`
+touch Minecraft particle APIs (`DustParticleEffect`/`DustParticleOptions`,
+`ClientWorld`/`ClientLevel#addParticle`) used nowhere else in this codebase -
+CI-only verified, genuinely lower confidence than the mesh rendering next to
+it (which at least reuses patterns already proven correct by the earlier
+screenshots). Flag this plainly if asked about trail reliability; don't claim
+it's been seen working in-game.
+
+Giving a cosmetic a trail is a **one-line, purely additive change**: set
+`trailColor` on its `COSMETICS` entry (or leave it `null` - not every cosmetic
+needs one; a plain-colored cape might not want a sparkle). No preview support
+for trails exists yet (`preview-cosmetic.mjs` doesn't render particles) -
+that's a known gap, not an oversight; the shape/animation previews still cover
+everything else about the cosmetic.
 
 ## The pixel art format
 
@@ -218,7 +261,9 @@ tolerant of hyphenated ids, but don't create the ambiguity.
 - Gear: paste the art as a `public static final PixelArt <NAME> = parse("""...""")`
   constant in `CosmeticPixelArt.java` (pixelate.mjs prints this block), then
   reference it from the new `COSMETICS` entry in `CosmeticCatalog.java`.
-- Badge: catalog entry with the color as `badgeRgb`, art `null`.
+- Badge: catalog entry with the color as `badgeRgb`, art `null`, trailColor `null`.
+- Optional, CAPE/WINGS only: set `trailColor` to an `0xRRGGBB` int (usually one
+  of the art's own palette colors) to give it a particle trail; `null` for none.
 - Add the id to the other two lists (`cosmetics.ts`, `generate-license-key.cjs`).
 - If the cosmetic set stops matching what `README.md`'s "Paid cosmetics"
   section and `mod/README.md`'s presence-badge feature row describe, update
@@ -228,25 +273,27 @@ tolerant of hyphenated ids, but don't create the ambiguity.
 
 ```bash
 npm run typecheck
-javac -d /tmp/javac-check mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java mod/common/src/main/java/com/omega/client/presence/CosmeticGeometry.java mod/common/src/main/java/com/omega/client/presence/CosmeticPixelArt.java mod/common/src/main/java/com/omega/client/presence/CosmeticAnimation.java
+javac -d /tmp/javac-check mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java mod/common/src/main/java/com/omega/client/presence/CosmeticGeometry.java mod/common/src/main/java/com/omega/client/presence/CosmeticPixelArt.java mod/common/src/main/java/com/omega/client/presence/CosmeticAnimation.java mod/common/src/main/java/com/omega/client/presence/CosmeticTrail.java
 node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id <new_id>   # now from the catalog; look at the PNG
 node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id <new_id> --animate   # CAPE/WINGS only; look at the filmstrip
 npm run build:electron && node .claude/skills/run-omega-client/main-process-smoke.cjs
 node scripts/generate-license-key.cjs <new_id>
 ```
 
-- `javac` standalone works because all four cosmetic classes deliberately
+- `javac` standalone works because all five cosmetic classes deliberately
   have zero Minecraft imports - it also executes `parse()` on every art block
   via the preview step, so a bad grid fails here. The renderers
   (`mod/fabric/.../render/CosmeticFeatureRenderer.java`,
   `mod/forge/.../render/CosmeticRenderLayer.java`) and the full `mod/` Gradle
   build are **CI-only** (Minecraft Maven deps are network-blocked here, see
   `mod/README.md`) - don't claim the render side is verified locally, only
-  that catalog/art/extrusion/animation compile and the preview shows the
-  shape/motion. The `--animate` preview is the closest local check the
-  renderer wiring gets: it runs the exact same `CosmeticAnimation.animate()`
-  call both renderers make, just fed by `GeometryDump` instead of a real
-  `FeatureRenderer`/`RenderLayer` frame.
+  that catalog/art/extrusion/animation/trail-math compile and the preview
+  shows the shape/motion. The `--animate` preview is the closest local check
+  the mesh-animation renderer wiring gets: it runs the exact same
+  `CosmeticAnimation.animate()` call both renderers make, just fed by
+  `GeometryDump` instead of a real `FeatureRenderer`/`RenderLayer` frame. The
+  particle-trail spawn calls have **no equivalent local check** - see "The
+  particle trail model" above.
 - The smoke test exercises the real `licensing.ts` redeem path against
   `KNOWN_COSMETIC_IDS`.
 - The generated key (`<id>-<12 hex chars>`) is the deliverable to hand the
@@ -299,6 +346,26 @@ node scripts/generate-license-key.cjs <new_id>
   `CosmeticAnimation.animate`'s kind switch, (3) confirming the anchor
   ModelPart (head vs body) still makes sense for how it should move. Skipping
   any one leaves it silently rigid.
+- **Setting `trailColor` on a HAT or BADGE does nothing** (silently - no
+  error, no warning). `CosmeticGeometry.tipPointsFor` only returns points for
+  CAPE/WINGS, so the trail loop in both renderers just never runs. Leave it
+  `null` for those kinds - a non-null value there is misleading dead data.
+- **A new trailed cosmetic needing a NEW tip point** (a third kind, or a
+  cosmetic whose "trailing edge" isn't its geometric hem/wingtip) means adding
+  a case to `CosmeticGeometry.tipPointsFor`, mirroring the ORIGIN/U/V it
+  already uses in `build()`'s matching case - keep the two in sync by hand
+  (there's no shared frame object between them; see that method's own doc for
+  why). A tip point that doesn't match its mesh's actual frame will animate
+  correctly in isolation but drift from where the visible hem/wingtip actually
+  is.
+- **Don't extend `CosmeticTrail` to read player velocity, body yaw, or the
+  render MatrixStack/PoseStack** without re-reading its class doc first - it
+  deliberately sticks to `getX/Y/Z()` + head yaw (both loaders' already-passed
+  parameters) specifically to avoid new mapping-divergent API surface. Camera-
+  relative-vs-world-space MatrixStack extraction in particular is a real trap
+  documented there - don't reach for `matrices.peek().getPositionMatrix()` to
+  "get the exact position," it needs a camera-position offset this codebase
+  doesn't otherwise plumb.
 - **pixelate.mjs output is a draft, not a deliverable.** Machine downsampling
   smears diagonals and drops thin details; the difference between "generated"
   and "good" is a few minutes of hand-editing rows. Also mind quad counts:

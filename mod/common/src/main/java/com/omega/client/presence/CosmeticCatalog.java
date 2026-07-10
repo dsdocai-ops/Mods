@@ -32,9 +32,12 @@ public final class CosmeticCatalog {
     /**
      * One catalog entry - plain data so it can cross the common/ boundary. badgeRgb is only read
      * for BADGE kinds (gear keeps the default nametag red); art is null for badges and the pixel
-     * grid for gear.
+     * grid for gear. trailColor is an opt-in per-cosmetic choice (null = no trail, RGB otherwise) -
+     * only CAPE/WINGS ever emit one (see CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to
+     * trail from, so a trailColor there would silently never fire; leave it null for those kinds
+     * rather than setting a color that does nothing).
      */
-    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art) {
+    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art, Integer trailColor) {
     }
 
     /** The badge color every player (Omega or not) effectively has today - the "no cosmetic" case. */
@@ -42,13 +45,13 @@ public final class CosmeticCatalog {
 
     // Map.of caps at 10 entries - switch to Map.ofEntries(Map.entry(...), ...) at the 11th cosmetic.
     private static final Map<String, Cosmetic> COSMETICS = Map.of(
-            "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null),
-            "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null),
-            "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE),
-            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE),
-            "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS),
-            "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT),
-            "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT)
+            "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null, null),
+            "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null, null),
+            "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE, 0xFFD700),
+            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE, 0xC9B8F0),
+            "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS, 0xFFFFFF),
+            "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null),
+            "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null)
     );
 
     private CosmeticCatalog() {

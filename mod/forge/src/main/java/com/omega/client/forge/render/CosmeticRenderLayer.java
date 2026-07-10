@@ -7,8 +7,11 @@ import com.omega.client.ModConfig;
 import com.omega.client.presence.CosmeticAnimation;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.CosmeticGeometry;
+import com.omega.client.presence.CosmeticTrail;
 import com.omega.client.presence.OmegaPresence;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -16,15 +19,20 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.core.particles.DustParticleOptions;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 /**
  * Official-mappings mirror of the Fabric module's CosmeticFeatureRenderer (see that class's doc for
  * the rendering approach - baked-shade debug-quads geometry from CosmeticGeometry, anchored to the
  * head/body model part, animated per-frame by CosmeticAnimation using this method's own
- * ageInTicks/limbSwingAmount parameters). Duplicated by necessity, same as every Screen/Mixin:
- * FeatureRenderer vs RenderLayer and MatrixStack vs PoseStack are mapping-divergent types that
- * can't cross common/. Registered via EntityRenderersEvent.AddLayers in OmegaClientForge.
+ * ageInTicks/limbSwingAmount parameters, plus a particle trail for trailColor cosmetics - see
+ * spawnTrail and the Fabric class's doc for the same lower-confidence-than-the-rest-of-this-file
+ * caveat on the particle API calls specifically). Duplicated by necessity, same as every
+ * Screen/Mixin: FeatureRenderer vs RenderLayer and MatrixStack vs PoseStack are mapping-divergent
+ * types that can't cross common/. Registered via EntityRenderersEvent.AddLayers in
+ * OmegaClientForge.
  */
 public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
     public CosmeticRenderLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
@@ -56,5 +64,24 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
             }
         }
         poseStack.popPose();
+
+        if (cosmetic.trailColor() != null) {
+            spawnTrail(cosmetic, player, ageInTicks, limbSwingAmount, netHeadYaw);
+        }
+    }
+
+    /** See the class doc's note on this method's lower-confidence Minecraft particle API usage. */
+    private void spawnTrail(CosmeticCatalog.Cosmetic cosmetic, AbstractClientPlayer player, float ageTicks, float motion, float yawDegrees) {
+        int rgb = cosmetic.trailColor();
+        float red = ((rgb >> 16) & 0xFF) / 255f;
+        float green = ((rgb >> 8) & 0xFF) / 255f;
+        float blue = (rgb & 0xFF) / 255f;
+        DustParticleOptions effect = new DustParticleOptions(new Vector3f(red, green, blue), 1.0f);
+        for (CosmeticGeometry.TipPoint tip : CosmeticGeometry.tipPointsFor(cosmetic)) {
+            if (!CosmeticTrail.shouldEmit(ThreadLocalRandom.current().nextFloat())) continue;
+            float[] animated = CosmeticAnimation.animatePoint(tip.position(), tip.pivot(), 1f, cosmetic.kind(), ageTicks, motion);
+            float[] world = CosmeticTrail.toWorld(animated, (float) player.getX(), (float) player.getY(), (float) player.getZ(), yawDegrees);
+            Minecraft.getInstance().level.addParticle(effect, world[0], world[1], world[2], 0.0, 0.01, 0.0);
+        }
     }
 }

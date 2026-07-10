@@ -19,6 +19,10 @@ package com.omega.client.presence;
  *   - motion: Fabric's "limbDistance" / Forge's "limbSwingAmount" - vanilla's own limb-swing-amount
  *     parameter, already ~0 standing still and >1 sprinting; clamped to [0,1] here as an "activity"
  *     scalar. Reusing it means zero extra per-frame computation in the renderers.
+ *
+ * animate() sways a whole mesh Quad (its 4 vertices); animatePoint() does the identical rotation for
+ * a single standalone point - what CosmeticTrail uses to swing a particle-trail emission point
+ * (CosmeticGeometry.TipPoint) exactly in step with the mesh's own free edge.
  */
 public final class CosmeticAnimation {
     private CosmeticAnimation() {
@@ -27,9 +31,35 @@ public final class CosmeticAnimation {
     /** Returns quad's positions, swayed/flapped for this frame; the same array (no copy) for a rigid quad (depth01 <= 0) or a BADGE/HAT kind. */
     public static float[] animate(CosmeticGeometry.Quad quad, CosmeticCatalog.Kind kind, float ageTicks, float motion) {
         float depth = quad.depth01();
-        if (depth <= 0f || (kind != CosmeticCatalog.Kind.CAPE && kind != CosmeticCatalog.Kind.WINGS)) {
-            return quad.positions();
+        if (!animates(kind, depth)) return quad.positions();
+
+        float[] p = quad.positions();
+        float[] pivot = quad.pivot();
+        float[] out = new float[12];
+        for (int i = 0; i < 4; i++) {
+            float[] rotated = animatePoint(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], pivot, depth, kind, ageTicks, motion);
+            out[i * 3] = rotated[0];
+            out[i * 3 + 1] = rotated[1];
+            out[i * 3 + 2] = rotated[2];
         }
+        return out;
+    }
+
+    /**
+     * Same sway/flap as animate(), for a single standalone point rather than a mesh Quad - what
+     * particle-trail emission (CosmeticGeometry.TipPoint, always depth01 1.0) uses to swing the trail
+     * origin exactly in step with the mesh's own tip, without needing a synthetic zero-area Quad.
+     */
+    public static float[] animatePoint(float[] position, float[] pivot, float depth01, CosmeticCatalog.Kind kind, float ageTicks, float motion) {
+        if (!animates(kind, depth01)) return position;
+        return animatePoint(position[0], position[1], position[2], pivot, depth01, kind, ageTicks, motion);
+    }
+
+    private static boolean animates(CosmeticCatalog.Kind kind, float depth01) {
+        return depth01 > 0f && (kind == CosmeticCatalog.Kind.CAPE || kind == CosmeticCatalog.Kind.WINGS);
+    }
+
+    private static float[] animatePoint(float x, float y, float z, float[] pivot, float depth, CosmeticCatalog.Kind kind, float ageTicks, float motion) {
         float m = Math.max(0f, Math.min(1f, motion));
 
         float pitchDeg;
@@ -46,17 +76,7 @@ public final class CosmeticAnimation {
             pitchDeg = depth * (10f + m * 18f) * wave(ageTicks, 0.5f + m * 0.35f, 0f);
         }
 
-        float[] p = quad.positions();
-        float[] pivot = quad.pivot();
-        float[] out = new float[12];
-        for (int i = 0; i < 4; i++) {
-            float[] rotated = rotate(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], pivot,
-                    (float) Math.toRadians(pitchDeg), (float) Math.toRadians(rollDeg));
-            out[i * 3] = rotated[0];
-            out[i * 3 + 1] = rotated[1];
-            out[i * 3 + 2] = rotated[2];
-        }
-        return out;
+        return rotate(x, y, z, pivot, (float) Math.toRadians(pitchDeg), (float) Math.toRadians(rollDeg));
     }
 
     private static float wave(float ageTicks, float freq, float phase) {

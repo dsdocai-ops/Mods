@@ -68,10 +68,61 @@ public final class CosmeticGeometry {
     private CosmeticGeometry() {
     }
 
+    /**
+     * A point CosmeticAnimation can sway/flap - the free end of a cosmetic (the cape's hem center, a
+     * wingtip). Position and pivot are already PX-scaled, same unit system as Quad.positions;
+     * depth01 is implicitly 1.0 (a tip is by definition the farthest point from the pivot). Used by
+     * both renderers for particle trails (CosmeticTrail) - not part of the rendered mesh itself.
+     */
+    public record TipPoint(float[] position, float[] pivot) {
+    }
+
     /** Empty for BADGE (badges recolor the nametag via EntityRendererMixin - no geometry) and for null. */
     public static List<Quad> quadsFor(CosmeticCatalog.Cosmetic cosmetic) {
         if (cosmetic == null || cosmetic.art() == null) return List.of();
         return CACHE.computeIfAbsent(cosmetic.id(), id -> List.copyOf(build(cosmetic)));
+    }
+
+    /**
+     * The free tip(s) of a cosmetic - one for CAPE (hem center), two for WINGS (each wingtip), none
+     * for HAT/BADGE (nothing free to trail from). Computed fresh each call (cheap - a couple of
+     * float arrays) from the SAME origin/u/v/pivot literals as build()'s frames; keep the two in
+     * sync if a frame ever changes.
+     */
+    public static List<TipPoint> tipPointsFor(CosmeticCatalog.Cosmetic cosmetic) {
+        if (cosmetic == null || cosmetic.art() == null) return List.of();
+        CosmeticPixelArt.PixelArt art = cosmetic.art();
+        return switch (cosmetic.kind()) {
+            case CAPE -> {
+                float[] origin = { -art.width() / 2f, 0.5f, 2.6f };
+                float[] u = { 1, 0, 0 };
+                float[] v = { 0, 0.966f, 0.259f };
+                float[] pivot = { origin[0] + u[0] * art.width() / 2f, origin[1] + u[1] * art.width() / 2f, origin[2] + u[2] * art.width() / 2f };
+                // Hem center: origin, shifted to the horizontal midline by u*(width/2), then all the
+                // way down the hang by v*height.
+                float[] tip = {
+                        origin[0] + u[0] * art.width() / 2f + v[0] * art.height(),
+                        origin[1] + u[1] * art.width() / 2f + v[1] * art.height(),
+                        origin[2] + u[2] * art.width() / 2f + v[2] * art.height(),
+                };
+                yield List.of(new TipPoint(scaledPoint(tip), scaledPoint(pivot)));
+            }
+            case WINGS -> {
+                // Same shoulder/outer-corner points build()'s WINGS case derives its frame from -
+                // b is already the wingtip (origin + u*width, since u = (b-a)/width).
+                float[] a = { 0.5f, 1.5f, 3.0f };
+                float[] b = { 12f, -4.5f, 7.5f };
+                List<TipPoint> points = new ArrayList<>(2);
+                for (int mirror = 1; mirror >= -1; mirror -= 2) {
+                    float m = mirror;
+                    float[] pivot = { a[0] * m, a[1], a[2] };
+                    float[] tip = { b[0] * m, b[1], b[2] };
+                    points.add(new TipPoint(scaledPoint(tip), scaledPoint(pivot)));
+                }
+                yield points;
+            }
+            default -> List.of();
+        };
     }
 
     private static List<Quad> build(CosmeticCatalog.Cosmetic cosmetic) {
