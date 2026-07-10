@@ -1,13 +1,30 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
-import { COSMETIC_CATALOG, DEFAULT_BADGE_HEX, STRIPE_COSMETIC_PAYMENT_LINK_URL, cosmeticById } from "@shared/cosmetics";
-import { HatGlyph } from "../components/Icons";
+import type { CosmeticType } from "@shared/cosmetics";
+import {
+  COSMETIC_CATALOG,
+  COSMETIC_TYPE_LABELS,
+  DEFAULT_BADGE_HEX,
+  STRIPE_COSMETIC_PAYMENT_LINK_URL,
+  cosmeticById,
+} from "@shared/cosmetics";
+import { CapeGlyph, HatGlyph, WingsGlyph } from "../components/Icons";
 import { toast } from "../toast";
 
+/** Renders the right silhouette for a cosmetic type, tinted to its color. */
+function CosmeticGlyph({ type, color, size }: { type: CosmeticType; color: string; size: number }) {
+  if (type === "cape") return <CapeGlyph size={size} color={color} />;
+  if (type === "wings") return <WingsGlyph size={size} color={color} />;
+  return <HatGlyph size={size} color={color} />;
+}
+
+const TYPE_ORDER: CosmeticType[] = ["hat", "cape", "wings"];
+
 /**
- * The Cosmetics screen (sidebar > Cosmetics). Shows the catalog of Ω badges with a live color
- * preview, which ones you own, and lets you pick which owned one is broadcast in-game (the mod only
- * shows one at a time). Buy opens the Stripe link; redeem validates a license key and unlocks.
+ * The Cosmetics screen (sidebar > Cosmetics). Cosmetics come in three types worn on the player -
+ * hats (head), capes and wings (back) - grouped here with a live color preview and owned/active
+ * state. One is active at a time (the mod broadcasts a single cosmetic id); buy opens the Stripe
+ * link, redeem validates a license key and unlocks.
  */
 export default function Cosmetics() {
   const [owned, setOwned] = useState<string[]>([]);
@@ -46,68 +63,79 @@ export default function Cosmetics() {
     try {
       await window.api.licensing.setActive(cosmeticId);
       setActive(cosmeticId);
-      const name = cosmeticId === "" ? "Default badge" : cosmeticById(cosmeticId)?.name ?? cosmeticId;
+      const name = cosmeticId === "" ? "No cosmetic" : cosmeticById(cosmeticId)?.name ?? cosmeticId;
       toast(`${name} is now active`, "success");
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
   };
 
-  const activeColor = active ? cosmeticById(active)?.colorHex ?? DEFAULT_BADGE_HEX : DEFAULT_BADGE_HEX;
-  const activeName = active ? cosmeticById(active)?.name ?? active : "Default badge";
+  const activeCosmetic = active ? cosmeticById(active) : undefined;
+  const activeColor = activeCosmetic?.colorHex ?? DEFAULT_BADGE_HEX;
 
   return (
     <div className="settings-panel">
       <p className="welcome-kicker">Cosmetics</p>
       <h1 className="page-title">Cosmetics</h1>
       <p className="instance-subtitle">
-        A colored hat worn on your head in-game (with a matching Ω name badge) that other Omega Client players see -
-        needs a server/proxy relaying the presence channel. Buy one, redeem the license key you&rsquo;re given, then
-        choose which owned hat is active.
+        Cosmetics other Omega Client players see on you in-game - hats on your head, capes and wings on your back
+        (needs a server/proxy relaying the presence channel). Buy one, redeem the license key you&rsquo;re given, then
+        pick which to wear. One cosmetic is active at a time.
       </p>
 
       <div className="cosmetic-preview">
         <span className="cosmetic-preview-hat">
-          {active ? <HatGlyph size={38} color={activeColor} /> : <span className="cosmetic-preview-none">&mdash;</span>}
+          {activeCosmetic ? (
+            <CosmeticGlyph type={activeCosmetic.type} color={activeColor} size={38} />
+          ) : (
+            <span className="cosmetic-preview-none">&mdash;</span>
+          )}
         </span>
         <div>
-          <p className="cosmetic-preview-label">Active hat</p>
-          <p className="cosmetic-preview-name">{activeName}</p>
+          <p className="cosmetic-preview-label">Active cosmetic</p>
+          <p className="cosmetic-preview-name">{activeCosmetic?.name ?? "None"}</p>
         </div>
       </div>
 
-      <h3 className="settings-subheading">Hats</h3>
+      {TYPE_ORDER.map((type) => {
+        const items = COSMETIC_CATALOG.filter((c) => c.type === type);
+        if (items.length === 0) return null;
+        return (
+          <div key={type}>
+            <h3 className="settings-subheading">{COSMETIC_TYPE_LABELS[type]}</h3>
+            <div className="cosmetic-grid">
+              {items.map((cosmetic) => {
+                const isOwned = owned.includes(cosmetic.id);
+                const isActive = active === cosmetic.id;
+                return (
+                  <button
+                    key={cosmetic.id}
+                    className={`cosmetic-card ${isActive ? "cosmetic-card-active" : ""} ${isOwned ? "" : "cosmetic-card-locked"}`}
+                    onClick={() =>
+                      isOwned ? choose(cosmetic.id) : window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)
+                    }
+                    title={cosmetic.description}
+                  >
+                    <span className="cosmetic-swatch">
+                      <CosmeticGlyph type={cosmetic.type} color={cosmetic.colorHex} size={30} />
+                    </span>
+                    <span className="cosmetic-name">{cosmetic.name}</span>
+                    <span className="cosmetic-state">{isActive ? "Active" : isOwned ? "Use" : "Buy"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <h3 className="settings-subheading">Worn cosmetic</h3>
       <div className="cosmetic-grid">
-        {/* No hat is always available to switch back to. */}
-        <button
-          className={`cosmetic-card ${active === "" ? "cosmetic-card-active" : ""}`}
-          onClick={() => choose("")}
-        >
+        <button className={`cosmetic-card ${active === "" ? "cosmetic-card-active" : ""}`} onClick={() => choose("")}>
           <span className="cosmetic-swatch cosmetic-swatch-none">&mdash;</span>
-          <span className="cosmetic-name">No hat</span>
+          <span className="cosmetic-name">None</span>
           <span className="cosmetic-state">{active === "" ? "Active" : "Use"}</span>
         </button>
-
-        {COSMETIC_CATALOG.map((cosmetic) => {
-          const isOwned = owned.includes(cosmetic.id);
-          const isActive = active === cosmetic.id;
-          return (
-            <button
-              key={cosmetic.id}
-              className={`cosmetic-card ${isActive ? "cosmetic-card-active" : ""} ${isOwned ? "" : "cosmetic-card-locked"}`}
-              onClick={() =>
-                isOwned ? choose(cosmetic.id) : window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)
-              }
-              title={cosmetic.description}
-            >
-              <span className="cosmetic-swatch">
-                <HatGlyph size={30} color={cosmetic.colorHex} />
-              </span>
-              <span className="cosmetic-name">{cosmetic.name}</span>
-              <span className="cosmetic-state">{isActive ? "Active" : isOwned ? "Use" : "Buy"}</span>
-            </button>
-          );
-        })}
       </div>
 
       <h3 className="settings-subheading">Redeem a license key</h3>
@@ -117,7 +145,7 @@ export default function Cosmetics() {
           <span>License key</span>
           <input
             className="input"
-            placeholder="e.g. gold_badge-a1b2c3d4e5f6"
+            placeholder="e.g. crimson_cape-a1b2c3d4e5f6"
             value={licenseKey}
             onChange={(e) => setLicenseKey(e.target.value)}
             onKeyDown={(e) => {

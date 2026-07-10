@@ -52,6 +52,25 @@ export function HatGlyph({ size = 32, color = "currentColor" }: IconProps & { co
   );
 }
 
+/** A filled cape silhouette tinted to a cosmetic's color - Cosmetics page preview for cape cosmetics. */
+export function CapeGlyph({ size = 32, color = "currentColor" }: IconProps & { color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden>
+      {/* shoulders taper down to a wider hem */}
+      <path d="M8 3.5h8l2.2 16.2c.1.8-.6 1.5-1.4 1.2L12 19.4l-4.8 1.5c-.8.3-1.5-.4-1.4-1.2L8 3.5z" />
+    </svg>
+  );
+}
+
+/** A filled twin-wing silhouette tinted to a cosmetic's color - Cosmetics page preview for wings. */
+export function WingsGlyph({ size = 32, color = "currentColor" }: IconProps & { color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden>
+      <path d="M11.4 5.5v13c-2-2.4-4.6-3.1-7-3.3-.8-.1-1.3-.9-1-1.6 1.2-3 3.9-6.4 8-8.1zM12.6 5.5v13c2-2.4 4.6-3.1 7-3.3.8-.1 1.3-.9 1-1.6-1.2-3-3.9-6.4-8-8.1z" />
+    </svg>
+  );
+}
+
 /** Circular update arrows - the "update available / update all" affordance for installed mods. */
 export function RefreshIcon({ size = 16 }: IconProps) {
   return (

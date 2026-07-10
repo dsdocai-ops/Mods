@@ -1,33 +1,43 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 
-/** A hat silhouette for the launcher preview. The mod renders a colored box hat for all of them today; the shape is UI flavor + room to diverge later. */
-export type CosmeticShape = "top_hat" | "crown" | "cap";
+/** Where a cosmetic is worn. Hats sit on the head; capes and wings mount on the back. */
+export type CosmeticType = "hat" | "cape" | "wings";
+
+export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
+  hat: "Hats",
+  cape: "Capes",
+  wings: "Wings",
+};
 
 /**
- * One purchasable cosmetic - a colored hat worn on the player's head in-game (and, as before, the
- * matching color on the Ω name badge). `colorHex` mirrors CosmeticCatalog.java's BADGE_COLORS.
+ * One purchasable cosmetic worn on the player in-game (plus the matching color on the Ω name badge).
+ * `colorHex` mirrors CosmeticCatalog.java's BADGE_COLORS; `type` mirrors its TYPES map and decides
+ * which renderer draws it (head vs back).
  */
 export interface Cosmetic {
   id: string;
   name: string;
-  /** Hat/badge color as CSS hex - the exact same value CosmeticCatalog.java broadcasts/renders in-game. */
+  /** Color as CSS hex - the exact same value CosmeticCatalog.java broadcasts/renders in-game. */
   colorHex: string;
-  shape: CosmeticShape;
+  type: CosmeticType;
   description: string;
 }
 
 /**
  * The cosmetic catalog, mirrored against mod/common/.../presence/CosmeticCatalog.java (same mirror
- * convention as ModConfig defaults in main/modConfig.ts). The Java side only needs each id's color
- * (it renders a colored hat on the head + the matching Ω badge); name/shape/description here are
- * launcher-UI only. Keep the ids and colors in lockstep with CosmeticCatalog.java's BADGE_COLORS.
+ * convention as ModConfig defaults in main/modConfig.ts). The Java side needs each id's color and
+ * type (color for the badge/cosmetic tint, type to pick head vs back rendering); name/description
+ * here are launcher-UI only. Keep ids, colors, and types in lockstep with CosmeticCatalog.java.
  *
- * Note the ids still end in "_badge" - they're the license-key/config keys baked into
- * CosmeticCatalog.java and the redeem HMAC, so they stay stable even though the cosmetic is now a hat.
+ * The two hat ids still end in "_badge" - they're the license-key/config keys baked into
+ * CosmeticCatalog.java and the redeem HMAC from before cosmetics had types, so they stay stable.
  */
 export const COSMETIC_CATALOG: Cosmetic[] = [
-  { id: "gold_badge", name: "Gold Top Hat", colorHex: "#FFD700", shape: "top_hat", description: "A gold hat worn on your head in-game, plus a gold Ω name badge." },
-  { id: "azure_badge", name: "Azure Crown", colorHex: "#3B9CFF", shape: "crown", description: "An azure hat worn on your head in-game, plus an azure Ω name badge." },
+  { id: "gold_badge", name: "Gold Top Hat", colorHex: "#FFD700", type: "hat", description: "A gold hat worn on your head, plus a gold Ω name badge." },
+  { id: "azure_badge", name: "Azure Crown", colorHex: "#3B9CFF", type: "hat", description: "An azure hat worn on your head, plus an azure Ω name badge." },
+  { id: "crimson_cape", name: "Crimson Cape", colorHex: "#E63946", type: "cape", description: "A crimson cape flowing from your shoulders." },
+  { id: "emerald_cape", name: "Emerald Cape", colorHex: "#2FBF71", type: "cape", description: "An emerald cape flowing from your shoulders." },
+  { id: "phantom_wings", name: "Phantom Wings", colorHex: "#B48CFF", type: "wings", description: "Ethereal wings on your back." },
 ];
 
 /** The badge/hat color a player with no cosmetic shows - mirrors CosmeticCatalog.DEFAULT_BADGE_RGB (0xE63946). */

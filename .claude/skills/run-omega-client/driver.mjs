@@ -56,9 +56,12 @@ const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 
 // ipcMain.handle(...) calls before changing any shape here.
 function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
-  // Cosmetics demo state: owns the gold badge, active by default.
-  window.__owned = ['gold_badge'];
+  // Cosmetics demo state: owns a hat + a cape so the grouped grid shows owned/active/locked across
+  // types; wings + the azure hat stay locked ("Buy") until "redeemed".
+  window.__owned = ['gold_badge', 'crimson_cape'];
   window.__active = 'gold_badge';
+  // Catalog ids the mock redeem will accept (mirrors shared/cosmetics.ts).
+  window.__catalogIds = ['gold_badge', 'azure_badge', 'crimson_cape', 'emerald_cape', 'phantom_wings'];
   // A couple of extra instances so the Play screen's instance grid has something to show beyond
   // the single MOCK_INSTANCE (which the rest of the app keys off).
   const EXTRA_INSTANCES = [
@@ -164,10 +167,12 @@ function installMockApi() {
       // states and the picker is exercisable offline. azure stays locked ("Buy") until "redeemed".
       redeem: async (key) => {
         window.__calls.write.push({ licensingRedeem: key });
-        if (typeof key === 'string' && key.startsWith('azure_badge-')) {
-          if (!window.__owned.includes('azure_badge')) window.__owned.push('azure_badge');
-          window.__active = 'azure_badge';
-          return { ok: true, cosmeticId: 'azure_badge', message: 'Unlocked: azure_badge' };
+        // A key shaped "<catalogId>-<suffix>" unlocks that cosmetic (mirrors licensing.ts's format).
+        const id = typeof key === 'string' ? window.__catalogIds.find((c) => key.startsWith(c + '-')) : null;
+        if (id) {
+          if (!window.__owned.includes(id)) window.__owned.push(id);
+          window.__active = id;
+          return { ok: true, cosmeticId: id, message: 'Unlocked: ' + id };
         }
         return { ok: false, message: "That license key isn't valid." };
       },
