@@ -4,6 +4,7 @@ package com.omega.client.forge.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.omega.client.ModConfig;
+import com.omega.client.presence.CosmeticAnimation;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.CosmeticGeometry;
 import com.omega.client.presence.OmegaPresence;
@@ -20,9 +21,10 @@ import org.joml.Matrix4f;
 /**
  * Official-mappings mirror of the Fabric module's CosmeticFeatureRenderer (see that class's doc for
  * the rendering approach - baked-shade debug-quads geometry from CosmeticGeometry, anchored to the
- * head/body model part). Duplicated by necessity, same as every Screen/Mixin: FeatureRenderer vs
- * RenderLayer and MatrixStack vs PoseStack are mapping-divergent types that can't cross common/.
- * Registered via EntityRenderersEvent.AddLayers in OmegaClientForge.
+ * head/body model part, animated per-frame by CosmeticAnimation using this method's own
+ * ageInTicks/limbSwingAmount parameters). Duplicated by necessity, same as every Screen/Mixin:
+ * FeatureRenderer vs RenderLayer and MatrixStack vs PoseStack are mapping-divergent types that
+ * can't cross common/. Registered via EntityRenderersEvent.AddLayers in OmegaClientForge.
  */
 public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
     public CosmeticRenderLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
@@ -48,7 +50,7 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
             float r = ((rgb >> 16) & 0xFF) / 255f * quad.shade();
             float g = ((rgb >> 8) & 0xFF) / 255f * quad.shade();
             float b = (rgb & 0xFF) / 255f * quad.shade();
-            float[] p = quad.positions();
+            float[] p = CosmeticAnimation.animate(quad, cosmetic.kind(), ageInTicks, limbSwingAmount);
             for (int v = 0; v < 4; v++) {
                 buffer.vertex(pose, p[v * 3], p[v * 3 + 1], p[v * 3 + 2]).color(r, g, b, 1f).endVertex();
             }

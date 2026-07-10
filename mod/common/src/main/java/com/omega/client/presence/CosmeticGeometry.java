@@ -23,13 +23,19 @@ import java.util.concurrent.ConcurrentHashMap;
  *   - +z is the player's BACK (vanilla hangs its own cape at +z)
  *
  * Each kind defines a FRAME the art is stretched into - an origin (art's top-left), a u axis (one
- * pixel step rightward in the art), a v axis (one pixel step downward), and an extrusion depth:
+ * pixel step rightward in the art), a v axis (one pixel step downward), an extrusion depth, a
+ * PIVOT (the point CosmeticAnimation hinges around), and a DepthFn mapping each grid cell to a
+ * depth01 (0 = rigid at the pivot, 1 = free-swinging tip - see Quad below):
  *   - HAT: a front-facing vertical plane whose bottom rests just above the hat-overlay layer
  *     (overlay top is y -8.5), extruded through the full head depth (z -4.5..+4.5), anchored to
- *     the head part - so the art is the hat's front/back silhouette
- *   - CAPE: a plane hung from the shoulders, tilted ~15° back, 0.6px thin, anchored to the body
+ *     the head part - so the art is the hat's front/back silhouette. Rigid (depth01 always 0):
+ *     nothing about a hat should swing loose.
+ *   - CAPE: a plane hung from the shoulders, tilted ~15° back, 0.6px thin, anchored to the body.
+ *     Pivot is the collar midpoint; depth01 grows down each art row, so the hem sways freely while
+ *     the collar stays put.
  *   - WINGS: a swept-back parallelogram per wing (art = right wing, x-mirrored for the left),
- *     0.6px thin, anchored to the body
+ *     0.6px thin, anchored to the body. Pivot is the shoulder attachment; depth01 grows out each
+ *     art column, so the wingtip flaps while the shoulder hinge stays put.
  *
  * Lighting is baked into each quad's shade (position-color rendering has no normals/light), using
  * vanilla's flat directional feel: up-facing 1.0, sides 0.65, down-facing 0.5. Faces are emitted
@@ -38,13 +44,26 @@ import java.util.concurrent.ConcurrentHashMap;
  * a wrong guess that culls a cosmetic invisible.
  */
 public final class CosmeticGeometry {
-    /** One quad: 4 vertices * xyz in model units, its palette color, and the baked lighting multiplier. */
-    public record Quad(float[] positions, int rgb, float shade) {
+    /**
+     * One quad: 4 vertices * xyz in model units, its palette color, and the baked lighting
+     * multiplier - plus what CosmeticAnimation needs to sway/flap it at render time: pivot (the
+     * point this quad hinges around, in the same model units as positions) and depth01 (0 = rigid
+     * at the pivot, 1 = free tip). Animation is never baked in here: quadsFor()'s result is cached
+     * and shared by every wearer, but sway/flap is time-varying and per-player, so it has to be
+     * applied fresh each frame by the renderer (see CosmeticAnimation.animate).
+     */
+    public record Quad(float[] positions, int rgb, float shade, float[] pivot, float depth01) {
     }
 
     private static final float PX = 1f / 16f;
 
     private static final Map<String, List<Quad>> CACHE = new ConcurrentHashMap<>();
+
+    /** Maps a grid cell to a depth01 (0 = rigid at the pivot, 1 = free tip) - see the class doc's per-kind description. */
+    @FunctionalInterface
+    private interface DepthFn {
+        float depth(int x, int y);
+    }
 
     private CosmeticGeometry() {
     }
@@ -63,26 +82,35 @@ public final class CosmeticGeometry {
                     new float[]{-art.width() / 2f, -8.6f - art.height(), -4.5f},
                     new float[]{1, 0, 0},
                     new float[]{0, 1, 0},
-                    9f);
-            case CAPE -> extrude(out, art,
-                    new float[]{-art.width() / 2f, 0.5f, 2.6f},
-                    new float[]{1, 0, 0},
-                    new float[]{0, 0.966f, 0.259f}, // one pixel down the cape's 15°-tilted hang
-                    0.6f);
+                    9f,
+                    new float[]{0, 0, 0},
+                    (x, y) -> 0f);
+            case CAPE -> {
+                float[] origin = { -art.width() / 2f, 0.5f, 2.6f };
+                float[] u = { 1, 0, 0 };
+                float[] v = { 0, 0.966f, 0.259f }; // one pixel down the cape's 15°-tilted hang
+                float[] pivot = { origin[0] + u[0] * art.width() / 2f, origin[1] + u[1] * art.width() / 2f, origin[2] + u[2] * art.width() / 2f };
+                extrude(out, art, origin, u, v, 0.6f, pivot,
+                        (x, y) -> art.height() <= 1 ? 0f : y / (float) (art.height() - 1));
+            }
             case WINGS -> {
                 // Art is the right wing on a swept-back parallelogram; silhouette comes from the
                 // art's transparency. Mirroring x for the left wing flips winding, which the
-                // double-sided emission already absorbs.
+                // double-sided emission already absorbs. Pivot is the shoulder attachment (a),
+                // shared by both mirrored copies (mirroring x doesn't move a point already at x=0.5
+                // - close enough to the spine to treat as symmetric).
                 float[] a = { 0.5f, 1.5f, 3.0f };   // inner top (at the shoulder blades)
                 float[] b = { 12f, -4.5f, 7.5f };   // outer top (up, out, and back)
                 float[] d = { 0.5f, 11f, 3.6f };    // inner bottom
+                DepthFn wingDepth = (x, y) -> art.width() <= 1 ? 0f : x / (float) (art.width() - 1);
                 for (int mirror = 1; mirror >= -1; mirror -= 2) {
                     float m = mirror;
+                    float[] pivot = { a[0] * m, a[1], a[2] };
                     extrude(out, art,
-                            new float[]{a[0] * m, a[1], a[2]},
+                            pivot,
                             new float[]{(b[0] - a[0]) * m / art.width(), (b[1] - a[1]) / art.width(), (b[2] - a[2]) / art.width()},
                             new float[]{(d[0] - a[0]) * m / art.height(), (d[1] - a[1]) / art.height(), (d[2] - a[2]) / art.height()},
-                            0.6f);
+                            0.6f, pivot, wingDepth);
                 }
             }
             default -> { }
@@ -95,10 +123,16 @@ public final class CosmeticGeometry {
      * model pixels: front and back faces for every opaque pixel (merged along same-color runs), and
      * edge faces only where the neighboring pixel is transparent or out of bounds. Two adjacent
      * different-colored pixels get NO face between them - that face would be interior, and its two
-     * copies would be coplanar.
+     * copies would be coplanar. Every emitted face is tagged with pivotPx (forwarded as-is; it's a
+     * point, unaffected by this method) and a depth01 sampled from depthFn at the face's grid
+     * position - for merged runs longer than one pixel, at the run's midpoint (exact for a DepthFn
+     * that only varies along the merge axis - CAPE's row-based fn under the row-merged front/back
+     * loop, WINGS's column-based fn under the column-merged left/right loop; an approximation
+     * elsewhere, acceptable since this only feeds a stylized sway, not exact geometry).
      */
     private static void extrude(List<Quad> out, CosmeticPixelArt.PixelArt art,
-                                float[] origin, float[] u, float[] v, float depthPx) {
+                                float[] origin, float[] u, float[] v, float depthPx,
+                                float[] pivotPx, DepthFn depthFn) {
         // Extrusion vector: unit normal of the art plane scaled to depthPx.
         float nx = u[1] * v[2] - u[2] * v[1];
         float ny = u[2] * v[0] - u[0] * v[2];
@@ -117,12 +151,13 @@ public final class CosmeticGeometry {
                 }
                 int end = x + 1;
                 while (end < art.width() && art.pixelAt(end, y) == rgb) end++;
+                float depth01 = depthFn.depth((x + end - 1) / 2, y);
                 float[] p00 = at(origin, u, v, x, y);
                 float[] p10 = at(origin, u, v, end, y);
                 float[] p11 = at(origin, u, v, end, y + 1);
                 float[] p01 = at(origin, u, v, x, y + 1);
-                face(out, rgb, p00, p10, p11, p01);
-                face(out, rgb, add(p01, n), add(p11, n), add(p10, n), add(p00, n));
+                face(out, rgb, depth01, pivotPx, p00, p10, p11, p01);
+                face(out, rgb, depth01, pivotPx, add(p01, n), add(p11, n), add(p10, n), add(p00, n));
                 x = end;
             }
         }
@@ -144,15 +179,16 @@ public final class CosmeticGeometry {
                         && ((above >= 0 && art.pixelAt(end, y) < 0) || (above < 0 && art.pixelAt(end, y) == below))) {
                     end++;
                 }
+                float depth01 = depthFn.depth((x + end - 1) / 2, y);
                 float[] e0 = at(origin, u, v, x, y);
                 float[] e1 = at(origin, u, v, end, y);
                 // Orient toward the open (transparent) side so the baked shade lights a hat's top
                 // edges as up-facing and its underside as down-facing; geometry itself is
                 // double-sided either way.
                 if (above < 0) {
-                    face(out, owner, e0, e1, add(e1, n), add(e0, n));
+                    face(out, owner, depth01, pivotPx, e0, e1, add(e1, n), add(e0, n));
                 } else {
-                    face(out, owner, e1, e0, add(e0, n), add(e1, n));
+                    face(out, owner, depth01, pivotPx, e1, e0, add(e0, n), add(e1, n));
                 }
                 x = end;
             }
@@ -175,12 +211,13 @@ public final class CosmeticGeometry {
                         && ((left >= 0 && art.pixelAt(x, end) < 0) || (left < 0 && art.pixelAt(x, end) == right))) {
                     end++;
                 }
+                float depth01 = depthFn.depth(x, (y + end - 1) / 2);
                 float[] e0 = at(origin, u, v, x, y);
                 float[] e1 = at(origin, u, v, x, end);
                 if (left < 0) {
-                    face(out, owner, e0, e1, add(e1, n), add(e0, n));
+                    face(out, owner, depth01, pivotPx, e0, e1, add(e1, n), add(e0, n));
                 } else {
-                    face(out, owner, e1, e0, add(e0, n), add(e1, n));
+                    face(out, owner, depth01, pivotPx, e1, e0, add(e0, n), add(e1, n));
                 }
                 y = end;
             }
@@ -203,7 +240,7 @@ public final class CosmeticGeometry {
      * Axis-aligned colored box in model pixels, emitted through the same face pipeline. Not used by
      * the cosmetics themselves (they're all pixel extrusions) - package-private for the
      * generate-cosmetic skill's GeometryDump, whose stand-in player figure should shade exactly
-     * like in-game geometry.
+     * like in-game geometry. Rigid (depth01 0, pivot unused) - the stand-in body never animates.
      */
     static void box(List<Quad> out, int rgb, float x1, float y1, float z1, float x2, float y2, float z2) {
         float[] p000 = { x1, y1, z1 };
@@ -214,19 +251,21 @@ public final class CosmeticGeometry {
         float[] p101 = { x2, y1, z2 };
         float[] p011 = { x1, y2, z2 };
         float[] p111 = { x2, y2, z2 };
-        face(out, rgb, p000, p100, p110, p010); // front (z1)
-        face(out, rgb, p101, p001, p011, p111); // back (z2)
-        face(out, rgb, p000, p001, p101, p100); // top (y1 - up in y-down space)
-        face(out, rgb, p010, p110, p111, p011); // bottom
-        face(out, rgb, p000, p010, p011, p001); // left
-        face(out, rgb, p100, p101, p111, p110); // right
+        float[] noPivot = { 0, 0, 0 };
+        face(out, rgb, 0f, noPivot, p000, p100, p110, p010); // front (z1)
+        face(out, rgb, 0f, noPivot, p101, p001, p011, p111); // back (z2)
+        face(out, rgb, 0f, noPivot, p000, p001, p101, p100); // top (y1 - up in y-down space)
+        face(out, rgb, 0f, noPivot, p010, p110, p111, p011); // bottom
+        face(out, rgb, 0f, noPivot, p000, p010, p011, p001); // left
+        face(out, rgb, 0f, noPivot, p100, p101, p111, p110); // right
     }
 
     /** Emits one face as two quads (both windings - see class doc) with its baked directional shade. */
-    private static void face(List<Quad> out, int rgb, float[] a, float[] b, float[] c, float[] d) {
+    private static void face(List<Quad> out, int rgb, float depth01, float[] pivotPx, float[] a, float[] b, float[] c, float[] d) {
         float shade = shadeOf(a, b, c, d);
-        out.add(new Quad(scaled(a, b, c, d), rgb, shade));
-        out.add(new Quad(scaled(d, c, b, a), rgb, shade));
+        float[] pivot = scaledPoint(pivotPx);
+        out.add(new Quad(scaled(a, b, c, d), rgb, shade, pivot, depth01));
+        out.add(new Quad(scaled(d, c, b, a), rgb, shade, pivot, depth01));
     }
 
     private static float[] scaled(float[] a, float[] b, float[] c, float[] d) {
@@ -238,6 +277,10 @@ public final class CosmeticGeometry {
             positions[i * 3 + 2] = v[i][2] * PX;
         }
         return positions;
+    }
+
+    private static float[] scaledPoint(float[] p) {
+        return new float[]{ p[0] * PX, p[1] * PX, p[2] * PX };
     }
 
     /** Vanilla-flavored flat shade from the face normal: up-facing 1.0, vertical sides 0.65, down-facing 0.5 (y-down space, so "up" is -y). */

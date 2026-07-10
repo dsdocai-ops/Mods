@@ -2,6 +2,7 @@
 package com.omega.client.render;
 
 import com.omega.client.ModConfig;
+import com.omega.client.presence.CosmeticAnimation;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.CosmeticGeometry;
 import com.omega.client.presence.OmegaPresence;
@@ -28,8 +29,9 @@ import org.joml.Matrix4f;
  * Rendering uses RenderLayer.getDebugQuads() (position+color, depth-tested): no texture, no
  * lighting - shade is baked into each quad by CosmeticGeometry, so cosmetics read the same in a
  * cave as in daylight (an accepted, fullbright-adjacent aesthetic for v1, not a bug). Anchoring to
- * the head/body ModelPart means sneaking, swimming, and head-turn poses carry the gear along;
- * there's no flap/sway animation of its own yet.
+ * the head/body ModelPart means sneaking, swimming, and head-turn poses carry the gear along.
+ * CAPE/WINGS quads also get a per-frame sway/flap from CosmeticAnimation, driven by this method's
+ * own animationProgress/limbDistance parameters - see that class's doc.
  */
 public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> {
     public CosmeticFeatureRenderer(FeatureRendererContext<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> context) {
@@ -55,7 +57,7 @@ public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
             float r = ((rgb >> 16) & 0xFF) / 255f * quad.shade();
             float g = ((rgb >> 8) & 0xFF) / 255f * quad.shade();
             float b = (rgb & 0xFF) / 255f * quad.shade();
-            float[] p = quad.positions();
+            float[] p = CosmeticAnimation.animate(quad, cosmetic.kind(), animationProgress, limbDistance);
             for (int v = 0; v < 4; v++) {
                 buffer.vertex(matrix, p[v * 3], p[v * 3 + 1], p[v * 3 + 2]).color(r, g, b, 1f).next();
             }
