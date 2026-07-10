@@ -1488,6 +1488,35 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+/* Error-boundary fallback - shown instead of a blank white window when a render error escapes. */
+.error-screen {
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.error-box {
+  max-width: 760px;
+  width: 100%;
+}
+
+.error-box h1 {
+  margin: 0 0 8px 0;
+}
+
+.error-detail {
+  margin: 14px 0;
+  padding: 14px 16px;
+  max-height: 50vh;
+  overflow: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font: 12px/1.5 monospace;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
 /* Explanatory note replacing a former control (e.g. the moved-in-game smooth-PvP toggle). */
 .field-note {
   margin: 4px 0 12px 0;

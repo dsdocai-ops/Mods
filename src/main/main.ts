@@ -63,6 +63,21 @@ function createWindow(): BrowserWindow {
     win.loadFile(path.join(app.getAppPath(), "dist-renderer", "index.html"));
   }
 
+  // Last-resort diagnostics: if the renderer hard-crashes (not a React error the on-screen boundary
+  // can catch) or the preload fails, there's otherwise no trace at all in a packaged build. Append
+  // these to a log file in userData so a blank/crashed window is still diagnosable.
+  const logRendererIssue = (label: string, detail: string) => {
+    try {
+      const logPath = path.join(app.getPath("userData"), "renderer-error.log");
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${label}: ${detail}\n`);
+      console.error(`[renderer] ${label}: ${detail}`);
+    } catch {
+      // Logging the failure must never itself crash the app.
+    }
+  };
+  win.webContents.on("render-process-gone", (_e, details) => logRendererIssue("render-process-gone", `${details.reason} (exitCode ${details.exitCode})`));
+  win.webContents.on("preload-error", (_e, preloadPath, error) => logRendererIssue("preload-error", `${preloadPath}: ${error.message}`));
+
   return win;
 }
 

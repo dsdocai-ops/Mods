@@ -51,9 +51,18 @@ export default function App() {
   useEffect(() => window.api.updates.onReady(setUpdateVersion), []);
 
   const refreshAccounts = useCallback(async () => {
-    const list = await window.api.accounts.list();
-    setAccounts(list);
-    return list;
+    try {
+      const list = await window.api.accounts.list();
+      setAccounts(list);
+      return list;
+    } catch (err) {
+      // Never leave `accounts` stuck at null - that renders the blank app-shell "loading" screen
+      // forever. Fall back to the sign-in gate (an empty list) so the app stays usable and the user
+      // can retry, and surface why.
+      toast(`Couldn't load your accounts: ${err instanceof Error ? err.message : String(err)}`, "error");
+      setAccounts([]);
+      return [];
+    }
   }, []);
 
   useEffect(() => {

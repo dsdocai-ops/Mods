@@ -60,8 +60,28 @@ function formatUuid(raw: string): string {
   return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`;
 }
 
+/**
+ * Per-request cap for every call in the sign-in chain. Plain fetch() has no default timeout, so a
+ * stalled Microsoft/Xbox/Minecraft endpoint (or a half-open connection on flaky WiFi) would hang the
+ * whole sign-in forever - the UI just sits on "Signing in..." with no way out, and since the account
+ * is only stored once the chain finishes, that also looks like "it never stays logged in". Bounding
+ * each request turns an indefinite hang into a clear, retryable error instead.
+ */
+const AUTH_TIMEOUT_MS = 30_000;
+
+async function authFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("Sign-in timed out waiting for Microsoft/Xbox - check your connection and try again.");
+    }
+    throw err;
+  }
+}
+
 async function postForm(url: string, params: Record<string, string>): Promise<any> {
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString(),
@@ -74,7 +94,7 @@ async function postForm(url: string, params: Record<string, string>): Promise<an
 }
 
 async function postJson(url: string, body: unknown): Promise<any> {
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
@@ -215,7 +235,7 @@ async function loginWithXbox(userHash: string, xstsToken: string): Promise<{ acc
 }
 
 async function fetchProfile(mcAccessToken: string): Promise<{ id: string; name: string }> {
-  const response = await fetch("https://api.minecraftservices.com/minecraft/profile", {
+  const response = await authFetch("https://api.minecraftservices.com/minecraft/profile", {
     headers: { Authorization: `Bearer ${mcAccessToken}` },
   });
   const json: any = await response.json().catch(() => ({}));
