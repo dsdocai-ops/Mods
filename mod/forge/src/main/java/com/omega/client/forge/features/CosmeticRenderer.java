@@ -4,7 +4,7 @@ package com.omega.client.forge.features;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.omega.client.ModConfig;
-import com.omega.client.forge.render.WireBoxRenderer;
+import com.omega.client.forge.render.SolidBoxRenderer;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.OmegaPresence;
 import net.minecraft.client.Minecraft;
@@ -17,8 +17,8 @@ import net.minecraft.world.phys.Vec3;
  * Forge-side twin of the Fabric CosmeticRenderer: hats on the head, capes and wings on the back, for
  * every Omega Client player wearing a cosmetic (type from CosmeticCatalog.typeOf, color from
  * colorFor). Same showOmegaUsersEnabled gate, same "reuse only proven render paths" approach (the
- * wire-box primitive + the AFTER_TRANSLUCENT_BLOCKS RenderLevelStageEvent dispatch). Same v1 caveats
- * as the Fabric twin: wireframe, axis-aligned, back cosmetics need on-client tuning. Official-mappings
+ * wire-box primitive + the AFTER_TRANSLUCENT_BLOCKS RenderLevelStageEvent dispatch). Solid colored boxes (SolidBoxRenderer / debugFilledBox). Same v1 caveats
+ * as the Fabric twin: axis-aligned, back cosmetics need on-client tuning. Official-mappings
  * renames (xo/yo/zo, yBodyRot, isCrouching, getUUID, RenderType.lines()) match the forge WireBoxRenderer.
  */
 public final class CosmeticRenderer {
@@ -29,7 +29,7 @@ public final class CosmeticRenderer {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null) return;
 
-        VertexConsumer buffer = consumers.getBuffer(RenderType.lines());
+        VertexConsumer buffer = consumers.getBuffer(RenderType.debugFilledBox());
         matrices.pushPose();
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
 
@@ -57,8 +57,8 @@ public final class CosmeticRenderer {
 
     private static void drawHat(PoseStack m, VertexConsumer buf, double px, double py, double pz, float[] c) {
         double baseY = py + HAT_BASE_Y;
-        WireBoxRenderer.drawBox(m, buf, px - 0.32, baseY, pz - 0.32, px + 0.32, baseY + 0.04, pz + 0.32, c[0], c[1], c[2], 1f);
-        WireBoxRenderer.drawBox(m, buf, px - 0.20, baseY + 0.04, pz - 0.20, px + 0.20, baseY + 0.32, pz + 0.20, c[0], c[1], c[2], 1f);
+        SolidBoxRenderer.drawBox(m, buf, px - 0.32, baseY, pz - 0.32, px + 0.32, baseY + 0.04, pz + 0.32, c[0], c[1], c[2], 1f);
+        SolidBoxRenderer.drawBox(m, buf, px - 0.20, baseY + 0.04, pz - 0.20, px + 0.20, baseY + 0.32, pz + 0.20, c[0], c[1], c[2], 1f);
     }
 
     private static void drawBack(PoseStack m, VertexConsumer buf, double px, double py, double pz, float bodyYaw, float[] c, boolean wings) {
@@ -66,10 +66,10 @@ public final class CosmeticRenderer {
         double cx = px + Math.sin(yawRad) * 0.22;
         double cz = pz - Math.cos(yawRad) * 0.22;
         if (wings) {
-            WireBoxRenderer.drawBox(m, buf, cx - 0.55, py + 1.00, cz - 0.04, cx - 0.05, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
-            WireBoxRenderer.drawBox(m, buf, cx + 0.05, py + 1.00, cz - 0.04, cx + 0.55, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
+            SolidBoxRenderer.drawBox(m, buf, cx - 0.55, py + 1.00, cz - 0.04, cx - 0.05, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
+            SolidBoxRenderer.drawBox(m, buf, cx + 0.05, py + 1.00, cz - 0.04, cx + 0.55, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
         } else {
-            WireBoxRenderer.drawBox(m, buf, cx - 0.28, py + 0.35, cz - 0.04, cx + 0.28, py + 1.45, cz + 0.04, c[0], c[1], c[2], 1f);
+            SolidBoxRenderer.drawBox(m, buf, cx - 0.28, py + 0.35, cz - 0.04, cx + 0.28, py + 1.45, cz + 0.04, c[0], c[1], c[2], 1f);
         }
     }
 }
