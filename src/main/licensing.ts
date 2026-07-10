@@ -4,16 +4,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { app } from "electron";
 import type { RedeemLicenseResult } from "../shared/types";
-import { KNOWN_COSMETIC_IDS } from "../shared/cosmetics";
+import type { ActiveSlots, CosmeticType } from "../shared/cosmetics";
+import { EMPTY_ACTIVE_SLOTS, KNOWN_COSMETIC_IDS, cosmeticById } from "../shared/cosmetics";
 import { ensureOmegaConfig, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { listInstances } from "./instances";
+
+const EMPTY_SLOTS = EMPTY_ACTIVE_SLOTS;
 
 const LICENSES_FILE = "licenses.json";
 
 interface StoredLicenses {
   ownedCosmetics: string[];
-  /** Which owned cosmetic is currently broadcast in-game ("" = none/default). The mod only broadcasts one at a time (ModConfig.ownedCosmeticId is a single string), so this is the chosen one. */
-  activeCosmetic: string;
+  /** The active cosmetic per slot - a player can wear one hat + one cape + one wings at once. */
+  activeSlots: ActiveSlots;
 }
 
 // Plain JSON, not encrypted like accountStore.ts's tokens - there's no secret here to protect
@@ -24,18 +27,26 @@ function licensesFilePath(): string {
   return path.join(app.getPath("userData"), LICENSES_FILE);
 }
 
+function slotOf(cosmeticId: string): CosmeticType | undefined {
+  return cosmeticById(cosmeticId)?.type;
+}
+
 function readLicenses(): StoredLicenses {
   const file = licensesFilePath();
-  if (!fs.existsSync(file)) return { ownedCosmetics: [], activeCosmetic: "" };
+  if (!fs.existsSync(file)) return { ownedCosmetics: [], activeSlots: { ...EMPTY_SLOTS } };
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as Partial<StoredLicenses>;
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as Partial<StoredLicenses> & { activeCosmetic?: string };
     const ownedCosmetics = Array.isArray(parsed?.ownedCosmetics) ? parsed.ownedCosmetics : [];
-    // activeCosmetic is optional in older files; default to whichever cosmetic was owned last (the
-    // previous single-string behaviour) so an upgrade doesn't blank someone's badge.
-    const activeCosmetic = typeof parsed?.activeCosmetic === "string" ? parsed.activeCosmetic : ownedCosmetics[ownedCosmetics.length - 1] ?? "";
-    return { ownedCosmetics, activeCosmetic };
+    const slots: ActiveSlots = { ...EMPTY_SLOTS, ...(parsed?.activeSlots ?? {}) };
+    // Migrate a file from before cosmetics had slots: its single activeCosmetic drops into the slot
+    // its type maps to, so an upgrade doesn't blank someone's cosmetic.
+    if (!parsed?.activeSlots && typeof parsed?.activeCosmetic === "string" && parsed.activeCosmetic) {
+      const type = slotOf(parsed.activeCosmetic);
+      if (type) slots[type] = parsed.activeCosmetic;
+    }
+    return { ownedCosmetics, activeSlots: slots };
   } catch {
-    return { ownedCosmetics: [], activeCosmetic: "" };
+    return { ownedCosmetics: [], activeSlots: { ...EMPTY_SLOTS } };
   }
 }
 
@@ -49,61 +60,76 @@ export function getOwnedCosmetics(): string[] {
   return readLicenses().ownedCosmetics;
 }
 
-/** The cosmetic currently broadcast in-game ("" = none). */
-export function getActiveCosmetic(): string {
-  return readLicenses().activeCosmetic;
+/** The active cosmetic per slot ("" = nothing worn there). */
+export function getActiveSlots(): ActiveSlots {
+  return readLicenses().activeSlots;
+}
+
+/** First non-empty slot in priority order - the cosmetic that tints the Ω name badge (mirrors OmegaPresence.CosmeticSet.primary). */
+function primaryOf(slots: ActiveSlots): string {
+  return slots.hat || slots.cape || slots.wings || "";
 }
 
 /**
- * Writes `cosmeticId` into every instance's mod config as ownedCosmeticId - the single value the mod
- * reads at launch and broadcasts over the presence channel (see CosmeticCatalog.java). "" clears it
- * back to the default badge. Best-effort per instance: one unreadable/unwritable config (corrupt
- * JSON, permissions, disk full) is skipped rather than aborting the loop for every instance after it.
+ * Writes the active-per-slot cosmetics into every instance's mod config (active*Id, read by the mod
+ * at launch and broadcast over the presence channel - see CosmeticCatalog.java). ownedCosmeticId is
+ * kept in sync with the badge "primary" for the deprecated single-id path. Best-effort per instance:
+ * one unreadable/unwritable config (corrupt JSON, permissions, disk full) is skipped rather than
+ * aborting the loop for every instance after it.
  */
-function applyActiveCosmeticToInstances(cosmeticId: string): void {
+function applyActiveSlotsToInstances(slots: ActiveSlots): void {
+  const patch = {
+    activeHatId: slots.hat,
+    activeCapeId: slots.cape,
+    activeWingsId: slots.wings,
+    ownedCosmeticId: primaryOf(slots),
+  };
   for (const instance of listInstances()) {
     try {
       const configPath = ensureOmegaConfig(path.dirname(instance.modsDir));
       const configFile = readModConfigFile(configPath);
-      writeModConfigFile(configPath, configFile.format, { ...configFile.data, ownedCosmeticId: cosmeticId });
+      writeModConfigFile(configPath, configFile.format, { ...configFile.data, ...patch });
     } catch {
       // licenses.json (the launcher UI's source of truth) is already updated by the caller, and the
-      // mod re-derives ownedCosmeticId from this same write path the next time any config change
-      // touches this instance.
+      // mod re-derives these fields from this same write path the next time any config change touches
+      // this instance.
     }
   }
 }
 
 /**
- * Records a cosmetic as owned, makes it the active badge, and pushes it into every instance's config.
- * Real and independently callable/testable today - this is what a real payment-provider integration
- * calls, and what redeemLicenseKey() calls on a valid key.
+ * Records a cosmetic as owned and equips it in its slot (leaving the other slots as they are), then
+ * pushes the new slot set into every instance's config. This is what a real payment-provider
+ * integration calls, and what redeemLicenseKey() calls on a valid key.
  */
 export function unlockCosmetic(cosmeticId: string): void {
   const licenses = readLicenses();
   if (!licenses.ownedCosmetics.includes(cosmeticId)) {
     licenses.ownedCosmetics.push(cosmeticId);
   }
-  // Newly unlocked cosmetics become active (the thing you just paid for is presumably what you want
-  // to show) - matches the previous single-string behaviour, now switchable via setActiveCosmetic.
-  licenses.activeCosmetic = cosmeticId;
+  // Equip the newly-unlocked cosmetic in its slot (the thing you just paid for is presumably what
+  // you want to show), without disturbing the other slots.
+  const type = slotOf(cosmeticId);
+  if (type) licenses.activeSlots[type] = cosmeticId;
   writeLicenses(licenses);
-  applyActiveCosmeticToInstances(cosmeticId);
+  applyActiveSlotsToInstances(licenses.activeSlots);
 }
 
 /**
- * Chooses which owned cosmetic is broadcast in-game (or "" for none). Rejects a cosmetic the user
- * doesn't own so the config can't be pointed at an unowned id. Returns the active value actually set.
+ * Sets (or clears, with "") which owned cosmetic is worn in a given slot, leaving the other slots
+ * alone. Rejects a cosmetic the user doesn't own, or one whose type doesn't match the slot, so a
+ * slot can never point at an unowned or wrong-type id. Returns the full new slot set.
  */
-export function setActiveCosmetic(cosmeticId: string): string {
+export function setActiveSlot(slot: CosmeticType, cosmeticId: string): ActiveSlots {
   const licenses = readLicenses();
-  if (cosmeticId !== "" && !licenses.ownedCosmetics.includes(cosmeticId)) {
-    throw new Error("You don't own that cosmetic.");
+  if (cosmeticId !== "") {
+    if (!licenses.ownedCosmetics.includes(cosmeticId)) throw new Error("You don't own that cosmetic.");
+    if (slotOf(cosmeticId) !== slot) throw new Error("That cosmetic can't go in that slot.");
   }
-  licenses.activeCosmetic = cosmeticId;
+  licenses.activeSlots[slot] = cosmeticId;
   writeLicenses(licenses);
-  applyActiveCosmeticToInstances(cosmeticId);
-  return cosmeticId;
+  applyActiveSlotsToInstances(licenses.activeSlots);
+  return licenses.activeSlots;
 }
 
 // Replace with your own secret before shipping - keys are generated with the matching formula in

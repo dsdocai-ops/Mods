@@ -47,47 +47,45 @@ public final class CosmeticRenderer {
 
         for (PlayerEntity player : client.world.getPlayers()) {
             if (player.isInvisible()) continue;
-            String cosmeticId = OmegaPresence.cosmeticOf(player.getUuid());
-            CosmeticCatalog.Slot slot = CosmeticCatalog.typeOf(cosmeticId);
-            if (slot == null) continue;
             if (!OmegaPresence.isOmegaUser(player.getUuid())) continue;
-
-            int rgb = CosmeticCatalog.colorFor(cosmeticId);
-            float r = ((rgb >> 16) & 0xFF) / 255f;
-            float g = ((rgb >> 8) & 0xFF) / 255f;
-            float b = (rgb & 0xFF) / 255f;
+            OmegaPresence.CosmeticSet set = OmegaPresence.cosmeticsOf(player.getUuid());
 
             double px = MathHelper.lerp(tickDelta, player.prevX, player.getX());
             double py = MathHelper.lerp(tickDelta, player.prevY, player.getY()) - (player.isSneaking() ? 0.25 : 0.0);
             double pz = MathHelper.lerp(tickDelta, player.prevZ, player.getZ());
 
-            switch (slot) {
-                case HAT -> drawHat(matrices, buffer, px, py, pz, r, g, b);
-                case CAPE -> drawBack(matrices, buffer, px, py, pz, player.bodyYaw, r, g, b, false);
-                case WINGS -> drawBack(matrices, buffer, px, py, pz, player.bodyYaw, r, g, b, true);
-            }
+            // A player can wear one of each slot at once, so draw every non-empty slot.
+            if (!set.hat().isEmpty()) drawHat(matrices, buffer, px, py, pz, rgba(set.hat()));
+            if (!set.cape().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.bodyYaw, rgba(set.cape()), false);
+            if (!set.wings().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.bodyYaw, rgba(set.wings()), true);
         }
 
         matrices.pop();
     }
 
-    private static void drawHat(MatrixStack m, VertexConsumer buf, double px, double py, double pz, float r, float g, float b) {
+    /** Packs a cosmetic id's color into an {r,g,b} float array. */
+    private static float[] rgba(String cosmeticId) {
+        int rgb = CosmeticCatalog.colorFor(cosmeticId);
+        return new float[] { ((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f };
+    }
+
+    private static void drawHat(MatrixStack m, VertexConsumer buf, double px, double py, double pz, float[] c) {
         double baseY = py + HAT_BASE_Y;
-        WireBoxRenderer.drawBox(m, buf, px - 0.32, baseY, pz - 0.32, px + 0.32, baseY + 0.04, pz + 0.32, r, g, b, 1f);
-        WireBoxRenderer.drawBox(m, buf, px - 0.20, baseY + 0.04, pz - 0.20, px + 0.20, baseY + 0.32, pz + 0.20, r, g, b, 1f);
+        WireBoxRenderer.drawBox(m, buf, px - 0.32, baseY, pz - 0.32, px + 0.32, baseY + 0.04, pz + 0.32, c[0], c[1], c[2], 1f);
+        WireBoxRenderer.drawBox(m, buf, px - 0.20, baseY + 0.04, pz - 0.20, px + 0.20, baseY + 0.32, pz + 0.20, c[0], c[1], c[2], 1f);
     }
 
     /** Cape/wings sit behind the torso, offset opposite the body's facing. Wings flare wider + higher. */
-    private static void drawBack(MatrixStack m, VertexConsumer buf, double px, double py, double pz, float bodyYaw, float r, float g, float b, boolean wings) {
+    private static void drawBack(MatrixStack m, VertexConsumer buf, double px, double py, double pz, float bodyYaw, float[] c, boolean wings) {
         double yawRad = Math.toRadians(bodyYaw);
         // Forward at pitch 0 is (-sin, cos); behind is the opposite.
         double cx = px + Math.sin(yawRad) * 0.22;
         double cz = pz - Math.cos(yawRad) * 0.22;
         if (wings) {
-            WireBoxRenderer.drawBox(m, buf, cx - 0.55, py + 1.00, cz - 0.04, cx - 0.05, py + 1.80, cz + 0.04, r, g, b, 1f);
-            WireBoxRenderer.drawBox(m, buf, cx + 0.05, py + 1.00, cz - 0.04, cx + 0.55, py + 1.80, cz + 0.04, r, g, b, 1f);
+            WireBoxRenderer.drawBox(m, buf, cx - 0.55, py + 1.00, cz - 0.04, cx - 0.05, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
+            WireBoxRenderer.drawBox(m, buf, cx + 0.05, py + 1.00, cz - 0.04, cx + 0.55, py + 1.80, cz + 0.04, c[0], c[1], c[2], 1f);
         } else {
-            WireBoxRenderer.drawBox(m, buf, cx - 0.28, py + 0.35, cz - 0.04, cx + 0.28, py + 1.45, cz + 0.04, r, g, b, 1f);
+            WireBoxRenderer.drawBox(m, buf, cx - 0.28, py + 0.35, cz - 0.04, cx + 0.28, py + 1.45, cz + 0.04, c[0], c[1], c[2], 1f);
         }
     }
 }

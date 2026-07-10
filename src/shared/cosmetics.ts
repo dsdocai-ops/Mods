@@ -9,6 +9,15 @@ export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
   wings: "Wings",
 };
 
+/** The active cosmetic per slot ("" = nothing worn there). Mirrors ModConfig.java's active*Id fields. */
+export interface ActiveSlots {
+  hat: string;
+  cape: string;
+  wings: string;
+}
+
+export const EMPTY_ACTIVE_SLOTS: ActiveSlots = { hat: "", cape: "", wings: "" };
+
 /**
  * One purchasable cosmetic worn on the player in-game (plus the matching color on the Ω name badge).
  * `colorHex` mirrors CosmeticCatalog.java's BADGE_COLORS; `type` mirrors its TYPES map and decides

@@ -892,7 +892,13 @@ input[type="checkbox"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  min-width: 40px;
+}
+
+.cosmetic-preview-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cosmetic-preview-none {
