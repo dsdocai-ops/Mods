@@ -238,9 +238,9 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
 
       <h3 className="settings-subheading">Cosmetics</h3>
       <p className="instance-subtitle">
-        A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Buy one, then redeem the license key you're
-        given below.
+        A cosmetic other Omega Client players see on you in-game - a colored badge next to your name, or gear
+        like a hat, cape, or wings (same mechanism as the free Ω badge - needs a server/proxy relaying the
+        presence channel). Buy one, then redeem the license key you're given below.
       </p>
 
       <div className="settings-actions">
