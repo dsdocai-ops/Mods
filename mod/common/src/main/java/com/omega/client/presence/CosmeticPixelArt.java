@@ -86,6 +86,23 @@ public final class CosmeticPixelArt {
             pppppppppppppp
             """);
 
+    /** Navy captain's hat: peaked officer's cap, gold band with a white emblem stripe, black brim. 14x9. */
+    public static final PixelArt NAVY_CAPTAIN_HAT = parse("""
+            n=1B2A49
+            g=D4AF37
+            w=F2EFE6
+            b=0D0D0D
+            .....nnnn.....
+            ....nnnnnn....
+            ...nnnnnnnn...
+            ...gggggggg...
+            ...gwwwwwwg...
+            ...gggggggg...
+            ...nnnnnnnn...
+            .gggggggggggg.
+            bbbbbbbbbbbbbb
+            """);
+
     /** Crimson cape: gold trim top and fringed bottom, gold Ω emblem. 10x16. */
     public static final PixelArt CRIMSON_CAPE = parse("""
             c=C62839
