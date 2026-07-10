@@ -6,8 +6,9 @@ import java.util.Map;
 /**
  * Pure lookup table from a cosmetic id (ModConfig.ownedCosmeticId, broadcast over the presence
  * channel alongside a player's UUID - see OmegaPresence/PresenceNetworking) to its display data.
- * Zero Minecraft imports, same sharing rule as ParticleCategory - safe to compile once and use from
- * both loaders.
+ * colorFor() drives two things now: the Ω name-badge tint (EntityRendererMixin) and the worn hat
+ * cosmetic (HatRenderer, per loader). Zero Minecraft imports, same sharing rule as ParticleCategory -
+ * safe to compile once and use from both loaders.
  *
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their

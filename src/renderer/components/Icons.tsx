@@ -37,6 +37,21 @@ export function DownloadIcon({ size = 16 }: IconProps) {
   );
 }
 
+/**
+ * A filled top-hat silhouette tinted to a cosmetic's color - the Cosmetics page badge/hat preview.
+ * Unlike the monochrome line icons above, this one takes an explicit color (the cosmetic's hue).
+ */
+export function HatGlyph({ size = 32, color = "currentColor" }: IconProps & { color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden>
+      {/* crown */}
+      <path d="M7.5 4.2c0-.5.4-.9.9-.9h7.2c.5 0 .9.4.9.9V15H7.5V4.2z" />
+      {/* brim */}
+      <rect x="3" y="15" width="18" height="2.6" rx="1.3" />
+    </svg>
+  );
+}
+
 /** Circular update arrows - the "update available / update all" affordance for installed mods. */
 export function RefreshIcon({ size = 16 }: IconProps) {
   return (

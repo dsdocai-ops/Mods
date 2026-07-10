@@ -10,6 +10,7 @@ import com.omega.client.features.HudSettings;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
+import com.omega.client.forge.features.HatRenderer;
 import com.omega.client.forge.network.PresenceNetworking;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
@@ -57,6 +58,7 @@ public class OmegaClientForge {
     private final FovZoomFeature fovZoom = new FovZoomFeature();
     private final ToggleSprintFeature toggleSprint = new ToggleSprintFeature();
     private final BlockHighlightFeature blockHighlight = new BlockHighlightFeature();
+    private final HatRenderer hatRenderer = new HatRenderer();
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
@@ -147,6 +149,7 @@ public class OmegaClientForge {
 
         blockHighlight.render(event.getPoseStack(), buffers, camPos, config);
         schematicRender.render(event.getPoseStack(), buffers, camPos, config);
+        hatRenderer.render(event.getPoseStack(), buffers, camPos, event.getPartialTick(), config);
     }
 
     private void setSelectionFromCrosshair(Minecraft client, boolean isPos1) {

@@ -888,10 +888,16 @@ input[type="checkbox"] {
   border-radius: 14px;
 }
 
-.cosmetic-preview-badge {
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 700;
+.cosmetic-preview-hat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+}
+
+.cosmetic-preview-none {
+  font-size: 26px;
+  color: var(--text-faint);
 }
 
 .cosmetic-preview-label {
@@ -946,9 +952,16 @@ input[type="checkbox"] {
 }
 
 .cosmetic-swatch {
-  font-size: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+}
+
+.cosmetic-swatch-none {
+  font-size: 26px;
   line-height: 1;
-  font-weight: 700;
+  color: var(--text-faint);
 }
 
 .cosmetic-name {

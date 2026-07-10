@@ -4,6 +4,7 @@ package com.omega.client;
 import com.omega.client.features.BlockHighlightFeature;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
+import com.omega.client.features.HatRenderer;
 import com.omega.client.features.HudSettings;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
@@ -43,6 +44,7 @@ public class OmegaClient implements ClientModInitializer {
     private final ToggleSprintFeature toggleSprint = new ToggleSprintFeature();
     private final BlockHighlightFeature blockHighlight = new BlockHighlightFeature();
     private final InfoHudFeature infoHud = new InfoHudFeature();
+    private final HatRenderer hatRenderer = new HatRenderer();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
     private final SessionInfo session = SessionInfoLoader.load(FabricLoader.getInstance().getGameDir());
@@ -103,6 +105,7 @@ public class OmegaClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> schematicRender.render(context, config));
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> hatRenderer.render(context, config));
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> renderHud(drawContext));
     }
 

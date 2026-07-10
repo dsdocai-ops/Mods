@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
 import { COSMETIC_CATALOG, DEFAULT_BADGE_HEX, STRIPE_COSMETIC_PAYMENT_LINK_URL, cosmeticById } from "@shared/cosmetics";
+import { HatGlyph } from "../components/Icons";
 import { toast } from "../toast";
 
 /**
@@ -60,31 +61,30 @@ export default function Cosmetics() {
       <p className="welcome-kicker">Cosmetics</p>
       <h1 className="page-title">Cosmetics</h1>
       <p className="instance-subtitle">
-        A colored Ω badge other Omega Client players see next to your name in-game (needs a server/proxy relaying the
-        presence channel). Buy one, redeem the license key you&rsquo;re given, then choose which owned badge is active.
+        A colored hat worn on your head in-game (with a matching Ω name badge) that other Omega Client players see -
+        needs a server/proxy relaying the presence channel. Buy one, redeem the license key you&rsquo;re given, then
+        choose which owned hat is active.
       </p>
 
       <div className="cosmetic-preview">
-        <span className="cosmetic-preview-badge" style={{ color: activeColor }}>
-          &#937;
+        <span className="cosmetic-preview-hat">
+          {active ? <HatGlyph size={38} color={activeColor} /> : <span className="cosmetic-preview-none">&mdash;</span>}
         </span>
         <div>
-          <p className="cosmetic-preview-label">Active badge</p>
+          <p className="cosmetic-preview-label">Active hat</p>
           <p className="cosmetic-preview-name">{activeName}</p>
         </div>
       </div>
 
-      <h3 className="settings-subheading">Badges</h3>
+      <h3 className="settings-subheading">Hats</h3>
       <div className="cosmetic-grid">
-        {/* Default / none is always available to switch back to. */}
+        {/* No hat is always available to switch back to. */}
         <button
           className={`cosmetic-card ${active === "" ? "cosmetic-card-active" : ""}`}
           onClick={() => choose("")}
         >
-          <span className="cosmetic-swatch" style={{ color: DEFAULT_BADGE_HEX }}>
-            &#937;
-          </span>
-          <span className="cosmetic-name">Default</span>
+          <span className="cosmetic-swatch cosmetic-swatch-none">&mdash;</span>
+          <span className="cosmetic-name">No hat</span>
           <span className="cosmetic-state">{active === "" ? "Active" : "Use"}</span>
         </button>
 
@@ -100,8 +100,8 @@ export default function Cosmetics() {
               }
               title={cosmetic.description}
             >
-              <span className="cosmetic-swatch" style={{ color: cosmetic.colorHex }}>
-                &#937;
+              <span className="cosmetic-swatch">
+                <HatGlyph size={30} color={cosmetic.colorHex} />
               </span>
               <span className="cosmetic-name">{cosmetic.name}</span>
               <span className="cosmetic-state">{isActive ? "Active" : isOwned ? "Use" : "Buy"}</span>
