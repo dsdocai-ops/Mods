@@ -149,15 +149,24 @@ while (palette.length > maxColors) {
   palette.splice(bj, 1);
   palette.splice(bi, 1, merged);
 }
-const resolve = (rgb) => {
-  while (remap.has(rgb) && remap.get(rgb) !== rgb) rgb = remap.get(rgb);
-  return rgb;
-};
-
 // Letters by frequency; rows in CosmeticPixelArt's text format.
 palette.sort((a, b) => b.count - a.count);
 const letters = "abcdefghijklmnopqrst";
 const keyOf = new Map(palette.map((entry, i) => [entry.rgb, letters[i]]));
+
+// A merge's rounded average can coincidentally equal an already-remapped color, chaining two
+// remap entries into a cycle (A->B and, via a later unrelated merge, B->A) - stop as soon as we
+// land on a color that actually survived into the final palette (keyOf), which is always reachable
+// since every remap chain terminates at a surviving palette entry; the visited-set guard is a
+// backstop against that cycle case rather than the normal exit path.
+const resolve = (rgb) => {
+  const seen = new Set();
+  while (!keyOf.has(rgb) && remap.has(rgb) && !seen.has(rgb)) {
+    seen.add(rgb);
+    rgb = remap.get(rgb);
+  }
+  return rgb;
+};
 const toHex = (rgb) => rgb.toString(16).padStart(6, "0").toUpperCase();
 
 const paletteLines = palette.map((entry) => `${keyOf.get(entry.rgb)}=${toHex(entry.rgb)}`);

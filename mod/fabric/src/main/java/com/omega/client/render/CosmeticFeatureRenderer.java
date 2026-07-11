@@ -37,9 +37,9 @@ import org.joml.Vector3f;
  * into each quad by CosmeticGeometry, so cosmetics read the same in a cave as in daylight; an
  * accepted, fullbright-adjacent aesthetic, not a bug).
  *
- * TEXTURED (renderTextured, cosmetic.textureId() != null, CAPE and HAT - see
- * CosmeticTexturedMesh's class doc for why not WINGS) - a real PNG UV-mapped onto cloth-like strips
- * (CAPE) or a single flat card (HAT) from CosmeticTexturedMesh, drawn with
+ * TEXTURED (renderTextured, cosmetic.textureId() != null, CAPE only - see
+ * CosmeticTexturedMesh's class doc for why not HAT/WINGS) - a real PNG UV-mapped onto cloth-like
+ * strips from CosmeticTexturedMesh, drawn with
  * RenderLayer.getEntityCutoutNoCull (an actual textured+lit vertex format: texture UV, overlay,
  * packed light, and a normal - unlike
  * the procedural path above, Minecraft's own diffuse lighting participates here, on top of this
@@ -119,13 +119,10 @@ public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
     /** See the class doc's prominent note on this method's low-confidence Minecraft texture-rendering API usage. */
     private void renderTextured(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
                                 CosmeticCatalog.Cosmetic cosmetic, float ageTicks, float motion) {
-        boolean isHat = cosmetic.kind() == CosmeticCatalog.Kind.HAT;
-        List<CosmeticTexturedMesh.TexturedQuad> quads = isHat
-                ? CosmeticTexturedMesh.hatPlane()
-                : CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
+        List<CosmeticTexturedMesh.TexturedQuad> quads = CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
 
         matrices.push();
-        ModelPart anchor = isHat ? getContextModel().head : getContextModel().body;
+        ModelPart anchor = getContextModel().body;
         anchor.rotate(matrices);
         Matrix4f matrix = matrices.peek().getPositionMatrix();
         Matrix3f normalMatrix = matrices.peek().getNormalMatrix();

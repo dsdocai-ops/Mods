@@ -14,11 +14,12 @@ import java.util.Map;
  * carries just badgeRgb; HAT/CAPE/WINGS render as gear on the player model, one of two ways -
  * PROCEDURAL (art != null): pixel art (CosmeticPixelArt) extruded into solid-color quads like a
  * Minecraft item texture (CosmeticGeometry) - colors live entirely in the art's palette; or
- * TEXTURED (textureId != null, CAPE and HAT so far - not WINGS): a real PNG UV-mapped onto a flat
- * card (CosmeticTexturedMesh - cloth-like strips for CAPE, a single plane for HAT) - colors live in
- * the image, not in this catalog. Exactly one of art/textureId is non-null for any HAT/CAPE/WINGS
- * entry; both renderers (CosmeticFeatureRenderer on Fabric, CosmeticRenderLayer on Forge) branch on
- * which is set, further branching TEXTURED by kind for the right mesh builder and anchor part.
+ * TEXTURED (textureId != null, CAPE only for now): a real PNG UV-mapped onto cloth-like strips
+ * (CosmeticTexturedMesh) - colors live in the image, not in this catalog. HAT stays PROCEDURAL only -
+ * a hat's crown/brim volume isn't a flat plane the way a cape already is, and every Minecraft-style
+ * hat cosmetic (vanilla, Lunar, Feather, Essential) is pixel art extruded into real 3D, never a flat
+ * texture card. Exactly one of art/textureId is non-null for any HAT/CAPE/WINGS entry; both renderers
+ * (CosmeticFeatureRenderer on Fabric, CosmeticRenderLayer on Forge) branch on which is set.
  *
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their
@@ -71,7 +72,7 @@ public final class CosmeticCatalog {
             Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)),
             // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
             // so a color here would silently never fire - see the Cosmetic record's own doc above.
-            Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, null, null, "cosmetics/azure_charm_hat"))
+            Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.AZURE_CHARM_HAT, null, null))
     );
 
     private CosmeticCatalog() {

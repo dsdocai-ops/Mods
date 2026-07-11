@@ -19,14 +19,12 @@ import java.util.List;
  * the PX unit-scale and flat-shade lighting model, so the two rendering paths can never drift out of
  * visual sync with each other.
  *
- * CAPE and HAT are supported; WINGS stays procedural-only (no textured frame designed for it yet).
- * Both textured frames are FLAT PLANES, not real volumes - a cape is naturally flat already
- * (vanilla's own cape is exactly that); a textured HAT trades PROCEDURAL's true extruded 3D crown/
- * brim volume for a single thin front-facing card, the same simplification, because a hat's real
- * volume would UV-unwrap far less trivially (a dome and a brim aren't one flat unwrap) and this
- * still reads correctly for hats that are themselves close to flat/frontal in silhouette (caps,
- * bucket hats, anything with a hanging charm/accessory) - not a good fit for a hat whose whole
- * point is 3D height (a tall top hat), which should stay PROCEDURAL instead.
+ * CAPE only for now - HAT/WINGS stay procedural-only. A cape is naturally flat already (vanilla's
+ * own cape is exactly that), so a flat UV-mapped plane loses nothing; a hat's real volume (crown +
+ * brim) is NOT flat, and every Minecraft-style hat cosmetic (vanilla, Lunar, Feather, Essential)
+ * reads as pixel art extruded into that volume, never a flat photographic card stuck to the head -
+ * so HAT deliberately has no textured frame here. A hat cosmetic wanting more fidelity than
+ * PROCEDURAL's canonical grid provides should get a bigger/hand-tuned pixel grid, not a texture.
  */
 public final class CosmeticTexturedMesh {
     /**
@@ -52,16 +50,6 @@ public final class CosmeticTexturedMesh {
     // CosmeticGeometry.tipPointsFor's CAPE branch when a cosmetic has a textureId instead of art.
     static final float CAPE_FRAME_WIDTH = 10f;
     static final float CAPE_FRAME_HEIGHT = 16f;
-
-    // A textured HAT's own frame - independent of the PROCEDURAL canonical HAT grid (14x9), since
-    // a flat card wants headroom PROCEDURAL's true-volume hat doesn't need: extra height below the
-    // crown/brim for a hanging charm/accessory to occupy within the same texture, without being cut
-    // off. Width 16 / height 12 (4:3) was chosen to comfortably fit a roughly-square-to-wide hat
-    // silhouette (bucket hats, caps) plus a side-hanging charm; a source image significantly taller
-    // than wide (a tall top hat) will letterbox rather than fill the frame - PROCEDURAL is the
-    // better fit for that shape (see the class doc).
-    static final float HAT_FRAME_WIDTH = 16f;
-    static final float HAT_FRAME_HEIGHT = 12f;
 
     private CosmeticTexturedMesh() {
     }
@@ -119,42 +107,6 @@ public final class CosmeticTexturedMesh {
                     new float[]{ 0, v1, 1, v1, 1, v0, 0, v0 },
                     backNormal, shade, pivot, depth01));
         }
-        return out;
-    }
-
-    /**
-     * A hat as a single thin front-facing card - no strip subdivision, unlike capeStrips: HAT never
-     * animates (CosmeticGeometry's HAT frame is always depth01=0, and CosmeticAnimation no-ops for
-     * any non-positive depth01 regardless of kind), so there's no bend to distribute across multiple
-     * quads. pivot is a dummy zero point for the same reason - it's never actually used as a
-     * rotation center. Origin's y matches PROCEDURAL HAT's own crown-top position exactly
-     * (-8.6 - 9, see CosmeticGeometry.build's HAT case), so a textured hat's crown sits at the same
-     * height a procedural one's does; HAT_FRAME_HEIGHT's extra room below that extends the frame
-     * further down than PROCEDURAL's for charm/accessory headroom - see that constant's doc.
-     *
-     * UV mapping is the whole texture, 0..1 top-to-bottom (row 0 of the source image is the crown) -
-     * same convention as capeStrips/CosmeticPixelArt.
-     */
-    public static List<TexturedQuad> hatPlane() {
-        float[] origin = { -HAT_FRAME_WIDTH / 2f, -17.6f, -0.3f };
-        float[] u = { 1, 0, 0 };
-        float[] v = { 0, 1, 0 };
-        float[] pivot = CosmeticGeometry.scaledPoint(new float[]{ 0, 0, 0 });
-
-        float[] p00 = at(origin, u, v, 0, 0);
-        float[] p10 = at(origin, u, v, HAT_FRAME_WIDTH, 0);
-        float[] p11 = at(origin, u, v, HAT_FRAME_WIDTH, HAT_FRAME_HEIGHT);
-        float[] p01 = at(origin, u, v, 0, HAT_FRAME_HEIGHT);
-
-        float[] normal = CosmeticGeometry.normalOf(p00, p10, p11, p01);
-        float shade = CosmeticGeometry.shadeOf(p00, p10, p11, p01);
-        float[] backNormal = { -normal[0], -normal[1], -normal[2] };
-
-        List<TexturedQuad> out = new ArrayList<>(2);
-        out.add(new TexturedQuad(CosmeticGeometry.scaled(p00, p10, p11, p01),
-                new float[]{ 0, 0, 1, 0, 1, 1, 0, 1 }, normal, shade, pivot, 0f));
-        out.add(new TexturedQuad(CosmeticGeometry.scaled(p01, p11, p10, p00),
-                new float[]{ 0, 1, 1, 1, 1, 0, 0, 0 }, backNormal, shade, pivot, 0f));
         return out;
     }
 

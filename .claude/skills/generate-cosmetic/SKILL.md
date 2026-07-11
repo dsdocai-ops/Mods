@@ -1,6 +1,6 @@
 ---
 name: generate-cosmetic
-description: Generate a new Omega Client cosmetic - a colored nametag badge, pixel-art gear (hat, cape, wings) rendered like an extruded Minecraft item texture, or a TEXTURED cape/hat wrapping a real PNG onto UV-mapped geometry (cloth-like strips for a cape, a flat card for a hat) - with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, to give one a particle trail/sparkle effect, or to make one out of a real texture/image (a photo, a screenshot, a logo) with gradients or soft detail flat pixel art can't do - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail", "make a cape from this texture/painting", "make a lunar-level cosmetic from this photo" - including authoring the art or texture, wiring it into the catalog/licensing pipeline, previewing its shape/animation/trail, and minting a license key for it.
+description: Generate a new Omega Client cosmetic - a colored nametag badge, pixel-art gear (hat, cape, wings) rendered like an extruded Minecraft item texture, or a TEXTURED cape wrapping a real PNG onto cloth-like UV-mapped strips - with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, to give one a particle trail/sparkle effect, or to make one out of a real texture/image with gradients or soft detail flat pixel art can't do - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail", "make a cape from this texture/painting" - including authoring the art or texture, wiring it into the catalog/licensing pipeline, previewing its shape/animation/trail, and minting a license key for it.
 ---
 
 <!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
@@ -16,23 +16,23 @@ A cosmetic is one of four kinds (`CosmeticCatalog.Kind`):
     cell in 3D (the way vanilla renders held/dropped items) and transparent
     pixels cut the silhouette. Art lives in `CosmeticPixelArt` (common), gets
     extruded by `CosmeticGeometry`. Works for all three kinds.
-  - **TEXTURED** (`textureId` set, **CAPE and HAT** - not WINGS) - a real PNG
-    UV-mapped onto `CosmeticTexturedMesh` geometry (common): cloth-like
-    horizontal strips for CAPE (the same technique vanilla uses for its own
-    player cape), a single flat front-facing card for HAT. Colors live in the
-    image, not in any catalog field - use this when a cosmetic needs soft
-    gradients, glow, or real photographic detail a coarse pixel grid can't
-    represent (see "The textured rendering model" below). WINGS stays
-    procedural-only until a textured frame exists for it (not attempted here -
-    see that section for why).
+  - **TEXTURED** (`textureId` set, **CAPE only** for now) - a real PNG
+    UV-mapped onto cloth-like horizontal strips (`CosmeticTexturedMesh`,
+    common) - the same technique vanilla uses for its own player cape. Colors
+    live in the image, not in any catalog field - use this when a cosmetic
+    needs soft gradients, glow, or detail a coarse pixel grid can't represent
+    (see "The textured rendering model" below). HAT/WINGS stay procedural-only
+    - a hat's real crown/brim volume isn't a flat plane, unlike a cape, so
+    every Minecraft-style hat cosmetic (vanilla, Lunar, Feather, Essential)
+    stays pixel art extruded into real 3D, never a flat texture card (not
+    attempted here - see that section for why).
   Both are drawn by `CosmeticFeatureRenderer` (Fabric) / `CosmeticRenderLayer`
-  (Forge), which branch on which field is set (and, within TEXTURED, on kind
-  for the right mesh builder and anchor part).
+  (Forge), which branch on which field is set.
 
 A new PROCEDURAL cosmetic of an existing kind is a **data-only change** (art
-text block + catalog entry + id lists). A new TEXTURED cape or hat needs an
-actual PNG asset in both loaders' resource trees, on top of the catalog entry
-+ id lists - see that section's workflow.
+text block + catalog entry + id lists). A new TEXTURED cape needs an actual
+PNG asset in both loaders' resource trees, on top of the catalog entry + id
+lists - see that section's workflow.
 
 **CAPE and WINGS animate** - a stylized procedural sway/flap, computed fresh
 every frame by `CosmeticAnimation` (common, pure) and applied by both
@@ -58,8 +58,8 @@ channel with the player's UUID (`PresenceNetworking`, both loaders) →
 BADGE kinds recolor the nametag Ω (`colorFor`; gear keeps the default red
 there); gear kinds render either `CosmeticGeometry.quadsFor(cosmetic)`
 (PROCEDURAL - the cosmetic's pixel art extruded into per-pixel quads) or
-`CosmeticTexturedMesh.capeStrips(...)`/`hatPlane()` (TEXTURED) - anchored to
-the head (HAT) or body (CAPE/WINGS) model part.
+`CosmeticTexturedMesh.capeStrips(...)` (TEXTURED) - anchored to the head
+(HAT) or body (CAPE/WINGS) model part.
 
 **One cosmetic id lives in THREE hand-synced lists** (grep
 `KNOWN_COSMETIC_IDS|COSMETICS` if this list rots):
@@ -170,57 +170,37 @@ in local space (see the caveat above on what that does and doesn't verify).
 
 ## The textured rendering model
 
-A TEXTURED cosmetic (`Cosmetic.textureId` set, `art` null) is a real PNG
-UV-mapped onto `CosmeticTexturedMesh` geometry - the exact shape depends on
-kind:
-
-- **CAPE**: **8 horizontal strips** (`CosmeticTexturedMesh.capeStrips`,
-  `DEFAULT_CAPE_STRIPS`), not one rigid plane. This matters for animation:
-  since `CosmeticAnimation` rotates each returned quad AS A WHOLE by its own
-  `depth01`, a single full-height textured plane would sway as one flat rigid
-  slab. Splitting it into 8 thin strips (each with its own `depth01` at its
-  vertical midpoint, and its own UV sub-rectangle - row 0 of the source image
-  is the collar, the last row is the hem) lets the same per-vertex rotation
-  bend the cape progressively from a rigid collar to a freely-swinging hem,
-  the way the many small quads of a PROCEDURAL cape already get "for free"
-  from being pixel-sized. Every strip is a true parallelogram under the
-  frame's origin+u+v basis, so this bending is geometrically exact, not an
-  approximation. Uses `CosmeticTexturedMesh`'s fixed `CAPE_FRAME_WIDTH/HEIGHT`
-  (10x16, matching the PROCEDURAL canonical CAPE grid exactly, so a textured
-  and a procedural cape hang with the same silhouette bounds).
-- **HAT**: a **single flat front-facing card**, two quads (front+back winding,
-  `CosmeticTexturedMesh.hatPlane()`), no strip subdivision. HAT never
-  animates (`CosmeticGeometry`'s HAT frame is always `depth01=0`, and
-  `CosmeticAnimation.animatePoint` no-ops for any non-positive `depth01`), so
-  there's no bend to distribute across multiple quads - `pivot` is a dummy
-  value, never actually used as a rotation center. Uses its own
-  `HAT_FRAME_WIDTH/HEIGHT` (16x12, 4:3) - independent of PROCEDURAL's
-  canonical 14x9 HAT grid, since a flat card wants extra headroom below the
-  crown for a hanging charm/accessory to occupy without being cut off. This
-  trades PROCEDURAL's true extruded 3D crown/brim volume for a thin card - a
-  good fit for hats that read as close to flat/frontal in silhouette (caps,
-  bucket hats, anything with a hanging charm), not for a hat whose whole point
-  is 3D height (a tall top hat), which should stay PROCEDURAL instead. Being
-  a flat card also means a textured hat is **edge-on invisible from the exact
-  side view** (see the side-view preview) - an accepted tradeoff of the flat
-  card, not a bug.
-
-`CosmeticGeometry.tipPointsFor` (particle trail) and
-`CosmeticAnimation.animatePoint` both work on TEXTURED cosmetics too - they
-already branch on `art == null`. (In practice only CAPE ever has a
-`trailColor` - HAT has no tip point regardless of PROCEDURAL/TEXTURED, see the
-Gotchas.)
+A TEXTURED cape (`Cosmetic.textureId` set, `art` null) is a real PNG UV-mapped
+onto **8 horizontal strips** (`CosmeticTexturedMesh.capeStrips`,
+`DEFAULT_CAPE_STRIPS`), not one rigid plane. This matters for animation: since
+`CosmeticAnimation` rotates each returned quad AS A WHOLE by its own
+`depth01`, a single full-height textured plane would sway as one flat rigid
+slab. Splitting it into 8 thin strips (each with its own `depth01` at its
+vertical midpoint, and its own UV sub-rectangle - row 0 of the source image is
+the collar, the last row is the hem) lets the same per-vertex rotation bend
+the cape progressively from a rigid collar to a freely-swinging hem, the way
+the many small quads of a PROCEDURAL cape already get "for free" from being
+pixel-sized. Every strip is a true parallelogram under the frame's
+origin+u+v basis, so this bending is geometrically exact, not an
+approximation. `CosmeticGeometry.tipPointsFor` (particle trail) and
+`CosmeticAnimation.animatePoint` both work on a TEXTURED cape too - they
+already branch on `art == null` and use `CosmeticTexturedMesh`'s fixed
+`CAPE_FRAME_WIDTH/HEIGHT` (10x16, matching the PROCEDURAL canonical CAPE grid
+exactly, so a textured and a procedural cape hang with the same silhouette
+bounds) instead of an art grid's own dimensions.
 
 The texture image itself can be **any pixel resolution** - it's decoupled
 from world-space size entirely (unlike PROCEDURAL art, where the grid IS the
 silhouette). This is the actual point of TEXTURED: real gradients, soft glow,
-anti-aliased edges, painterly detail, or genuine photographic content - none
-of which a coarse solid-color pixel grid can represent. If the reference
-material is basically flat color blocks, PROCEDURAL is still the better fit
-(simpler pipeline, no asset file to manage); reach for TEXTURED when the look
-genuinely needs smooth shading or comes from a real photo/image you want to
-preserve faithfully (crop/pad to fit the frame's aspect ratio rather than
-stretching - see the workflow below).
+anti-aliased edges, painterly detail - none of which a coarse solid-color
+pixel grid can represent. If the reference material is basically flat color
+blocks, PROCEDURAL is still the better fit (simpler pipeline, no asset file to
+manage); reach for TEXTURED when the look genuinely needs smooth shading.
+**A texture is still a Minecraft-style ASSET, not a raw photo** - authentic
+Minecraft/Lunar/Feather/Essential capes are pixel-art-drawn textures (crisp,
+limited-palette, hard edges), never a smoothed photographic image pasted onto
+geometry; treat any real reference photo as inspiration to paint FROM, not a
+file to crop and UV-map directly.
 
 **Rendering is real Minecraft texture API** (`RenderType.entityCutoutNoCull`
 / Fabric's `RenderLayer.getEntityCutoutNoCull`, a UV+overlay+light+normal
@@ -241,25 +221,23 @@ per-loader resource in this project (e.g. `lang/en_us.json`):
 `textureId` (the catalog field) is the path **without** the leading
 `textures/` and without `.png` - e.g. `"cosmetics/starlit_cape"` resolves to
 `textures/cosmetics/starlit_cape.png` in both trees. Put new textures under
-`textures/cosmetics/` alongside the existing ones, matching that convention.
+`textures/cosmetics/` alongside the existing one, matching that convention.
 
-### Workflow for a TEXTURED cape or hat
+### Workflow for a TEXTURED cape
 
-1. **Get or make the PNG.** From a reference image (including a real photo):
-   crop/pad to the kind's frame aspect ratio - cape 10:16, hat 16:12 (4:3) -
-   preserving proportions rather than stretching (letterbox with transparency
-   if the source doesn't match); any resolution works. A photo with a solid
-   background usually needs the background keyed to transparent first (e.g. a
-   luminance-threshold soft-alpha ramp in a small Canvas script - hard cutoffs
-   read as jagged, a LOW/HIGH ramp reads clean). From a description: author
-   one with canvas gradients/radial glows the same way `starlit_cape`'s
-   placeholder was made (smooth `createLinearGradient`/`createRadialGradient`
-   fills, no flat pixel blocks, since flat blocks are what PROCEDURAL is
-   already for).
+1. **Get or make the PNG.** Author it in pixel-art style with canvas
+   gradients/radial glows the same way `starlit_cape`'s placeholder was made
+   (see that texture's generation approach for the pattern - smooth
+   `createLinearGradient`/`createRadialGradient` fills over a crisp shape, no
+   photographic softness, since flat photographic blur is what makes a
+   cosmetic look out of place next to vanilla/Lunar/Feather capes). If
+   starting from a reference image, treat it as a design reference to
+   repaint, not a file to crop directly - keep the aspect ratio reasonably
+   close to 10:16 (the frame's own proportions) so it doesn't look
+   unexpectedly stretched.
 2. **Preview it before writing any resource files** - `preview-cosmetic.mjs
-   --texture <file.png> --kind cape|hat` (see step 2 below). This is the ONLY
-   step that catches a bad crop/aspect ratio/orientation before it's a real
-   asset.
+   --texture <file.png>` (see step 2 below). This is the ONLY step that
+   catches a bad crop/aspect ratio/orientation before it's a real asset.
 3. Place the PNG in **both** resource trees (identical bytes - copy, don't
    regenerate twice, to guarantee they match).
 4. Add the `COSMETICS` entry: `art` null, `textureId` set to the path (no
@@ -268,22 +246,25 @@ per-loader resource in this project (e.g. `lang/en_us.json`):
 
 ### Gotchas specific to TEXTURED
 
-- **CAPE and HAT only, not WINGS.** `CosmeticTexturedMesh` has no frame for
-  WINGS - a textured WINGS needs a NEW frame designed there (a wing's real
-  shape UV-unwraps far less trivially than a flat plane or cloth strips; not
-  attempted here) plus a matching renderer branch. Don't set `textureId` on a
-  WINGS entry - nothing reads it there.
-- **Strip count is a shared constant, not per-cosmetic** (CAPE only - HAT has
-  no strips). `CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS` (8) applies to every
-  textured cape alike, same "no per-cosmetic tuning knobs" rule as
+- **CAPE only.** `CosmeticGeometry.build`'s HAT/WINGS cases and
+  `CosmeticTexturedMesh` don't know about each other - a hat's real crown/brim
+  volume isn't a flat plane the way a cape already is, so HAT deliberately has
+  no textured frame (a flat card would look wrong next to every other
+  Minecraft-style hat, which is pixel art extruded into real 3D - see the
+  class doc). A textured WINGS also needs a NEW frame designed in
+  `CosmeticTexturedMesh` (not attempted here) plus a matching renderer branch.
+  Don't set `textureId` on a HAT/WINGS entry - nothing reads it there.
+- **Strip count is a shared constant, not per-cosmetic.**
+  `CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS` (8) applies to every textured
+  cape alike, same "no per-cosmetic tuning knobs" rule as
   `CosmeticAnimation`'s sway constants. Fewer strips reads more rigid/
   cardboard-like; more costs quads for a bend refinement nobody will see.
 - **A hard, high-contrast edge in the source image will show strip seams**
-  once a CAPE bends (each strip is flat, so a sharp line crossing a strip
+  once the cape bends (each strip is flat, so a sharp line crossing a strip
   boundary kinks visibly at speed). Smooth gradients (the whole point of
   TEXTURED) don't have this problem - it's specifically sharp edges near a
   strip boundary to watch for. The `--animate` preview (not just the static
-  one) is how you'd catch this. HAT never animates, so this doesn't apply to it.
+  one) is how you'd catch this.
 - **The renderer resolves the file at a fixed path built from `textureId`** -
   a typo there fails silently at the Minecraft level (usually a missing-
   texture checkerboard, not a crash) in a way this skill's tooling can't
@@ -404,26 +385,23 @@ node .claude/skills/generate-cosmetic/preview-badge.mjs <#hex> [...] [--name Ste
 Readable in ALL three backdrops, distinct from the `#E63946` default red and
 every existing badge.
 
-**TEXTURED cape or hat** - use `--texture` with `--kind cape|hat` (required,
-unlike `--id`, since there's no catalog entry to read the kind from):
+**TEXTURED cape** - use `--texture` instead of `--art`/`--kind` (kind is
+implicitly CAPE):
 
 ```bash
-node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png --kind cape             # static 3-view
-node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png --kind cape --animate   # filmstrip, texture bending across strips
-node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture charm.png --kind hat                # static 3-view, flat card
-node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id starlit_cape --animate                   # a catalog textured cosmetic (kind read from the catalog)
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png                    # static 3-view
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png --animate           # filmstrip, texture bending across strips
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id starlit_cape --animate               # a catalog textured cosmetic
 ```
 
-Crops the REAL PNG into each quad's own UV sub-rectangle and composites it
-with an exact affine transform onto that quad's projected position -
+Crops the REAL PNG into each strip's own UV sub-rectangle and composites it
+with an exact affine transform onto that strip's projected position -
 genuinely how the texture wraps onto the geometry, not a placeholder tint.
-Check: the image maps onto the silhouette with the right orientation (not
-upside-down or mirrored - row 0 of the source is the collar for CAPE, the
-crown for HAT), no visible seams between strips even as a CAPE bends in the
-`--animate` filmstrip (see the Gotchas below on hard edges near strip
-boundaries), aspect ratio doesn't look badly stretched. A textured HAT reads
-correctly from the back/front ¾ views but goes blank in the exact side view
-(a flat card is edge-on invisible there) - expected, not a bug.
+Check: the image maps onto the cape's silhouette with the right orientation
+(not upside-down or mirrored - row 0 of the source is the collar), no visible
+seams between strips even as it bends in the `--animate` filmstrip (see the
+Gotchas below on hard edges near strip boundaries), aspect ratio doesn't look
+badly stretched.
 
 When working interactively, send the user the preview for approval before
 wiring anything in.
@@ -445,7 +423,7 @@ tolerant of hyphenated ids, but don't create the ambiguity.
   constant in `CosmeticPixelArt.java` (pixelate.mjs prints this block), then
   reference it from the new `COSMETICS` entry in `CosmeticCatalog.java`
   (`art` set, `textureId` null).
-- TEXTURED cape or hat: copy the PNG into both loaders' resource trees, then a
+- TEXTURED cape: copy the PNG into both loaders' resource trees, then a
   `COSMETICS` entry with `art` null, `textureId` set - see "The textured
   rendering model" for the exact path convention.
 - Badge: catalog entry with the color as `badgeRgb`, `art`/`textureId` both null.

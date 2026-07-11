@@ -103,6 +103,24 @@ public final class CosmeticPixelArt {
             bbbbbbbbbbbbbb
             """);
 
+    /** Azure charm hat: blue bucket hat, domed crown flaring to a wide brim, dangling gold charm. 14x9. */
+    public static final PixelArt AZURE_CHARM_HAT = parse("""
+            c=5FA0D6
+            a=2C5C8C
+            b=1B3A57
+            g=D8B34A
+            h=7A5A18
+            ....cccccc....
+            ...aaaaaaaa...
+            ..aaaaaaaaaa..
+            ..baaaaaaaab..
+            baaaaaaaaaaaab
+            .bbbbbbbbbbbb.
+            .........hh...
+            .........gg...
+            .........hg...
+            """);
+
     /** Nightfall cape: crescent moon and scattered stars over black, purple flame gradient rising from a notched hem. 10x16. */
     public static final PixelArt NIGHTFALL_CAPE = parse("""
             k=000000

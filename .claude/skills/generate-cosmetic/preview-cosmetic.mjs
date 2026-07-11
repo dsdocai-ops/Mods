@@ -15,7 +15,7 @@
 // Usage:
 //   node preview-cosmetic.mjs --id <cosmetic_id>              # a cosmetic already in the catalog
 //   node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings   # PROCEDURAL candidate art BEFORE wiring it in
-//   node preview-cosmetic.mjs --texture <file.png> --kind hat|cape     # TEXTURED candidate BEFORE wiring it in
+//   node preview-cosmetic.mjs --texture <file.png>            # TEXTURED candidate cape BEFORE wiring it in
 //   (any form takes [--out file.png], [--animate], [--trail-color #hex] - see below)
 //
 // --animate replaces the static 3-view render with a filmstrip: two rows (standing still, full
@@ -33,17 +33,16 @@
 // it does NOT exercise CosmeticTrail.toWorld's world/yaw placement (see that class's doc and
 // SKILL.md's "particle trail model" section for why, and for what's separately verified instead).
 //
-// TEXTURED cosmetics (a real PNG on CosmeticTexturedMesh's geometry - cloth-like strips for CAPE, a
-// single flat card for HAT, see that class's doc for why not WINGS): --id resolves a catalog
-// cosmetic's own texture from the Fabric resource tree (mod/fabric/.../assets/omega-client/textures/
-// <textureId>.png - both loaders ship an identical copy, so reading either is equivalent); --texture
-// <file.png> --kind hat|cape previews an arbitrary image as a CANDIDATE texture before any resource
-// file exists (--kind is required here since, unlike --id, there's no catalog entry to read the kind
-// from). Each quad's own UV sub-rectangle is cropped out of the source image and composited with an
-// EXACT affine transform (not an approximation - every quad is a true parallelogram under this
-// projector's orthographic camera, and an affine map carries a parallelogram to a parallelogram
-// exactly) fit to that quad's 3 projected corners, so what you see is genuinely how the texture wraps
-// onto the geometry (CAPE: 8 strips, animated; HAT: 1 flat card, static), not a placeholder.
+// TEXTURED cosmetics (a real PNG on CosmeticTexturedMesh's cloth-like strips, CAPE only - see
+// that class's doc): --id resolves a catalog cosmetic's own texture from the Fabric resource
+// tree (mod/fabric/.../assets/omega-client/textures/<textureId>.png - both loaders ship an
+// identical copy, so reading either is equivalent); --texture <file.png> previews an arbitrary image
+// as a CANDIDATE cape texture before any resource file exists. Each strip's own UV sub-rectangle is
+// cropped out of the source image and composited with an EXACT affine transform (not an
+// approximation - every strip is a true parallelogram under this projector's orthographic camera,
+// and an affine map carries a parallelogram to a parallelogram exactly) fit to that strip's 3
+// projected corners, so what you see is genuinely how the texture wraps onto the swaying geometry,
+// not a placeholder.
 //
 // The art file uses CosmeticPixelArt's text format (palette lines "c=RRGGBB", then pixel rows,
 // '.' = transparent) - the same text that will be pasted into CosmeticPixelArt.java, parsed by the
@@ -93,15 +92,11 @@ if (proceduralCandidate && texturedCandidate) {
 if (!proceduralCandidate && !texturedCandidate && !opts.id) {
   console.error("Usage: node preview-cosmetic.mjs --id <cosmetic_id> [--animate] [--trail-color #hex] [--out file.png]");
   console.error("       node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings [--animate] [--trail-color #hex] [--out file.png]");
-  console.error("       node preview-cosmetic.mjs --texture <file.png> --kind hat|cape [--animate] [--trail-color #hex] [--out file.png]");
+  console.error("       node preview-cosmetic.mjs --texture <file.png> [--animate] [--trail-color #hex] [--out file.png]");
   process.exit(1);
 }
 if (proceduralCandidate && !["hat", "cape", "wings"].includes(opts.kind.toLowerCase())) {
   console.error("--art requires --kind hat|cape|wings.");
-  process.exit(1);
-}
-if (texturedCandidate && !["hat", "cape"].includes(opts.kind.toLowerCase())) {
-  console.error("--texture requires --kind hat|cape (see CosmeticTexturedMesh for why not wings).");
   process.exit(1);
 }
 
@@ -128,7 +123,7 @@ try {
   const javaArgs = ["-cp", classesDir, "com.omega.client.presence.GeometryDump"];
   if (opts.animate) javaArgs.push("--animate");
   if (proceduralCandidate) javaArgs.push(path.resolve(opts.art), opts.kind.toLowerCase());
-  else if (texturedCandidate) javaArgs.push("--textured-candidate", opts.kind.toLowerCase());
+  else if (texturedCandidate) javaArgs.push("--textured-candidate");
   else if (opts.animate) javaArgs.push(opts.id);
   dump = JSON.parse(execFileSync("java", javaArgs, { encoding: "utf-8" }));
 } finally {
@@ -207,12 +202,11 @@ function projectDots(points, colorHex, yawDeg, pitchDeg, scale, cx, cy) {
 }
 
 /**
- * Projects each textured quad pair's FRONT-winding quad (uvQuads alternates front/back per quad -
- * see CosmeticTexturedMesh.capeStrips/hatPlane; only one winding is needed here, an SVG <image> has
- * no concept of backface culling to disambiguate) and, from its 3 corners p00/p10/p01, derives the
- * exact affine matrix carrying that quad's cropped texture image (stripDataUris[i], already cut to
- * that quad's own UV sub-rectangle - a single full-height crop for HAT's one pair, one horizontal
- * band per strip for CAPE's eight) onto the parallelogram those 3 points define - see the file
+ * Projects each textured strip's FRONT-winding quad (uvQuads alternates front/back per strip -
+ * see CosmeticTexturedMesh.capeStrips; only one winding is needed here, an SVG <image> has no
+ * concept of backface culling to disambiguate) and, from its 3 corners p00/p10/p01, derives the
+ * exact affine matrix carrying that strip's cropped texture image (stripDataUris[i], already cut to
+ * that strip's own UV sub-rectangle) onto the parallelogram those 3 points define - see the file
  * header for why this is exact, not an approximation, for a planar quad under this projector.
  */
 function projectTexturedStrips(uvQuads, stripDataUris, yawDeg, pitchDeg, scale, cx, cy) {
@@ -290,10 +284,9 @@ let outSuffix;
 try {
   const page = await browser.newPage();
 
-  // Crop the source texture into one data-URI per quad pair's own UV v-range (needed before
-  // building the final HTML, and before any per-frame animation transform is computed - the crop
-  // itself doesn't change across frames, only its final placement does; for HAT this is a single
-  // full-height crop since hatPlane() returns just one pair).
+  // Crop the source texture into one data-URI per strip's own UV v-range (needed before building
+  // the final HTML, and before any per-frame animation transform is computed - the crop itself
+  // doesn't change across frames, only its final placement does).
   let stripDataUris = null;
   if (texturePngBuffer) {
     const uvQuadsForCrop = opts.animate ? dump.frames[0].uvQuads : dump.cosmetics[name].uvQuads;

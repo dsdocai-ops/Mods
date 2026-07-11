@@ -30,8 +30,8 @@ import org.joml.Vector3f;
 /**
  * Official-mappings mirror of the Fabric module's CosmeticFeatureRenderer - see that class's doc for
  * the full rendering approach (PROCEDURAL: baked-shade debug-quads geometry from CosmeticGeometry;
- * TEXTURED: a real PNG UV-mapped onto CosmeticTexturedMesh's cloth-like strips (CAPE) or a single
- * flat card (HAT) - see that class's doc for why not WINGS; both animated per-frame by
+ * TEXTURED: a real PNG UV-mapped onto CosmeticTexturedMesh's cloth-like strips, CAPE only - see that
+ * class's doc for why not HAT/WINGS; animated per-frame by
  * CosmeticAnimation using this method's own ageInTicks/limbSwingAmount
  * parameters, plus a particle trail for trailColor cosmetics). Duplicated by necessity, same as
  * every Screen/Mixin: RenderLayer vs FeatureRenderer and PoseStack vs MatrixStack are mapping-
@@ -99,13 +99,10 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
     /** See the class doc's prominent note on this method's low-confidence Minecraft texture-rendering API usage. */
     private void renderTextured(PoseStack poseStack, MultiBufferSource buffers, int packedLight,
                                 CosmeticCatalog.Cosmetic cosmetic, float ageTicks, float motion) {
-        boolean isHat = cosmetic.kind() == CosmeticCatalog.Kind.HAT;
-        List<CosmeticTexturedMesh.TexturedQuad> quads = isHat
-                ? CosmeticTexturedMesh.hatPlane()
-                : CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
+        List<CosmeticTexturedMesh.TexturedQuad> quads = CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
 
         poseStack.pushPose();
-        ModelPart anchor = isHat ? getParentModel().head : getParentModel().body;
+        ModelPart anchor = getParentModel().body;
         anchor.translateAndRotate(poseStack);
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normal = poseStack.last().normal();
