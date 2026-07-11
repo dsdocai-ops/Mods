@@ -69,12 +69,11 @@ function formatUuid(raw: string): string {
  */
 const AUTH_TIMEOUT_MS = 30_000;
 
-// Mojang's api.minecraftservices.com sits behind Cloudflare and returns 403 to requests with no
-// User-Agent - which is exactly what Node/undici's fetch() sends by default. The Xbox Live/XSTS
-// hosts don't care, so the chain gets all the way to login_with_xbox and only *then* 403s, which is
-// the precise symptom we hit. A plain, identifiable app User-Agent is what every third-party
-// launcher (Prism, MultiMC, ...) sends here, and it's what unblocks this. Applied to every auth
-// request (harmless on the Microsoft/Xbox ones).
+// Mojang's api.minecraftservices.com sits behind Cloudflare, which can reject requests with no
+// User-Agent - and Node/undici's fetch() sends none by default. An identifiable app User-Agent is
+// what every third-party launcher (Prism, MultiMC, ...) sends here, so send one on every auth
+// request (harmless on the Microsoft/Xbox ones). Note this alone does NOT clear a 403 from
+// login_with_xbox when the Azure client ID isn't on Mojang's API allow-list - see loginWithXbox.
 const AUTH_USER_AGENT = "OmegaClient/1.0 (+https://github.com/dsdocai-ops/Mods)";
 
 async function authFetch(url: string, init: RequestInit): Promise<Response> {
@@ -109,9 +108,24 @@ async function postJson(url: string, body: unknown): Promise<any> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await response.json().catch(() => ({}));
+  // Read as text first: error bodies here aren't always JSON (a Cloudflare block page is HTML),
+  // and telling those apart is exactly what's needed to diagnose a 403 from this endpoint.
+  const text = await response.text().catch(() => "");
+  let json: any = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    /* non-JSON body - kept in `text` for the error detail below */
+  }
   if (!response.ok) {
-    throw new HttpJsonError(`Request to ${url} failed (${response.status})`, response.status, json);
+    const detail = (json.errorMessage ?? json.error ?? text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim())
+      .toString()
+      .slice(0, 200);
+    throw new HttpJsonError(
+      `Request to ${url} failed (${response.status}${detail ? `: ${detail}` : ""})`,
+      response.status,
+      json
+    );
   }
   return json;
 }
@@ -239,9 +253,22 @@ async function authenticateXsts(xblToken: string): Promise<{ token: string; user
 }
 
 async function loginWithXbox(userHash: string, xstsToken: string): Promise<{ access_token: string; expires_in: number }> {
-  return await postJson("https://api.minecraftservices.com/authentication/login_with_xbox", {
-    identityToken: `XBL3.0 x=${userHash};${xstsToken}`,
-  });
+  try {
+    return await postJson("https://api.minecraftservices.com/authentication/login_with_xbox", {
+      identityToken: `XBL3.0 x=${userHash};${xstsToken}`,
+    });
+  } catch (err) {
+    // Mojang gates this endpoint on an allow-list of Azure client IDs: even a perfectly valid
+    // Azure app that sails through OAuth/Xbox/XSTS gets a 403 here unless Mojang has manually
+    // approved it for the Minecraft API (the review form at https://aka.ms/mce-reviewappid).
+    // That's a config/approval problem, not a bug - say so instead of a bare status code.
+    if (err instanceof HttpJsonError && err.status === 403) {
+      throw new Error(
+        `Mojang rejected the sign-in with 403 at login_with_xbox - this usually means the Microsoft app (client ID) this launcher signs in with hasn't been approved by Mojang for the Minecraft API. Register your own Azure app and submit it for approval at https://aka.ms/mce-reviewappid (see README), then enter its client ID under "Advanced" on the sign-in screen. [${err.message}]`
+      );
+    }
+    throw err;
+  }
 }
 
 async function fetchProfile(mcAccessToken: string): Promise<{ id: string; name: string }> {
