@@ -13,6 +13,7 @@ export const KNOWN_COSMETIC_IDS = [
   "obsidian_top_hat",
   "navy_captain_hat",
   "starlit_cape",
+  "eclipse_cape",
 ] as const;
 
 /**
