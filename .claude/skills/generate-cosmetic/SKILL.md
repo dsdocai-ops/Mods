@@ -236,16 +236,23 @@ per-loader resource in this project (e.g. `lang/en_us.json`):
 
 ### Workflow for a TEXTURED cape
 
-1. **Get or make the PNG.** Author it in pixel-art style with canvas
-   gradients/radial glows the same way `starlit_cape`'s placeholder was made
-   (see that texture's generation approach for the pattern - smooth
-   `createLinearGradient`/`createRadialGradient` fills over a crisp shape, no
-   photographic softness, since flat photographic blur is what makes a
-   cosmetic look out of place next to vanilla/Lunar/Feather capes). If
-   starting from a reference image, treat it as a design reference to
-   repaint, not a file to crop directly - keep the aspect ratio reasonably
-   close to 10:16 (the frame's own proportions) so it doesn't look
-   unexpectedly stretched.
+1. **Get or make the PNG.** Two legitimate sources, judged by what the
+   reference actually looks like:
+   - **A reference image that already reads as painted/pixel-art texture
+     work** (soft gradients over crisp shapes, not photographic softness/
+     depth-of-field/lens blur - `twilight_summit_cape`'s wallpaper source is
+     an example) can be used close to directly: run it through
+     `prepare-reference.mjs --deskew --resize 100 160` (see "Preparing a real
+     photo" above) and it's ready to preview. Don't stretch a badly-mismatched
+     aspect ratio - `--deskew`'s crop already targets the frame's 10:16.
+   - **A genuine photograph** (real depth of field, photographic softness,
+     lens/sensor grain) should be treated as a design reference to REPAINT,
+     not a file to crop directly - author fresh with canvas
+     gradients/radial glows the same way `starlit_cape`'s placeholder was made
+     (smooth `createLinearGradient`/`createRadialGradient` fills over a crisp
+     shape), since photographic blur itself is what makes a cosmetic look out
+     of place next to vanilla/Lunar/Feather capes - keep the aspect ratio
+     reasonably close to 10:16 either way.
 2. **Preview it before writing any resource files** - `preview-cosmetic.mjs
    --texture <file.png>` (see step 2 below). This is the ONLY step that
    catches a bad crop/aspect ratio/orientation before it's a real asset.
@@ -369,7 +376,11 @@ Kind comes from the user's intent ("crown"/"beanie" = HAT, "banner on my back"
 = CAPE, "dragon wings" = WINGS, plain color/logo with no shape = BADGE unless
 they say otherwise).
 
-**From an image** - any format Chromium decodes (png/jpg/webp/gif/bmp/svg/avif):
+**From an image** - any format Chromium decodes (png/jpg/webp/gif/bmp/svg/avif).
+**A real photo (not a clean pre-made asset) needs prep FIRST** - see
+"Preparing a real photo" below; skip straight to pixelate.mjs only for an
+already-clean source (a flat icon/logo, a screenshot with no background to
+remove, an image already shot square-on):
 
 ```bash
 node .claude/skills/generate-cosmetic/pixelate.mjs <image> --kind hat|cape|wings [--colors N] [--out art.txt]
@@ -382,10 +393,51 @@ text block. **Treat the output as a first draft** - open the rows and hand-tune
 like actual pixel art: straighten ragged edges, re-add a detail the
 downsample smeared, cut a silhouette with '.'s. For badge color derivation
 from an image, `extract-colors.mjs` still does that (see step 1-badge below).
-A photo with a solid (non-alpha) background must be background-keyed to
-transparency first or the downsample swallows the silhouette. **For a HAT,
-this 2D output is reference material, not the deliverable** - use its palette
-and proportions to hand-author voxel slices (see "Voxel hats" above).
+**For a HAT, this 2D output is reference material, not the deliverable** - use
+its palette and proportions to hand-author voxel slices (see "Voxel hats"
+above).
+
+#### Preparing a real photo
+
+`prepare-reference.mjs` does the cleanup a real photo needs BEFORE
+pixelate.mjs or a TEXTURED candidate preview ever sees it - background
+removal, off-angle correction, frame-fitting - in one deterministic pass
+computed from the pixels themselves. **Always reach for this first** on an
+actual photo; doing this by hand (eyeballing a rotation angle, re-rendering,
+looking, repeating) is exactly the kind of avoidable back-and-forth this
+script exists to cut out.
+
+```bash
+# a subject shot on a plain dark background (going to pixelate.mjs next - HAT/WINGS silhouette):
+node .claude/skills/generate-cosmetic/prepare-reference.mjs photo.jpg --key-bg --fit 160 120 --out prepped.png
+# a flat rectangular thing (a phone screen, a print) shot at an angle (going to --texture next - CAPE):
+node .claude/skills/generate-cosmetic/prepare-reference.mjs photo.jpg --deskew --resize 100 160 --out prepped.png
+```
+
+- `--key-bg [LOW HIGH]` keys a near-black background to transparency (soft
+  luminance ramp, not a hard cutoff) and crops to the now-opaque content -
+  pixelate.mjs needs real alpha to cut a silhouette; a photo has none, and
+  without keying the background reads as opaque and swallows the shape.
+- `--deskew` auto-straightens an off-angle photo via image moments (PCA) - the
+  same technique document scanners use - then crops tight; one pass, no
+  guessing. It corrects in-plane rotation only, not true camera-perspective
+  keystone, and can be thrown off by a scene whose brightness itself carries
+  most of the composition (a dark sky at one end, a bright horizon at the
+  other skews where the "mass" is). **If the output still looks tilted, don't
+  re-run --deskew or start tuning thresholds - look at it once and pass
+  `--angle N`** (exact degrees, skips detection) instead. That's one extra
+  look, not a guess-and-check loop.
+- `--fit W H` letterboxes into WxH preserving aspect (transparent padding,
+  centered) - use before pixelate.mjs when the source aspect doesn't match
+  the kind's grid; never stretch a silhouette, it distorts the shape.
+- `--resize W H` hard-resizes (stretches) to WxH - use for a TEXTURED
+  candidate, which must land on the exact 100x160 convention (see "The
+  textured rendering model"); a modest stretch is imperceptible on a soft
+  painterly gradient, unlike on a silhouette.
+
+Flags compose (deskew/key-bg, then fit/resize) regardless of argument order,
+so a rotated photo of a dark-background subject can use `--deskew --key-bg`
+together in one run.
 
 **From a description** - author the rows yourself, in the format above (for a
 hat: voxel slices, per "Voxel hats" above). Real pixel-art moves:
@@ -556,6 +608,16 @@ node scripts/generate-license-key.cjs <new_id>
 
 ## Gotchas
 
+- **A one-off Node script (uploaded-image inspection, a quick pixel check)
+  needs to live where `node_modules` is reachable, or `import { chromium }
+  from "playwright"` fails with `ERR_MODULE_NOT_FOUND`.** Node resolves ESM
+  imports relative to the SCRIPT's own path, not cwd - a scratch directory has
+  no `node_modules` ancestor. Write it into (or temporarily copy it into)
+  `.claude/skills/generate-cosmetic/` itself (this repo's `node_modules` is an
+  ancestor of that path), run it, then delete the temp copy - don't burn a
+  round trip discovering this the hard way. `prepare-reference.mjs` already
+  covers the two most common one-off needs (background key, deskew) - reach
+  for it before writing a new throwaway script at all.
 - **`COSMETICS` uses `Map.ofEntries(Map.entry(...), ...)`, not `Map.of(...)`** -
   deliberately, to avoid `Map.of`'s 10-pair arity cap (the catalog hit exactly
   10 entries once; if you ever see `Map.of(...)` there again, someone
