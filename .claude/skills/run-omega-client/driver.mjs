@@ -211,6 +211,14 @@ function installMockApi() {
         window.__mockAccounts.push(account);
         return account;
       },
+      // TEMPORARY (testing only) - mirrors accountStore.addOfflineAccount: sanitized username,
+      // type "offline", no tokens. Remove together with the real offline-account plumbing.
+      addOffline: async (username) => {
+        const name = String(username ?? '').trim().replace(/[^A-Za-z0-9_]/g, '_').slice(0, 16) || 'Player';
+        const account = { id: 'acc-' + Date.now(), type: 'offline', username: name, uuid: 'offline-uuid-' + name, addedAt: Date.now() };
+        window.__mockAccounts.push(account);
+        return account;
+      },
       remove: async (id) => { window.__mockAccounts = window.__mockAccounts.filter((a) => a.id !== id); },
     },
     launch: {

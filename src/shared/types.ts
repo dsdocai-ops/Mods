@@ -91,7 +91,10 @@ export interface Instance {
  */
 export interface PublicAccount {
   id: string;
-  type: "microsoft";
+  // "offline" is TEMPORARY, for testing the launcher while Microsoft sign-in is blocked on
+  // Mojang's client-ID approval - remove it (and its accountStore/SignInRequired plumbing)
+  // once real sign-in works.
+  type: "microsoft" | "offline";
   username: string;
   uuid: string;
   addedAt: number;

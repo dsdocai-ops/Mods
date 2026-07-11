@@ -205,11 +205,14 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
   }
   log("Signing in with your Microsoft account...");
   const token = await getValidAccessToken(msaClientId, instance.accountId);
+  if (token.userType === "legacy") {
+    log(`[launcher] TESTING: offline session as "${token.username}" - no real account; authenticated servers won't work.`);
+  }
   const auth: { username: string; uuid: string; accessToken: string; userType: string } = {
     username: token.username,
     uuid: token.uuid,
     accessToken: token.accessToken,
-    userType: "msa",
+    userType: token.userType,
   };
 
   const resolved = resolveVersion(instance.gameDir, instance.versionId);

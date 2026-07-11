@@ -24,6 +24,8 @@ export default function SignInRequired({ onSignedIn }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [clientId, setClientId] = useState("");
+  // TEMPORARY (testing only) - offline mode state, remove with the offline section below.
+  const [offlineName, setOfflineName] = useState("Player");
 
   useEffect(() => {
     window.api.settings.get().then((s) => setClientId(s.msaClientId));
@@ -62,6 +64,26 @@ export default function SignInRequired({ onSignedIn }: Props) {
     }
   };
 
+  // TEMPORARY (testing only): skips Microsoft sign-in with an offline account so the rest of the
+  // launcher can be tested while sign-in is blocked on Mojang's client-ID approval. Remove this
+  // (plus accounts.addOffline and its accountStore/main/preload plumbing) once sign-in works.
+  const continueOffline = async () => {
+    setError(null);
+    try {
+      const account = await window.api.accounts.addOffline(offlineName);
+      const list = await onSignedIn();
+      if (!list.some((a) => a.id === account.id)) {
+        setError("Created the offline account, but the launcher still can't see it - check the app's data-folder permissions.");
+        return;
+      }
+      toast(`Continuing offline as ${account.username} (testing only)`, "info");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      toast(msg, "error");
+    }
+  };
+
   return (
     <div className="app-shell sign-in-required">
       <div className="welcome" style={{ margin: "auto" }}>
@@ -92,6 +114,28 @@ export default function SignInRequired({ onSignedIn }: Props) {
             />
           </div>
         )}
+
+        {/* TEMPORARY (testing only) - remove this whole block once Microsoft sign-in works. */}
+        <div className="sign-in-advanced" style={{ marginTop: 20 }}>
+          <p className="instance-subtitle">
+            Testing only: skip sign-in with an offline session. Singleplayer works; servers that verify
+            accounts won&rsquo;t. This option will be removed.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              className="input"
+              placeholder="Offline username"
+              value={offlineName}
+              onChange={(e) => setOfflineName(e.target.value)}
+              maxLength={16}
+              spellCheck={false}
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-secondary" disabled={signingIn} onClick={continueOffline}>
+              Continue offline
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
