@@ -63,7 +63,8 @@ public final class CosmeticCatalog {
             "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null, null),
             "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null, null),
             "starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape"),
-            "eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape")
+            "eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape"),
+            "inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)
     );
 
     private CosmeticCatalog() {

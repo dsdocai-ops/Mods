@@ -9,7 +9,7 @@
 const crypto = require("crypto");
 
 const LICENSE_SECRET = "REPLACE_ME_WITH_YOUR_OWN_SECRET";
-const KNOWN_COSMETIC_IDS = ["gold_badge", "azure_badge", "crimson_cape", "nightfall_cape", "seraph_wings", "obsidian_top_hat", "navy_captain_hat", "starlit_cape", "eclipse_cape"];
+const KNOWN_COSMETIC_IDS = ["gold_badge", "azure_badge", "crimson_cape", "nightfall_cape", "seraph_wings", "obsidian_top_hat", "navy_captain_hat", "starlit_cape", "eclipse_cape", "inferno_wings"];
 
 const cosmeticId = process.argv[2];
 if (!cosmeticId) {

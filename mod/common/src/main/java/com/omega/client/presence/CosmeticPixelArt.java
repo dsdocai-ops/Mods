@@ -129,6 +129,24 @@ public final class CosmeticPixelArt {
             .rrrrrrrr.
             """);
 
+    /** Inferno dragon wing (right; left is mirrored by CosmeticGeometry): black bone leading edge, ember-to-shadow membrane gradient, clawed scalloped trailing edge. 12x10. */
+    public static final PixelArt INFERNO_WINGS = parse("""
+            k=000000
+            h=FF6B4A
+            m=C62839
+            r=8E1B1B
+            kkkkkkkkkkkk
+            hhhhhhhhhhhh
+            mmmmmmmmmmm.
+            mmmmmmmmmmm.
+            mmmmmmmmm.m.
+            mmmmmmmmm...
+            rrrrrrr.r...
+            rrrrr.r.....
+            rrrr........
+            rr..........
+            """);
+
     /** Crimson cape: gold trim top and fringed bottom, gold Ω emblem. 10x16. */
     public static final PixelArt CRIMSON_CAPE = parse("""
             c=C62839
