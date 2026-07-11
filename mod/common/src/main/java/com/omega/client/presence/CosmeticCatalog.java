@@ -14,10 +14,11 @@ import java.util.Map;
  * carries just badgeRgb; HAT/CAPE/WINGS render as gear on the player model, one of two ways -
  * PROCEDURAL (art != null): pixel art (CosmeticPixelArt) extruded into solid-color quads like a
  * Minecraft item texture (CosmeticGeometry) - colors live entirely in the art's palette; or
- * TEXTURED (textureId != null, CAPE only for now): a real PNG UV-mapped onto cloth-like strips
- * (CosmeticTexturedMesh) - colors live in the image, not in this catalog. Exactly one of art/
- * textureId is non-null for any HAT/CAPE/WINGS entry; both renderers (CosmeticFeatureRenderer on
- * Fabric, CosmeticRenderLayer on Forge) branch on which is set.
+ * TEXTURED (textureId != null, CAPE and HAT so far - not WINGS): a real PNG UV-mapped onto a flat
+ * card (CosmeticTexturedMesh - cloth-like strips for CAPE, a single plane for HAT) - colors live in
+ * the image, not in this catalog. Exactly one of art/textureId is non-null for any HAT/CAPE/WINGS
+ * entry; both renderers (CosmeticFeatureRenderer on Fabric, CosmeticRenderLayer on Forge) branch on
+ * which is set, further branching TEXTURED by kind for the right mesh builder and anchor part.
  *
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their
@@ -40,12 +41,13 @@ public final class CosmeticCatalog {
      * choice (null = no trail, RGB otherwise) - only CAPE/WINGS ever emit one (see
      * CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to trail from, so a trailColor there
      * would silently never fire; leave it null for those kinds rather than setting a color that
-     * does nothing). textureId is null for procedural/badge cosmetics; for a TEXTURED cape it's the
-     * path under textures/ WITHOUT the "cosmetics/" segment or ".png" extension already baked in -
-     * e.g. "cosmetics/starlit_cape" resolves to textures/cosmetics/starlit_cape.png in both
-     * loaders' resource trees (mod/fabric/.../assets/omega-client/, mod/forge/.../assets/
+     * does nothing). textureId is null for procedural/badge cosmetics; for a TEXTURED cosmetic it's
+     * the path under textures/ WITHOUT the leading "textures/" segment or ".png" extension already
+     * baked in - e.g. "cosmetics/starlit_cape" resolves to textures/cosmetics/starlit_cape.png in
+     * both loaders' resource trees (mod/fabric/.../assets/omega-client/, mod/forge/.../assets/
      * omega_client_forge/ - the same file, duplicated, same convention as every other per-loader
-     * resource in this project. See CosmeticTexturedMesh's class doc for why CAPE only, for now.
+     * resource in this project). See CosmeticTexturedMesh's class doc for which kinds TEXTURED
+     * supports and why.
      */
     public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art, Integer trailColor, String textureId) {
     }
@@ -66,7 +68,10 @@ public final class CosmeticCatalog {
             Map.entry("navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null, null)),
             Map.entry("starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape")),
             Map.entry("eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape")),
-            Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null))
+            Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)),
+            // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
+            // so a color here would silently never fire - see the Cosmetic record's own doc above.
+            Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, null, null, "cosmetics/azure_charm_hat"))
     );
 
     private CosmeticCatalog() {

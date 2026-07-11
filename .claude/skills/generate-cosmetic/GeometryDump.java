@@ -17,13 +17,13 @@ import java.util.List;
  * shading matches in-game shading. Declared in this package purely to reach that helper.
  *
  * Modes:
- *   (no args)                          - static dump of every gear cosmetic in the catalog, keyed by id
- *   <artFile> <kind>                   - static dump of a PROCEDURAL candidate art (hat|cape|wings), before it's wired in
- *   --textured-candidate               - static dump of a TEXTURED candidate cape's geometry (CAPE only for now)
- *   --animate <id>                     - animation-frame dump of a catalog cosmetic (BADGE/HAT ids
- *                                         are accepted but every frame is identical - see below)
- *   --animate <artFile> <kind>         - animation-frame dump of a PROCEDURAL candidate
- *   --animate --textured-candidate     - animation-frame dump of a TEXTURED candidate cape
+ *   (no args)                            - static dump of every gear cosmetic in the catalog, keyed by id
+ *   <artFile> <kind>                     - static dump of a PROCEDURAL candidate art (hat|cape|wings), before it's wired in
+ *   --textured-candidate <hat|cape>      - static dump of a TEXTURED candidate's geometry (not WINGS - see CosmeticTexturedMesh)
+ *   --animate <id>                       - animation-frame dump of a catalog cosmetic (BADGE/HAT ids
+ *                                           are accepted but every frame is identical - see below)
+ *   --animate <artFile> <kind>           - animation-frame dump of a PROCEDURAL candidate
+ *   --animate --textured-candidate <hat|cape>  - animation-frame dump of a TEXTURED candidate
  *
  * A PROCEDURAL entry's geometry key is "quads" (color-per-quad, from CosmeticGeometry); a TEXTURED
  * entry's is "uvQuads" (UV-per-vertex + a baked normal, no color - from CosmeticTexturedMesh) plus a
@@ -80,7 +80,8 @@ public final class GeometryDump {
         appendPlayer(json);
         json.append("\"cosmetics\":{");
         if (args.length >= 1 && args[0].equals("--textured-candidate")) {
-            appendCosmetic(json, texturedCandidate(), true);
+            requireArg(args, 1, "--textured-candidate needs a kind: hat or cape.");
+            appendCosmetic(json, texturedCandidate(args[1]), true);
         } else if (args.length >= 2) {
             appendCosmetic(json, loadCandidate(args[0], args[1]), true);
         } else {
@@ -98,7 +99,8 @@ public final class GeometryDump {
     private static void animateMode(String[] args) throws Exception {
         CosmeticCatalog.Cosmetic cosmetic;
         if (args.length >= 1 && args[0].equals("--textured-candidate")) {
-            cosmetic = texturedCandidate();
+            requireArg(args, 1, "--textured-candidate needs a kind: hat or cape.");
+            cosmetic = texturedCandidate(args[1]);
         } else if (args.length >= 2) {
             cosmetic = loadCandidate(args[0], args[1]);
         } else {
@@ -120,8 +122,7 @@ public final class GeometryDump {
         json.append(",\"trailColor\":").append(cosmetic.trailColor()).append(",\"frames\":[");
 
         List<CosmeticGeometry.Quad> quads = cosmetic.textureId() == null ? CosmeticGeometry.quadsFor(cosmetic) : null;
-        List<CosmeticTexturedMesh.TexturedQuad> uvQuads = cosmetic.textureId() != null
-                ? CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS) : null;
+        List<CosmeticTexturedMesh.TexturedQuad> uvQuads = cosmetic.textureId() != null ? meshFor(cosmetic) : null;
 
         boolean first = true;
         for (float motion : FRAME_MOTIONS) {
@@ -167,8 +168,27 @@ public final class GeometryDump {
     }
 
     /** textureId is a placeholder - this tool never reads texture pixels, only geometry (see class doc). */
-    private static CosmeticCatalog.Cosmetic texturedCandidate() {
-        return new CosmeticCatalog.Cosmetic("candidate_textured", CosmeticCatalog.Kind.CAPE, CosmeticCatalog.DEFAULT_BADGE_RGB, null, null, "candidate");
+    private static CosmeticCatalog.Cosmetic texturedCandidate(String kindArg) {
+        CosmeticCatalog.Kind kind = CosmeticCatalog.Kind.valueOf(kindArg.toUpperCase());
+        if (kind != CosmeticCatalog.Kind.HAT && kind != CosmeticCatalog.Kind.CAPE) {
+            System.err.println("TEXTURED candidates support hat or cape only (see CosmeticTexturedMesh) - got \"" + kindArg + "\".");
+            System.exit(1);
+        }
+        return new CosmeticCatalog.Cosmetic("candidate_textured", kind, CosmeticCatalog.DEFAULT_BADGE_RGB, null, null, "candidate");
+    }
+
+    /** The right CosmeticTexturedMesh builder for a TEXTURED cosmetic's own kind. */
+    private static List<CosmeticTexturedMesh.TexturedQuad> meshFor(CosmeticCatalog.Cosmetic cosmetic) {
+        return cosmetic.kind() == CosmeticCatalog.Kind.HAT
+                ? CosmeticTexturedMesh.hatPlane()
+                : CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
+    }
+
+    private static void requireArg(String[] args, int index, String message) {
+        if (args.length <= index) {
+            System.err.println(message);
+            System.exit(1);
+        }
     }
 
     private static void appendCosmetic(StringBuilder json, CosmeticCatalog.Cosmetic cosmetic, boolean first) {
@@ -176,7 +196,7 @@ public final class GeometryDump {
         json.append("\"").append(cosmetic.id()).append("\":{\"kind\":\"").append(cosmetic.kind().name().toLowerCase()).append("\"");
         if (cosmetic.textureId() != null) {
             json.append(",\"textured\":true,\"textureId\":\"").append(cosmetic.textureId()).append("\",\"uvQuads\":[");
-            List<CosmeticTexturedMesh.TexturedQuad> uvQuads = CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS);
+            List<CosmeticTexturedMesh.TexturedQuad> uvQuads = meshFor(cosmetic);
             for (int i = 0; i < uvQuads.size(); i++) {
                 if (i > 0) json.append(",");
                 appendUvQuad(json, uvQuads.get(i));
