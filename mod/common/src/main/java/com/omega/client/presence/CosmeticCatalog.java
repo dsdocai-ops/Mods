@@ -75,7 +75,8 @@ public final class CosmeticCatalog {
             Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)),
             // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
             // so a color here would silently never fire - see the Cosmetic record's own doc above.
-            Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.AZURE_CHARM_HAT, null, null))
+            Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.AZURE_CHARM_HAT, null, null)),
+            Map.entry("twilight_summit_cape", new Cosmetic("twilight_summit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xCFE8FF, "cosmetics/twilight_summit_cape"))
     );
 
     private CosmeticCatalog() {
