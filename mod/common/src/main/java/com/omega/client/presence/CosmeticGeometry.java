@@ -7,11 +7,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Turns a cosmetic's pixel art (CosmeticPixelArt) into 3D quads the same way vanilla turns a flat
- * item texture into the extruded model you see held or dropped: every opaque pixel becomes a
- * colored cell one extrusion deep, transparent pixels cut the silhouette, and edge faces are
- * emitted only where a pixel borders transparency - so no two faces are ever coplanar (which would
- * z-fight, since every face renders double-sided) and interior faces don't exist at all.
+ * Turns a cosmetic's art (CosmeticPixelArt) into 3D quads, one of two ways depending on the art's
+ * representation (CosmeticPixelArt.Art is sealed - these two branches are exhaustive):
+ *
+ * FLAT (PixelArt) - extruded the same way vanilla turns a flat item texture into the model you see
+ * held or dropped: every opaque pixel becomes a colored cell one extrusion deep, transparent
+ * pixels cut the silhouette, and edge faces are emitted only where a pixel borders transparency.
+ *
+ * VOXEL (VoxelArt, HAT only) - meshed as true 3D volume: every filled voxel is a unit cube, and a
+ * face is emitted only where a filled cell borders an empty one (same-color neighbors merge into
+ * runs, exactly like the extruder's) - so a voxel hat has a real dome, brim overhang, and side
+ * profile from every angle, the way Lunar/Feather/Essential-style hats are genuine multi-box
+ * models rather than one extruded silhouette. Same no-coplanar-faces guarantee as the extruder,
+ * for the same z-fighting reason.
+ *
  * Zero Minecraft imports, computed once per cosmetic id, shared by both loaders' renderers
  * (CosmeticFeatureRenderer / CosmeticRenderLayer) and by the generate-cosmetic skill's preview
  * dumper, so the in-game shapes and the skill's preview screenshots can never drift apart.
@@ -26,10 +35,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * pixel step rightward in the art), a v axis (one pixel step downward), an extrusion depth, a
  * PIVOT (the point CosmeticAnimation hinges around), and a DepthFn mapping each grid cell to a
  * depth01 (0 = rigid at the pivot, 1 = free-swinging tip - see Quad below):
- *   - HAT: a front-facing vertical plane whose bottom rests just above the hat-overlay layer
- *     (overlay top is y -8.5), extruded through the full head depth (z -4.5..+4.5), anchored to
- *     the head part - so the art is the hat's front/back silhouette. Rigid (depth01 always 0):
+ *   - HAT (flat art): a front-facing vertical plane whose bottom rests just above the hat-overlay
+ *     layer (overlay top is y -8.5), extruded through the full head depth (z -4.5..+4.5), anchored
+ *     to the head part - so the art is the hat's front/back silhouette. Rigid (depth01 always 0):
  *     nothing about a hat should swing loose.
+ *   - HAT (voxel art): a true 3D grid centered on the head (x and z), bottom layer resting just
+ *     above the hat overlay (same y -8.6 the flat frame uses), 1 voxel = 1 model pixel, anchored
+ *     to the head part. Rigid, same as the flat hat. The only voxel frame - a cape/wings is
+ *     naturally a decorated plane, and its whole animation model (depth01 per row/column of a flat
+ *     grid) presumes one.
  *   - CAPE: a plane hung from the shoulders, tilted ~15° back, 0.6px thin, anchored to the body.
  *     Pivot is the collar midpoint; depth01 grows down each art row, so the hem sways freely while
  *     the collar stays put.
@@ -132,17 +146,24 @@ public final class CosmeticGeometry {
     }
 
     private static List<Quad> build(CosmeticCatalog.Cosmetic cosmetic) {
-        CosmeticPixelArt.PixelArt art = cosmetic.art();
         List<Quad> out = new ArrayList<>();
         switch (cosmetic.kind()) {
-            case HAT -> extrude(out, art,
-                    new float[]{-art.width() / 2f, -8.6f - art.height(), -4.5f},
-                    new float[]{1, 0, 0},
-                    new float[]{0, 1, 0},
-                    9f,
-                    new float[]{0, 0, 0},
-                    (x, y) -> 0f);
+            case HAT -> {
+                if (cosmetic.art() instanceof CosmeticPixelArt.VoxelArt voxels) {
+                    meshVoxels(out, voxels);
+                } else {
+                    CosmeticPixelArt.PixelArt art = flat(cosmetic, "HAT");
+                    extrude(out, art,
+                            new float[]{-art.width() / 2f, -8.6f - art.height(), -4.5f},
+                            new float[]{1, 0, 0},
+                            new float[]{0, 1, 0},
+                            9f,
+                            new float[]{0, 0, 0},
+                            (x, y) -> 0f);
+                }
+            }
             case CAPE -> {
+                CosmeticPixelArt.PixelArt art = flat(cosmetic, "CAPE");
                 float[] origin = { -art.width() / 2f, 0.5f, 2.6f };
                 float[] u = { 1, 0, 0 };
                 float[] v = { 0, 0.966f, 0.259f }; // one pixel down the cape's 15°-tilted hang
@@ -156,6 +177,7 @@ public final class CosmeticGeometry {
                 // double-sided emission already absorbs. Pivot is the shoulder attachment (a),
                 // shared by both mirrored copies (mirroring x doesn't move a point already at x=0.5
                 // - close enough to the spine to treat as symmetric).
+                CosmeticPixelArt.PixelArt art = flat(cosmetic, "WINGS");
                 float[] a = { 0.5f, 1.5f, 3.0f };   // inner top (at the shoulder blades)
                 float[] b = { 12f, -4.5f, 7.5f };   // outer top (up, out, and back)
                 float[] d = { 0.5f, 11f, 3.6f };    // inner bottom
@@ -173,6 +195,108 @@ public final class CosmeticGeometry {
             default -> { }
         }
         return out;
+    }
+
+    /** Voxel art reaching a non-HAT frame is an authoring error - fail loudly at build (= preview / first render), not with a silent wrong shape. */
+    private static CosmeticPixelArt.PixelArt flat(CosmeticCatalog.Cosmetic cosmetic, String kind) {
+        if (cosmetic.art() instanceof CosmeticPixelArt.PixelArt art) return art;
+        throw new IllegalArgumentException(kind + " has no voxel frame - only HAT does (see class doc); \"" + cosmetic.id() + "\" needs flat PixelArt");
+    }
+
+    /**
+     * Meshes a voxel grid into the HAT frame: centered on the head in x and z, bottom layer
+     * resting just above the hat overlay (y -8.6, matching the flat HAT frame), 1 voxel = 1 model
+     * pixel. A face is emitted only across a filled/empty boundary, merged along same-color runs
+     * with the same neighboring exposure (the exact analogue of extrude()'s edge-face merging),
+     * so no two faces are ever coplanar and interior faces don't exist - see the class doc.
+     * Shading comes from face() as usual: winding is chosen so up-facing faces (crown top, brim
+     * top ring) bake bright and undersides bake dark, giving a voxel hat the same vanilla-flavored
+     * directional read as everything else in this file. Rigid: depth01 0, pivot unused.
+     */
+    private static void meshVoxels(List<Quad> out, CosmeticPixelArt.VoxelArt art) {
+        float ox = -art.width() / 2f;
+        float oy = -8.6f - art.height();
+        float oz = -art.depth() / 2f;
+        float[] noPivot = { 0, 0, 0 };
+
+        // Up/down faces at every horizontal layer boundary, merged along x runs. Requiring BOTH
+        // neighbors to match across the run keeps the owner color and the exposure direction
+        // constant within one merged face.
+        for (int y = 0; y <= art.height(); y++) {
+            for (int z = 0; z < art.depth(); z++) {
+                int x = 0;
+                while (x < art.width()) {
+                    int above = art.voxelAt(x, y - 1, z);
+                    int below = art.voxelAt(x, y, z);
+                    int owner = above >= 0 && below < 0 ? above : above < 0 && below >= 0 ? below : -1;
+                    if (owner < 0) {
+                        x++;
+                        continue;
+                    }
+                    int end = x + 1;
+                    while (end < art.width() && art.voxelAt(end, y - 1, z) == above && art.voxelAt(end, y, z) == below) end++;
+                    float[] p00 = { ox + x, oy + y, oz + z };
+                    float[] p10 = { ox + end, oy + y, oz + z };
+                    float[] p11 = { ox + end, oy + y, oz + z + 1 };
+                    float[] p01 = { ox + x, oy + y, oz + z + 1 };
+                    if (above < 0) {
+                        face(out, owner, 0f, noPivot, p00, p10, p11, p01); // open above: up-facing, bakes bright
+                    } else {
+                        face(out, owner, 0f, noPivot, p01, p11, p10, p00); // open below: down-facing, bakes dark
+                    }
+                    x = end;
+                }
+            }
+        }
+
+        // North/south (z-boundary) faces, merged along x runs. Vertical, so shade is the flat 0.65
+        // regardless of winding, and geometry is double-sided - orientation needs no care here.
+        for (int z = 0; z <= art.depth(); z++) {
+            for (int y = 0; y < art.height(); y++) {
+                int x = 0;
+                while (x < art.width()) {
+                    int front = art.voxelAt(x, y, z - 1);
+                    int back = art.voxelAt(x, y, z);
+                    int owner = front >= 0 && back < 0 ? front : front < 0 && back >= 0 ? back : -1;
+                    if (owner < 0) {
+                        x++;
+                        continue;
+                    }
+                    int end = x + 1;
+                    while (end < art.width() && art.voxelAt(end, y, z - 1) == front && art.voxelAt(end, y, z) == back) end++;
+                    float[] p00 = { ox + x, oy + y, oz + z };
+                    float[] p10 = { ox + end, oy + y, oz + z };
+                    float[] p11 = { ox + end, oy + y + 1, oz + z };
+                    float[] p01 = { ox + x, oy + y + 1, oz + z };
+                    face(out, owner, 0f, noPivot, p00, p10, p11, p01);
+                    x = end;
+                }
+            }
+        }
+
+        // East/west (x-boundary) faces, merged along z runs. Vertical - same shade note as above.
+        for (int x = 0; x <= art.width(); x++) {
+            for (int y = 0; y < art.height(); y++) {
+                int z = 0;
+                while (z < art.depth()) {
+                    int left = art.voxelAt(x - 1, y, z);
+                    int right = art.voxelAt(x, y, z);
+                    int owner = left >= 0 && right < 0 ? left : left < 0 && right >= 0 ? right : -1;
+                    if (owner < 0) {
+                        z++;
+                        continue;
+                    }
+                    int end = z + 1;
+                    while (end < art.depth() && art.voxelAt(x - 1, y, end) == left && art.voxelAt(x, y, end) == right) end++;
+                    float[] p00 = { ox + x, oy + y, oz + z };
+                    float[] p10 = { ox + x, oy + y, oz + end };
+                    float[] p11 = { ox + x, oy + y + 1, oz + end };
+                    float[] p01 = { ox + x, oy + y + 1, oz + z };
+                    face(out, owner, 0f, noPivot, p00, p10, p11, p01);
+                    z = end;
+                }
+            }
+        }
     }
 
     /**

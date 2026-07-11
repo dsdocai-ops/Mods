@@ -7,29 +7,67 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Pixel art definitions for gear cosmetics - every hat/cape/wings is a small pixel grid, exactly
- * like a Minecraft item texture, and CosmeticGeometry extrudes it into 3D the same way vanilla
- * extrudes held/dropped items: each opaque pixel becomes a colored cell, transparent pixels cut
- * the silhouette. Zero Minecraft imports, same sharing rule as CosmeticCatalog.
+ * Pixel art definitions for gear cosmetics, in two flavors sharing one text format and palette
+ * convention. Zero Minecraft imports, same sharing rule as CosmeticCatalog.
  *
- * Art is authored in a compact text format (parsed by {@link #parse}, which the generate-cosmetic
- * skill's pixelate.mjs also emits and its preview consumes - one parser, no drift):
+ * FLAT ({@link PixelArt}, parsed by {@link #parse}) - a single 2D grid, exactly like a Minecraft
+ * item texture, extruded into 3D by CosmeticGeometry the way vanilla extrudes held/dropped items:
+ * each opaque pixel becomes a colored cell, transparent pixels cut the silhouette. Right for
+ * anything that IS essentially a decorated plane: capes, wings.
+ *
+ * VOXEL ({@link VoxelArt}, parsed by {@link #parseVoxel}) - a stack of 2D grids, each one a
+ * horizontal slice viewed from above (top slice first), together defining true 3D volume - the
+ * same way Lunar/Feather/Essential-style hat cosmetics are real multi-box models rather than a
+ * flat silhouette. CosmeticGeometry meshes it with per-face culling (faces only where a filled
+ * cell borders an empty one), so a voxel hat has a genuine dome, brim overhang, and side profile
+ * from every viewing angle. HAT is the only kind with a voxel frame - capes/wings are naturally
+ * flat (see CosmeticGeometry's class doc).
+ *
+ * Text format (one parser family, also consumed by the generate-cosmetic skill's tooling):
  *
  *   - lines like "c=RRGGBB" define a palette entry (single-character key, hex color, no alpha)
- *   - every other non-blank line is one pixel row: '.' = transparent, any other char = palette key
+ *   - every other non-blank line is one pixel row: '.' = transparent/empty, else a palette key
  *   - all rows must be the same length; unknown keys or ragged rows throw at parse time,
  *     so a bad grid fails at class load / preview, never silently mid-render
+ *   - VOXEL only: a line of dashes ("---") separates consecutive horizontal slices, ordered top
+ *     of the model first; every slice must have the same row count and row width. Within a slice,
+ *     the first row is the front of the player (-z), columns run left-to-right (+x), matching how
+ *     the flat format's front-view rows already read.
  *
- * Grid sizes are free, but each kind has a canonical frame it's stretched into (see
- * CosmeticGeometry): HAT 14x9 (front silhouette, extruded through the head depth),
- * CAPE 10x16 (hung from the shoulders), WINGS 12x10 (right wing; the left is mirrored).
+ * Grid sizes are free, but each kind has a canonical frame (see CosmeticGeometry): flat HAT 14x9
+ * (front silhouette, extruded through the head depth), voxel HAT 14w x 8h x 14d (sits centered on
+ * the head, bottom layer resting just above the hat overlay), CAPE 10x16 (hung from the
+ * shoulders), WINGS 12x10 (right wing; the left is mirrored).
  */
 public final class CosmeticPixelArt {
-    /** One parsed grid: row-major pixels, -1 = transparent, otherwise 0xRRGGBB. */
-    public record PixelArt(int width, int height, int[] pixels) {
+    /**
+     * What a gear cosmetic's art can be - flat pixel art (extruded) or voxel art (meshed as true
+     * volume). Sealed so CosmeticGeometry's per-representation branches are exhaustive; width and
+     * height are on the interface because frame math (e.g. tipPointsFor's CAPE hem) reads them
+     * without caring which representation it has.
+     */
+    public sealed interface Art permits PixelArt, VoxelArt {
+        int width();
+        int height();
+    }
+
+    /** One parsed flat grid: row-major pixels, -1 = transparent, otherwise 0xRRGGBB. */
+    public record PixelArt(int width, int height, int[] pixels) implements Art {
         public int pixelAt(int x, int y) {
             if (x < 0 || y < 0 || x >= width || y >= height) return -1;
             return pixels[y * width + x];
+        }
+    }
+
+    /**
+     * One parsed voxel grid: layer-major (y, top layer first), then row-major within a layer
+     * (z, front row first), -1 = empty. Out-of-bounds reads return empty, which is exactly what
+     * the mesher's neighbor tests want at the model's outer boundary.
+     */
+    public record VoxelArt(int width, int height, int depth, int[] voxels) implements Art {
+        public int voxelAt(int x, int y, int z) {
+            if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return -1;
+            return voxels[(y * depth + z) * width + x];
         }
     }
 
@@ -58,17 +96,73 @@ public final class CosmeticPixelArt {
                 throw new IllegalArgumentException("row " + y + " is " + row.length() + " wide, expected " + width);
             }
             for (int x = 0; x < width; x++) {
-                char key = row.charAt(x);
-                if (key == '.') {
-                    pixels[y * width + x] = -1;
-                } else {
-                    Integer rgb = palette.get(key);
-                    if (rgb == null) throw new IllegalArgumentException("row " + y + " uses undefined palette key '" + key + "'");
-                    pixels[y * width + x] = rgb;
-                }
+                pixels[y * width + x] = pixelOf(palette, row.charAt(x), "row " + y);
             }
         }
         return new PixelArt(width, height, pixels);
+    }
+
+    /** See the class doc's VOXEL format description: "---" lines split slices, top slice first. */
+    public static VoxelArt parseVoxel(String spec) {
+        Map<Character, Integer> palette = new HashMap<>();
+        List<List<String>> layers = new ArrayList<>();
+        List<String> current = new ArrayList<>();
+        for (String rawLine : spec.split("\n")) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) continue;
+            if (line.chars().allMatch(ch -> ch == '-')) {
+                if (current.isEmpty()) throw new IllegalArgumentException("empty voxel layer before a --- separator");
+                layers.add(current);
+                current = new ArrayList<>();
+            } else if (line.length() >= 3 && line.charAt(1) == '=') {
+                palette.put(line.charAt(0), Integer.parseInt(line.substring(2).trim(), 16));
+            } else {
+                current.add(line);
+            }
+        }
+        if (!current.isEmpty()) layers.add(current);
+        if (layers.size() < 2) throw new IllegalArgumentException("voxel art needs at least 2 layers (use parse() for flat art)");
+        int width = layers.get(0).get(0).length();
+        int depth = layers.get(0).size();
+        int height = layers.size();
+        int[] voxels = new int[width * height * depth];
+        for (int y = 0; y < height; y++) {
+            List<String> layer = layers.get(y);
+            if (layer.size() != depth) {
+                throw new IllegalArgumentException("layer " + y + " has " + layer.size() + " rows, expected " + depth);
+            }
+            for (int z = 0; z < depth; z++) {
+                String row = layer.get(z);
+                if (row.length() != width) {
+                    throw new IllegalArgumentException("layer " + y + " row " + z + " is " + row.length() + " wide, expected " + width);
+                }
+                for (int x = 0; x < width; x++) {
+                    voxels[(y * depth + z) * width + x] = pixelOf(palette, row.charAt(x), "layer " + y + " row " + z);
+                }
+            }
+        }
+        return new VoxelArt(width, height, depth, voxels);
+    }
+
+    /**
+     * Parses either representation, detected by the presence of a "---" layer separator - for
+     * tooling (the generate-cosmetic skill's GeometryDump candidate loader) that takes an art file
+     * of either flavor; the shipped constants below call parse()/parseVoxel() directly since each
+     * knows what it is.
+     */
+    public static Art parseAny(String spec) {
+        for (String rawLine : spec.split("\n")) {
+            String line = rawLine.trim();
+            if (!line.isEmpty() && line.chars().allMatch(ch -> ch == '-')) return parseVoxel(spec);
+        }
+        return parse(spec);
+    }
+
+    private static int pixelOf(Map<Character, Integer> palette, char key, String where) {
+        if (key == '.') return -1;
+        Integer rgb = palette.get(key);
+        if (rgb == null) throw new IllegalArgumentException(where + " uses undefined palette key '" + key + "'");
+        return rgb;
     }
 
     /** Obsidian top hat: dark crown and brim, brand-red band. 14x9, front silhouette. */
@@ -103,22 +197,153 @@ public final class CosmeticPixelArt {
             bbbbbbbbbbbbbb
             """);
 
-    /** Azure charm hat: blue bucket hat, domed crown flaring to a wide brim, dangling gold charm. 14x9. */
-    public static final PixelArt AZURE_CHARM_HAT = parse("""
-            c=5FA0D6
-            a=2C5C8C
-            b=1B3A57
-            g=D8B34A
-            h=7A5A18
+    /**
+     * Azure charm hat: patchwork-blue bucket hat as TRUE 3D VOXEL art - rounded crown top, two
+     * patch-mottled wall layers over a dark band, a full 14x14 brim with a dark rim ring, and a
+     * gold bell charm dangling from the brim's right edge on a chain link (hanging beside the
+     * head, the way the reference photo's charm does). 14w x 9h x 14d, top slice first.
+     */
+    public static final VoxelArt AZURE_CHARM_HAT = parseVoxel("""
+            c=6FA8D8
+            a=34689E
+            d=4A7FB5
+            b=1E3F63
+            g=E8C25A
+            h=8A6420
+            ..............
+            ..............
+            ..............
             ....cccccc....
-            ...aaaaaaaa...
+            ...ccaccccc...
+            ...cccccacc...
+            ...accccccc...
+            ...ccccccca...
+            ...ccaccccc...
+            ...cccccccc...
+            ....cacccc....
+            ..............
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ...adaaaada...
+            ..aaaaaaaaad..
+            ..daaaaaaaaa..
             ..aaaaaaaaaa..
+            ..aaaaaaaaad..
+            ..daaaaaaaaa..
+            ..aaaaaaaaaa..
+            ..aaaaaaaaad..
+            ..daaaaaaaaa..
+            ...aadaaaaa...
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ...daaaaaad...
+            ..aaaaaaaaaa..
+            ..aaaaaaaaad..
+            ..daaaaaaaaa..
+            ..aaaaaaaaaa..
+            ..aaaaaaaaad..
+            ..daaaaaaaaa..
+            ..aaaaaaaaaa..
+            ..aaaaaaaaad..
+            ...aaadaaaa...
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ...aaadaaaa...
+            ..daaaaaaaaa..
+            ..aaaaaaaaad..
+            ..aaaaaaaaaa..
+            ..daaaaaaaaa..
+            ..aaaaaaaaad..
+            ..aaaaaaaaaa..
+            ..daaaaaaaaa..
+            ..aaaaaaaaad..
+            ...adaaaada...
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ...bbbbbbbb...
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ..bbbbbbbbbb..
+            ...bbbbbbbb...
+            ..............
+            ..............
+            ---
+            ....bbbbbb....
             ..baaaaaaaab..
+            .baaaaaaaaaab.
             baaaaaaaaaaaab
-            .bbbbbbbbbbbb.
-            .........hh...
-            .........gg...
-            .........hg...
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            baaaaaaaaaaaab
+            .baaaaaaaaaab.
+            ..baaaaaaaab..
+            ....bbbbbb....
+            ---
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ............h.
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ...........gg.
+            ...........gg.
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ---
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ...........gg.
+            ...........hg.
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
+            ..............
             """);
 
     /** Nightfall cape: crescent moon and scattered stars over black, purple flame gradient rising from a notched hem. 10x16. */

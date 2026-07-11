@@ -18,7 +18,9 @@ import java.util.List;
  *
  * Modes:
  *   (no args)                            - static dump of every gear cosmetic in the catalog, keyed by id
- *   <artFile> <kind>                     - static dump of a PROCEDURAL candidate art (hat|cape|wings), before it's wired in
+ *   <artFile> <kind>                     - static dump of a PROCEDURAL candidate art (hat|cape|wings), before it's
+ *                                           wired in; the file may be flat OR voxel art (hat only) - parseAny detects
+ *                                           which by the "---" layer separators
  *   --textured-candidate                 - static dump of a TEXTURED candidate CAPE's geometry (see CosmeticTexturedMesh for why not HAT/WINGS)
  *   --animate <id>                       - animation-frame dump of a catalog cosmetic (BADGE/HAT ids
  *                                           are accepted but every frame is identical - see below)
@@ -163,7 +165,10 @@ public final class GeometryDump {
     private static CosmeticCatalog.Cosmetic loadCandidate(String artFile, String kindArg) throws Exception {
         String spec = Files.readString(Path.of(artFile));
         CosmeticCatalog.Kind kind = CosmeticCatalog.Kind.valueOf(kindArg.toUpperCase());
-        return new CosmeticCatalog.Cosmetic("candidate", kind, CosmeticCatalog.DEFAULT_BADGE_RGB, CosmeticPixelArt.parse(spec), null, null);
+        // parseAny: a flat grid or (hat only) a "---"-layered voxel grid - CosmeticGeometry.build
+        // rejects voxel art on non-HAT kinds with a clear message, so a wrong pairing fails here
+        // in the preview rather than after it's wired in.
+        return new CosmeticCatalog.Cosmetic("candidate", kind, CosmeticCatalog.DEFAULT_BADGE_RGB, CosmeticPixelArt.parseAny(spec), null, null);
     }
 
     /** textureId is a placeholder - this tool never reads texture pixels, only geometry (see class doc). */

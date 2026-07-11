@@ -12,8 +12,10 @@ import java.util.Map;
  *
  * A cosmetic is one of four kinds: a BADGE recolors the Ω nametag prefix (EntityRendererMixin) and
  * carries just badgeRgb; HAT/CAPE/WINGS render as gear on the player model, one of two ways -
- * PROCEDURAL (art != null): pixel art (CosmeticPixelArt) extruded into solid-color quads like a
- * Minecraft item texture (CosmeticGeometry) - colors live entirely in the art's palette; or
+ * PROCEDURAL (art != null): pixel art (CosmeticPixelArt) turned into solid-color quads by
+ * CosmeticGeometry - flat art extruded like a Minecraft item texture (any gear kind), or voxel art
+ * meshed as true 3D volume (HAT only - see CosmeticGeometry's class doc); colors live entirely in
+ * the art's palette; or
  * TEXTURED (textureId != null, CAPE only for now): a real PNG UV-mapped onto cloth-like strips
  * (CosmeticTexturedMesh) - colors live in the image, not in this catalog. HAT stays PROCEDURAL only -
  * a hat's crown/brim volume isn't a flat plane the way a cape already is, and every Minecraft-style
@@ -38,7 +40,8 @@ public final class CosmeticCatalog {
     /**
      * One catalog entry - plain data so it can cross the common/ boundary. badgeRgb is only read
      * for BADGE kinds (gear keeps the default nametag red); art is the pixel grid for a PROCEDURAL
-     * gear cosmetic, null for badges and for TEXTURED gear. trailColor is an opt-in per-cosmetic
+     * gear cosmetic (CosmeticPixelArt.Art: flat PixelArt for any gear kind, VoxelArt for a true-3D
+     * HAT), null for badges and for TEXTURED gear. trailColor is an opt-in per-cosmetic
      * choice (null = no trail, RGB otherwise) - only CAPE/WINGS ever emit one (see
      * CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to trail from, so a trailColor there
      * would silently never fire; leave it null for those kinds rather than setting a color that
@@ -50,7 +53,7 @@ public final class CosmeticCatalog {
      * resource in this project). See CosmeticTexturedMesh's class doc for which kinds TEXTURED
      * supports and why.
      */
-    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art, Integer trailColor, String textureId) {
+    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.Art art, Integer trailColor, String textureId) {
     }
 
     /** The badge color every player (Omega or not) effectively has today - the "no cosmetic" case. */

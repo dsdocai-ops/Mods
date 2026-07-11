@@ -1,6 +1,6 @@
 ---
 name: generate-cosmetic
-description: Generate a new Omega Client cosmetic - a colored nametag badge, pixel-art gear (hat, cape, wings) rendered like an extruded Minecraft item texture, or a TEXTURED cape wrapping a real PNG onto cloth-like UV-mapped strips - with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, to give one a particle trail/sparkle effect, or to make one out of a real texture/image with gradients or soft detail flat pixel art can't do - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail", "make a cape from this texture/painting" - including authoring the art or texture, wiring it into the catalog/licensing pipeline, previewing its shape/animation/trail, and minting a license key for it.
+description: Generate a new Omega Client cosmetic - a colored nametag badge, pixel-art gear (hat, cape, wings) rendered like an extruded Minecraft item texture (hats preferably as TRUE 3D VOXEL pixel art - layered slices meshed into a real dome/brim volume, the Lunar/Feather/Essential-style hat construction), or a TEXTURED cape wrapping a real PNG onto cloth-like UV-mapped strips - with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, to give one a particle trail/sparkle effect, or to make one out of a real texture/image with gradients or soft detail flat pixel art can't do - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail", "make a cape from this texture/painting" - including authoring the art or texture, wiring it into the catalog/licensing pipeline, previewing its shape/animation/trail, and minting a license key for it.
 ---
 
 <!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
@@ -11,11 +11,22 @@ A cosmetic is one of four kinds (`CosmeticCatalog.Kind`):
 - **HAT / CAPE / WINGS** - gear on the player model, built one of two ways
   (`CosmeticCatalog.Cosmetic`'s `art`/`textureId` fields - exactly one is
   non-null for any gear entry):
-  - **PROCEDURAL** (`art` set) - **pixel art**, exactly like a Minecraft item
-    texture: a small grid where each opaque pixel becomes an extruded colored
-    cell in 3D (the way vanilla renders held/dropped items) and transparent
-    pixels cut the silhouette. Art lives in `CosmeticPixelArt` (common), gets
-    extruded by `CosmeticGeometry`. Works for all three kinds.
+  - **PROCEDURAL** (`art` set) - **pixel art**, in one of two representations
+    (`CosmeticPixelArt.Art`, sealed - both live in `CosmeticPixelArt` (common)
+    and get meshed by `CosmeticGeometry`):
+    - **flat** (`PixelArt`) - a single 2D grid, exactly like a Minecraft item
+      texture: each opaque pixel becomes an extruded colored cell (the way
+      vanilla renders held/dropped items), transparency cuts the silhouette.
+      Works for all three kinds; the natural fit for capes and wings, which
+      really are decorated planes.
+    - **voxel** (`VoxelArt`, **HAT only**) - a stack of 2D slices (top slice
+      first, `---` lines between layers) defining **true 3D volume**, meshed
+      with face culling. This is how Lunar/Feather/Essential-quality hats are
+      built - a genuine dome, a brim that overhangs in every direction, a
+      correct side profile, accents that dangle beside the head - rather than
+      one front silhouette extruded into a slab. **Prefer voxel for every new
+      hat**; the flat HAT frame remains only for existing art and quick
+      drafts. See "Voxel hats" below for the format and authoring guide.
   - **TEXTURED** (`textureId` set, **CAPE only** for now) - a real PNG
     UV-mapped onto cloth-like horizontal strips (`CosmeticTexturedMesh`,
     common) - the same technique vanilla uses for its own player cape. Colors
@@ -283,12 +294,67 @@ cc.gggg.cc
 ```
 
 Canonical grids (the 3D frames art is stretched into - other sizes work but
-stray far and pixels go non-square): **HAT 14x9** (front silhouette, extruded
-through the full head depth, resting just above the hat overlay), **CAPE
-10x16** (hung from the shoulders, ~15° back tilt, 0.6px thin), **WINGS 12x10**
-(right wing on a swept-back parallelogram; the mod mirrors the left wing).
-Transparency is load-bearing: it's how a cape gets a fringed hem, wings get
-feather gaps, a hat gets its silhouette.
+stray far and pixels go non-square): **flat HAT 14x9** (front silhouette,
+extruded through the full head depth, resting just above the hat overlay),
+**CAPE 10x16** (hung from the shoulders, ~15° back tilt, 0.6px thin), **WINGS
+12x10** (right wing on a swept-back parallelogram; the mod mirrors the left
+wing). Transparency is load-bearing: it's how a cape gets a fringed hem, wings
+get feather gaps, a hat gets its silhouette.
+
+## Voxel hats (the Lunar-level hat path)
+
+A voxel hat (`CosmeticPixelArt.parseVoxel`, `VoxelArt`) is the same text
+format stacked into horizontal slices, **top of the hat first**, separated by
+lines of dashes. Each slice is viewed **from above**: first row = front of the
+player (-z), columns run left-to-right (+x). `CosmeticGeometry.meshVoxels`
+places the grid centered on the head, bottom layer just above the hat overlay
+(1 voxel = 1 model pixel), and emits faces only where a filled cell borders an
+empty one - a real dome, brim overhang, and side profile from every camera
+angle, with the same baked directional shade as everything else (tops bright,
+undersides dark, sides mid).
+
+```
+a=34689E
+b=1E3F63
+....aaaa....      <- layer 0: crown top slice (seen from above)
+...aaaaaa...
+....aaaa....
+---               <- next slice down
+...aaaaaa...
+..aaaaaaaa..
+...aaaaaa...
+---
+..bbbbbbbb..      <- bottom layer: brim
+.bbbbbbbbbb.
+..bbbbbbbb..
+```
+
+Canonical voxel HAT frame: about **14w x 8-10h x 14d** (14x14 lets a brim
+overhang the 9x9 hat overlay by ~2px a side; see `AZURE_CHARM_HAT` for a full
+worked example - rounded crown top, patch-mottled walls, band layer, rimmed
+brim, and a charm dangling from the brim edge on layers BELOW the brim).
+
+Authoring rules that matter:
+
+- **Fill interiors, don't hollow them.** Face culling means interior cells
+  cost nothing to render, and a filled crown can never show a hole. Only the
+  outer shell's colors are visible - put patch/accent variation on border
+  cells.
+- **Round shapes by cutting corners per slice** (octagon-ish discs read as
+  round at this scale - see the brim slices in `AZURE_CHARM_HAT`).
+- **Dangling accents go on layers below the main body**, offset outside the
+  head overlay's footprint (|x| or |z| beyond 4.5 model px, i.e. outside the
+  center 9x9 cells of a 14x14 grid) so they hang beside the head without
+  clipping it. A dangle voxel directly under a filled brim cell connects
+  seamlessly (the shared face culls away).
+- **The grid's bottom layer lands at y -8.6** (just above the hat overlay),
+  same anchor as the flat frame - so the more dangle layers you add below the
+  brim, the higher the crown rides. Keep dangles to 2-4 layers.
+- **HAT only.** A voxel CAPE/WINGS throws at build time by design
+  (`CosmeticGeometry.flat`) - their animation model (depth01 per row/column of
+  a flat grid) presumes a plane.
+- `pixelate.mjs` is 2D-only: for a voxel hat, use its output as a
+  palette/proportion reference and author the slices by hand.
 
 ## Workflow
 
@@ -311,11 +377,16 @@ text block. **Treat the output as a first draft** - open the rows and hand-tune
 like actual pixel art: straighten ragged edges, re-add a detail the
 downsample smeared, cut a silhouette with '.'s. For badge color derivation
 from an image, `extract-colors.mjs` still does that (see step 1-badge below).
+A photo with a solid (non-alpha) background must be background-keyed to
+transparency first or the downsample swallows the silhouette. **For a HAT,
+this 2D output is reference material, not the deliverable** - use its palette
+and proportions to hand-author voxel slices (see "Voxel hats" above).
 
-**From a description** - author the rows yourself, in the format above. Real
-pixel-art moves: outline/shadow column on one side (see `CRIMSON_CAPE`'s `d`
-columns), 1px accent trim, transparency for scallops and fringes, an emblem in
-a contrasting color. Keep palettes small (3-5 colors read best at this size).
+**From a description** - author the rows yourself, in the format above (for a
+hat: voxel slices, per "Voxel hats" above). Real pixel-art moves:
+outline/shadow column on one side (see `CRIMSON_CAPE`'s `d` columns), 1px
+accent trim, transparency for scallops and fringes, an emblem in a contrasting
+color. Keep palettes small (3-6 colors read best at this size).
 
 **Badges**: `extract-colors.mjs <image>` prints a palette + `suggestedBadge`
 (lightness-lifted for nametag readability); from a description pick a hex with
