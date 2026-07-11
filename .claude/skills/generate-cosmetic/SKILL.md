@@ -343,13 +343,18 @@ Authoring rules that matter:
 - **Round shapes by cutting corners per slice** (octagon-ish discs read as
   round at this scale - see the brim slices in `AZURE_CHARM_HAT`).
 - **Dangling accents go on layers below the main body**, offset outside the
-  head overlay's footprint (|x| or |z| beyond 4.5 model px, i.e. outside the
-  center 9x9 cells of a 14x14 grid) so they hang beside the head without
+  head column (beyond 4.5 model px from center in x OR z - outside the center
+  cells x2..x11/z2..z11 of a 14x14 grid) so they hang beside the head without
   clipping it. A dangle voxel directly under a filled brim cell connects
   seamlessly (the shared face culls away).
-- **The grid's bottom layer lands at y -8.6** (just above the hat overlay),
-  same anchor as the flat frame - so the more dangle layers you add below the
-  brim, the higher the crown rides. Keep dangles to 2-4 layers.
+- **Anchoring is by the hat BODY, not the whole grid**
+  (`CosmeticGeometry.bodyBottomLayer`): the lowest layer with any voxel over
+  the head column rests at y -8.6 (just above the hat overlay), and layers
+  below it hang down beside the head. So dangle layers do NOT push the crown
+  up - a charm can hang to cheek level while the brim still sits right on the
+  head. Anything you author below the body layer is, by the anchoring rule
+  itself, guaranteed to be outside the head column (a voxel over the head
+  column IS the body bottom wherever it appears).
 - **HAT only.** A voxel CAPE/WINGS throws at build time by design
   (`CosmeticGeometry.flat`) - their animation model (depth01 per row/column of
   a flat grid) presumes a plane.

@@ -39,11 +39,16 @@ import java.util.concurrent.ConcurrentHashMap;
  *     layer (overlay top is y -8.5), extruded through the full head depth (z -4.5..+4.5), anchored
  *     to the head part - so the art is the hat's front/back silhouette. Rigid (depth01 always 0):
  *     nothing about a hat should swing loose.
- *   - HAT (voxel art): a true 3D grid centered on the head (x and z), bottom layer resting just
- *     above the hat overlay (same y -8.6 the flat frame uses), 1 voxel = 1 model pixel, anchored
- *     to the head part. Rigid, same as the flat hat. The only voxel frame - a cape/wings is
- *     naturally a decorated plane, and its whole animation model (depth01 per row/column of a flat
- *     grid) presumes one.
+ *   - HAT (voxel art): a true 3D grid centered on the head (x and z), 1 voxel = 1 model pixel,
+ *     anchored to the head part. Vertical anchoring is by the hat BODY, not the whole grid: the
+ *     lowest layer containing any voxel over the head column (within the hat overlay's 4.5px
+ *     half-extent in BOTH x and z) rests just above the overlay (the same y -8.6 the flat frame
+ *     uses), and any layers below it - which by that definition sit entirely OUTSIDE the head
+ *     column - hang down beside the head (a dangling charm, a chin strap end), the way such
+ *     accents actually hang on a worn hat. A grid with no dangle layers therefore behaves exactly
+ *     as if the whole grid were anchored at -8.6. Rigid, same as the flat hat. The only voxel
+ *     frame - a cape/wings is naturally a decorated plane, and its whole animation model (depth01
+ *     per row/column of a flat grid) presumes one.
  *   - CAPE: a plane hung from the shoulders, tilted ~15° back, 0.6px thin, anchored to the body.
  *     Pivot is the collar midpoint; depth01 grows down each art row, so the hem sways freely while
  *     the collar stays put.
@@ -204,19 +209,22 @@ public final class CosmeticGeometry {
     }
 
     /**
-     * Meshes a voxel grid into the HAT frame: centered on the head in x and z, bottom layer
-     * resting just above the hat overlay (y -8.6, matching the flat HAT frame), 1 voxel = 1 model
-     * pixel. A face is emitted only across a filled/empty boundary, merged along same-color runs
-     * with the same neighboring exposure (the exact analogue of extrude()'s edge-face merging),
-     * so no two faces are ever coplanar and interior faces don't exist - see the class doc.
-     * Shading comes from face() as usual: winding is chosen so up-facing faces (crown top, brim
-     * top ring) bake bright and undersides bake dark, giving a voxel hat the same vanilla-flavored
-     * directional read as everything else in this file. Rigid: depth01 0, pivot unused.
+     * Meshes a voxel grid into the HAT frame: centered on the head in x and z, the hat BODY's
+     * bottom layer resting just above the hat overlay (y -8.6, matching the flat HAT frame) with
+     * any dangle layers below it hanging beside the head - see the class doc's voxel-HAT bullet
+     * for the anchoring rule, and bodyBottomLayer below for how the body is found. 1 voxel = 1
+     * model pixel. A face is emitted only across a filled/empty boundary, merged along same-color
+     * runs with the same neighboring exposure (the exact analogue of extrude()'s edge-face
+     * merging), so no two faces are ever coplanar and interior faces don't exist - see the class
+     * doc. Shading comes from face() as usual: winding is chosen so up-facing faces (crown top,
+     * brim top ring) bake bright and undersides bake dark, giving a voxel hat the same
+     * vanilla-flavored directional read as everything else in this file. Rigid: depth01 0, pivot
+     * unused.
      */
     private static void meshVoxels(List<Quad> out, CosmeticPixelArt.VoxelArt art) {
         float ox = -art.width() / 2f;
-        float oy = -8.6f - art.height();
         float oz = -art.depth() / 2f;
+        float oy = -8.6f - (bodyBottomLayer(art, ox, oz) + 1);
         float[] noPivot = { 0, 0, 0 };
 
         // Up/down faces at every horizontal layer boundary, merged along x runs. Requiring BOTH
@@ -297,6 +305,31 @@ public final class CosmeticGeometry {
                 }
             }
         }
+    }
+
+    /** The hat overlay's half-extent in model pixels - the "head column" a voxel hat's body must clear (see bodyBottomLayer). */
+    private static final float HEAD_HALF_PX = 4.5f;
+
+    /**
+     * The lowest voxel layer that puts anything over the head column (within HEAD_HALF_PX of the
+     * head's center in BOTH x and z) - that layer is the hat body's bottom and rests just above
+     * the hat overlay; layers below it, by this very definition entirely outside the head column,
+     * hang down beside the head (a charm, a strap end) without ever clipping it. A grid with no
+     * such layer at all (nothing over the head - not a wearable hat, but harmless) anchors its
+     * whole grid at the overlay like the flat frame does.
+     */
+    private static int bodyBottomLayer(CosmeticPixelArt.VoxelArt art, float ox, float oz) {
+        for (int y = art.height() - 1; y >= 0; y--) {
+            for (int z = 0; z < art.depth(); z++) {
+                for (int x = 0; x < art.width(); x++) {
+                    if (art.voxelAt(x, y, z) < 0) continue;
+                    boolean overHeadX = ox + x < HEAD_HALF_PX && ox + x + 1 > -HEAD_HALF_PX;
+                    boolean overHeadZ = oz + z < HEAD_HALF_PX && oz + z + 1 > -HEAD_HALF_PX;
+                    if (overHeadX && overHeadZ) return y;
+                }
+            }
+        }
+        return art.height() - 1;
     }
 
     /**
