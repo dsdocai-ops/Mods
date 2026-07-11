@@ -69,9 +69,19 @@ function formatUuid(raw: string): string {
  */
 const AUTH_TIMEOUT_MS = 30_000;
 
+// Mojang's api.minecraftservices.com sits behind Cloudflare and returns 403 to requests with no
+// User-Agent - which is exactly what Node/undici's fetch() sends by default. The Xbox Live/XSTS
+// hosts don't care, so the chain gets all the way to login_with_xbox and only *then* 403s, which is
+// the precise symptom we hit. A plain, identifiable app User-Agent is what every third-party
+// launcher (Prism, MultiMC, ...) sends here, and it's what unblocks this. Applied to every auth
+// request (harmless on the Microsoft/Xbox ones).
+const AUTH_USER_AGENT = "OmegaClient/1.0 (+https://github.com/dsdocai-ops/Mods)";
+
 async function authFetch(url: string, init: RequestInit): Promise<Response> {
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) });
+    // User-Agent first so a caller's own headers still win, but callers never set it - so it stays.
+    const headers = { "User-Agent": AUTH_USER_AGENT, ...(init.headers ?? {}) };
+    return await fetch(url, { ...init, headers, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) });
   } catch (err) {
     if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
       throw new Error("Sign-in timed out waiting for Microsoft/Xbox - check your connection and try again.");
