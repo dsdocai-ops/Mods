@@ -469,9 +469,11 @@ node scripts/generate-license-key.cjs <new_id>
 
 ## Gotchas
 
-- **`Map.of` caps at 10 entries.** `COSMETICS` uses `java.util.Map.of(...)`,
-  which won't compile past 10 pairs. At the 11th cosmetic, switch to
-  `Map.ofEntries(Map.entry(...), ...)`. The standalone `javac` step catches this.
+- **`COSMETICS` uses `Map.ofEntries(Map.entry(...), ...)`, not `Map.of(...)`** -
+  deliberately, to avoid `Map.of`'s 10-pair arity cap (the catalog hit exactly
+  10 entries once; if you ever see `Map.of(...)` there again, someone
+  regressed it - switch back to `Map.ofEntries`, don't just delete entries to
+  fit).
 - **Palette colors are `RRGGBB` hex, no alpha.** Transparency is only the `.`
   pixel - a palette entry can't be translucent (position-color rendering is
   opaque; translucent cells would also break the coplanar-face guarantees).

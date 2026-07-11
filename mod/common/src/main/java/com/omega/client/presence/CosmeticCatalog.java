@@ -53,18 +53,20 @@ public final class CosmeticCatalog {
     /** The badge color every player (Omega or not) effectively has today - the "no cosmetic" case. */
     public static final int DEFAULT_BADGE_RGB = 0xE63946;
 
-    // Map.of caps at 10 entries - switch to Map.ofEntries(Map.entry(...), ...) at the 11th cosmetic.
-    private static final Map<String, Cosmetic> COSMETICS = Map.of(
-            "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null, null, null),
-            "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null, null, null),
-            "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE, 0xFFD700, null),
-            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE, 0xC9B8F0, null),
-            "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS, 0xFFFFFF, null),
-            "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null, null),
-            "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null, null),
-            "starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape"),
-            "eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape"),
-            "inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)
+    // Map.ofEntries has no arity cap (unlike Map.of, limited to 10 pairs) - switched here once the
+    // catalog actually hit that limit, so adding cosmetics from here on never needs a map-factory
+    // change again.
+    private static final Map<String, Cosmetic> COSMETICS = Map.ofEntries(
+            Map.entry("gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null, null, null)),
+            Map.entry("azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null, null, null)),
+            Map.entry("crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE, 0xFFD700, null)),
+            Map.entry("nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE, 0xC9B8F0, null)),
+            Map.entry("seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS, 0xFFFFFF, null)),
+            Map.entry("obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null, null)),
+            Map.entry("navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null, null)),
+            Map.entry("starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape")),
+            Map.entry("eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape")),
+            Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null))
     );
 
     private CosmeticCatalog() {
