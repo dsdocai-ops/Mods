@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
+import DiscoverPanel from "../components/DiscoverPanel";
 import ConsoleLog from "../components/ConsoleLog";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
@@ -45,6 +46,7 @@ export default function InstanceDetail({
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("mods");
+  const [modsView, setModsView] = useState<"installed" | "discover">("installed");
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
@@ -171,6 +173,13 @@ export default function InstanceDetail({
     [instance.modsDir]
   );
 
+  // DiscoverPanel's installs return the full refreshed mod list. Bumping the request counter makes
+  // this the newest "response" in flight, so a slower earlier mods.* call can't clobber it.
+  const handleDiscoverModsChanged = useCallback((updated: ModInfo[]) => {
+    ++modsRequestRef.current;
+    setMods(updated);
+  }, []);
+
   const applyPreset = async (tags: ModTag[]) => {
     const requestId = ++modsRequestRef.current;
     try {
@@ -272,44 +281,69 @@ export default function InstanceDetail({
 
       {tab === "mods" && (
         <div className="mods-panel">
-          <div className="mods-toolbar">
-            <input
-              className="input"
-              placeholder="Search mods or tags (e.g. pvp, performance)"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <button className="btn btn-secondary" onClick={handleImport}>
-              + Import your mods
+          <div className="mode-toggle">
+            <button
+              className={modsView === "installed" ? "btn btn-chip active" : "btn btn-chip"}
+              onClick={() => setModsView("installed")}
+            >
+              Installed ({mods.length})
+            </button>
+            <button
+              className={modsView === "discover" ? "btn btn-chip active" : "btn btn-chip"}
+              onClick={() => setModsView("discover")}
+            >
+              Discover
             </button>
           </div>
 
-          <div className="preset-bar">
-            <span className="preset-label">Presets:</span>
-            {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
-              <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
-                {preset.label}
-              </button>
-            ))}
-            <button className="btn btn-chip" onClick={enableAll}>
-              Enable all
-            </button>
-            <button className="btn btn-chip" onClick={disableAll}>
-              Disable all
-            </button>
-          </div>
+          {modsView === "installed" ? (
+            <>
+              <div className="mods-toolbar">
+                <input
+                  className="input"
+                  placeholder="Search mods or tags (e.g. pvp, performance)"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                <button className="btn btn-secondary" onClick={handleImport}>
+                  + Import your mods
+                </button>
+              </div>
 
-          <div className="mod-list">
-            {filteredMods.length === 0 && (
-              <p className="empty-hint">
-                No mods yet. Click "Import your mods" to add the .jar files from your existing mods folder - they'll
-                show up here as toggles.
-              </p>
-            )}
-            {filteredMods.map((mod) => (
-              <ModRow key={mod.id} mod={mod} onToggle={handleToggle} onRemove={handleRemove} onConfigure={openConfig} />
-            ))}
-          </div>
+              <div className="preset-bar">
+                <span className="preset-label">Presets:</span>
+                {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
+                  <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
+                    {preset.label}
+                  </button>
+                ))}
+                <button className="btn btn-chip" onClick={enableAll}>
+                  Enable all
+                </button>
+                <button className="btn btn-chip" onClick={disableAll}>
+                  Disable all
+                </button>
+              </div>
+
+              <div className="mod-list">
+                {filteredMods.length === 0 && (
+                  <p className="empty-hint">
+                    No mods yet.{" "}
+                    <button className="btn-link" onClick={() => setModsView("discover")}>
+                      Discover popular mods
+                    </button>{" "}
+                    for this instance, or click "Import your mods" to add .jar files you already have - they'll show
+                    up here as toggles.
+                  </p>
+                )}
+                {filteredMods.map((mod) => (
+                  <ModRow key={mod.id} mod={mod} onToggle={handleToggle} onRemove={handleRemove} onConfigure={openConfig} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <DiscoverPanel instance={instance} installedMods={mods} onModsChanged={handleDiscoverModsChanged} />
+          )}
         </div>
       )}
 

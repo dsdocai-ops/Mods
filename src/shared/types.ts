@@ -32,6 +32,24 @@ export interface ModInfo {
 }
 
 /**
+ * A mod surfaced by in-launcher discovery (Modrinth search) - a browsable/installable search hit,
+ * not something on disk yet. The Mods tab's Discover view lists these (most-downloaded compatible
+ * mods by default, before the user types any search) and installs them via mods:installDiscovered.
+ */
+export interface DiscoveredMod {
+  /** Modrinth project id - the stable handle install requests use. */
+  projectId: string;
+  /** URL-ish short name (e.g. "sodium") - used to match against already-installed jars. */
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  downloads: number;
+  iconUrl: string | null;
+  categories: string[];
+}
+
+/**
  * A `.zip` shaderpack sitting in an instance's `shaderpacks/` folder. Unlike ModInfo there's no
  * `enabled` flag - Iris/Oculus pick the one active pack via their own in-game Video Settings
  * screen, not a launcher toggle - so this is just enough to render an import/remove list.

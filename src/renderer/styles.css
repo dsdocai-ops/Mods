@@ -892,6 +892,47 @@ body {
   font-size: 12.5px;
 }
 
+/* Mods tab - Discover view */
+.discover-hint {
+  margin-bottom: 12px;
+}
+
+.discover-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.discover-icon-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+.discover-installed {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* An inline "looks like a link" button, for actions embedded in hint sentences. */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Modal */
 .modal-backdrop {
   position: fixed;

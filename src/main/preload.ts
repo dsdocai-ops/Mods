@@ -39,6 +39,9 @@ const api = {
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
     setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
       ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
+    discover: (instance: Instance, query: string) => ipcRenderer.invoke("mods:discover", instance, query),
+    installDiscovered: (instance: Instance, projectId: string) =>
+      ipcRenderer.invoke("mods:installDiscovered", instance, projectId),
   },
   shaders: {
     list: (modsDir: string): Promise<ShaderPackInfo[]> => ipcRenderer.invoke("shaders:list", modsDir),

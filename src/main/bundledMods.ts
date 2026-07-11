@@ -52,7 +52,7 @@ function findBundledJar(loader: OmegaLoader): string | null {
   return null;
 }
 
-async function downloadToCache(url: string, fileName: string): Promise<string> {
+export async function downloadToCache(url: string, fileName: string): Promise<string> {
   const dest = path.join(cacheDir(), fileName);
   if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return dest;
   const response = await fetchWithRetry(url);
@@ -78,7 +78,7 @@ async function omegaJarFor(loader: OmegaLoader): Promise<string> {
  * disabled it (the .disabled variant exists), the disabled file is updated instead - "preinstalled"
  * must not mean "un-disableable".
  */
-function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
+export function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
   fs.mkdirSync(modsDir, { recursive: true });
   // Most callers pass a hardcoded name, but the Fabric API / Iris / Oculus / Sodium call sites
   // pass a filename read straight out of a Modrinth API response - path.basename keeps a
@@ -90,7 +90,7 @@ function placeJar(sourceJar: string, modsDir: string, stableName: string): void 
 }
 
 /** True if any file that looks like the given mod id is already in the mods dir (enabled or not). */
-function hasModLike(modsDir: string, prefix: string): boolean {
+export function hasModLike(modsDir: string, prefix: string): boolean {
   if (!fs.existsSync(modsDir)) return false;
   return fs.readdirSync(modsDir).some((f) => f.toLowerCase().startsWith(prefix) && f.includes(".jar"));
 }

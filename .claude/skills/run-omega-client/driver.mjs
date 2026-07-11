@@ -71,15 +71,39 @@ function installMockApi() {
     },
     external: { open: async () => true },
     mods: {
+      // listMods() in src/main/mods.ts returns full ModInfo objects (shared/types.ts) - the
+      // Discover view matches its modId/fileName fields against Modrinth slugs, so a partial
+      // shape here crashes DiscoverPanel. "sodium" doubles as the Discover view's installed-state
+      // demo (it matches the mocked discover() hit below).
       list: async () => ([
-        { id: 'omega-client', fileName: 'omega-client-1.0.0.jar', enabled: true, name: 'Omega Client', tags: ['cpvp'] },
-        { id: 'sodium', fileName: 'sodium-fabric-0.5.jar', enabled: true, name: 'Sodium', tags: ['performance'] },
+        { id: 'omega-client-1.0.0.jar', fileName: 'omega-client-1.0.0.jar', modId: 'omega-client', name: 'Omega Client', version: '1.0.0', description: '', loader: 'fabric', enabled: true, tags: ['cpvp'], sizeBytes: 1024, importedAt: Date.now() },
+        { id: 'sodium-fabric-0.5.jar', fileName: 'sodium-fabric-0.5.jar', modId: 'sodium', name: 'Sodium', version: '0.5', description: '', loader: 'fabric', enabled: true, tags: ['performance'], sizeBytes: 2048, importedAt: Date.now() },
       ]),
       import: async () => [],
       setEnabled: async () => {},
       remove: async () => {},
       applyPreset: async () => {},
       setEnabledBulk: async () => {},
+      // searchDiscoveryMods() in src/main/modDiscovery.ts returns DiscoveredMod[] - an empty
+      // query is the default "most downloaded compatible mods" feed the Discover view opens with.
+      discover: async (_instance, query) => {
+        const hits = [
+          { projectId: 'P-sodium', slug: 'sodium', title: 'Sodium', description: 'A modern rendering engine for Minecraft which greatly improves performance', author: 'jellysquid3', downloads: 5_300_000, iconUrl: null, categories: ['optimization'] },
+          { projectId: 'P-lithium', slug: 'lithium', title: 'Lithium', description: 'No-compromises game logic optimization mod', author: 'jellysquid3', downloads: 3_200_000, iconUrl: null, categories: ['optimization'] },
+          { projectId: 'P-modmenu', slug: 'modmenu', title: 'Mod Menu', description: 'Adds a mod menu to view the list of mods you have installed', author: 'Prospector', downloads: 2_900_000, iconUrl: null, categories: ['utility'] },
+        ];
+        const q = (query ?? '').trim().toLowerCase();
+        return q ? hits.filter((m) => m.title.toLowerCase().includes(q) || m.slug.includes(q)) : hits;
+      },
+      // installDiscoveredMod() returns the instance's full refreshed ModInfo[] list.
+      installDiscovered: async (_instance, projectId) => {
+        window.__calls.write.push({ installDiscovered: projectId });
+        const installed = await window.api.mods.list();
+        return [
+          ...installed,
+          { id: 'lithium-fabric-0.11.jar', fileName: 'lithium-fabric-0.11.jar', modId: 'lithium', name: 'Lithium', version: '0.11', description: '', loader: 'fabric', enabled: true, tags: ['performance'], sizeBytes: 512, importedAt: Date.now() },
+        ];
+      },
     },
     shaders: { list: async () => [], import: async () => [], remove: async () => [] },
     modConfig: {

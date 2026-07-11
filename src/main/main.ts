@@ -13,6 +13,7 @@ import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } fro
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
+import { installDiscoveredMod, searchDiscoveryMods } from "./modDiscovery";
 import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
@@ -170,6 +171,12 @@ app.whenReady().then(() => {
   ipcMain.handle("mods:applyPreset", (_e, modsDir: string, tags: ModTag[]) => mods.applyTagPreset(modsDir, tags));
   ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
     mods.setModsEnabledBulk(modsDir, changes)
+  );
+  // Both take the whole Instance (like launch:start) rather than a bare modsDir: resolving the
+  // real Minecraft version behind the instance's version id needs gameDir + versionId too.
+  ipcMain.handle("mods:discover", (_e, instance: Instance, query: string) => searchDiscoveryMods(instance, query));
+  ipcMain.handle("mods:installDiscovered", (_e, instance: Instance, projectId: string) =>
+    installDiscoveredMod(instance, projectId)
   );
 
   ipcMain.handle("shaders:list", (_e, modsDir: string) => shaders.listShaderPacks(modsDir));
