@@ -143,10 +143,10 @@ it's been seen working in-game.
 
 Giving a cosmetic a trail is a **one-line, purely additive change**: set
 `trailColor` on its `COSMETICS` entry (or leave it `null` - not every cosmetic
-needs one; a plain-colored cape might not want a sparkle). No preview support
-for trails exists yet (`preview-cosmetic.mjs` doesn't render particles) -
-that's a known gap, not an oversight; the shape/animation previews still cover
-everything else about the cosmetic.
+needs one; a plain-colored cape might not want a sparkle). Preview it with
+`preview-cosmetic.mjs --animate --trail-color` (see step 2 below) before
+wiring it in - it renders the tip's actual animated path as a dot, though only
+in local space (see the caveat above on what that does and doesn't verify).
 
 ## The pixel art format
 
@@ -235,6 +235,25 @@ see "The animation model" above on how depth01 is derived from the art
 itself). Running `--animate` on a HAT or BADGE is pointless (see above) - use
 it only for CAPE/WINGS.
 
+**If it has (or might get) a particle trail, add `--trail-color`** to the same
+`--animate` command:
+
+```bash
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id crimson_cape --animate                        # auto-shows its own trailColor if set
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --art art.txt --kind cape --animate --trail-color C9B8F0   # preview a candidate trail color
+```
+
+A catalog cosmetic with `trailColor` already set draws its dots automatically
+even without `--trail-color` (pass a different hex only to compare/override).
+Draws a small glowing dot at each tip (cape hem, wingtip) using the SAME local
+point `CosmeticTrail`'s real particle spawn animates, so the dot's motion in
+the filmstrip is exactly what the in-game trail will do *in the cosmetic's own
+frame*. Check: the dot sits right at the visible hem/wingtip, not floating off
+to the side; it moves in step with the mesh across frames, not lagging or
+leading it. This does **not** preview world/yaw placement (see "The particle
+trail model" for why) - that part stays numerically-verified-only, not
+visually previewed.
+
 **Badge**:
 
 ```bash
@@ -288,12 +307,17 @@ node scripts/generate-license-key.cjs <new_id>
   build are **CI-only** (Minecraft Maven deps are network-blocked here, see
   `mod/README.md`) - don't claim the render side is verified locally, only
   that catalog/art/extrusion/animation/trail-math compile and the preview
-  shows the shape/motion. The `--animate` preview is the closest local check
-  the mesh-animation renderer wiring gets: it runs the exact same
-  `CosmeticAnimation.animate()` call both renderers make, just fed by
-  `GeometryDump` instead of a real `FeatureRenderer`/`RenderLayer` frame. The
-  particle-trail spawn calls have **no equivalent local check** - see "The
-  particle trail model" above.
+  shows the shape/motion. `--animate` is the closest local check the mesh-
+  animation renderer wiring gets: it runs the exact same
+  `CosmeticAnimation.animate()`/`animatePoint()` calls both renderers make,
+  just fed by `GeometryDump` instead of a real `FeatureRenderer`/`RenderLayer`
+  frame - `--trail-color` extends that same real-call coverage to a trail
+  tip's local-space motion. What's still **not** covered by any local check:
+  the actual particle-spawning calls themselves
+  (`DustParticleEffect`/`DustParticleOptions`, `addParticle`) and
+  `CosmeticTrail.toWorld`'s world/yaw placement - see "The particle trail
+  model" above for what those got instead (a numerical sanity check, not a
+  render).
 - The smoke test exercises the real `licensing.ts` redeem path against
   `KNOWN_COSMETIC_IDS`.
 - The generated key (`<id>-<12 hex chars>`) is the deliverable to hand the

@@ -24,7 +24,8 @@ import java.util.List;
  *   --animate <artFile> <kind>         - animation-frame dump of CANDIDATE art
  *
  * Static output: {"player":[quad...],"cosmetics":{"<id>":{"kind":"cape","quads":[quad...]},...}}
- * Animate output: {"player":[quad...],"kind":"cape","frames":[{"t":0,"motion":0,"quads":[quad...]},...]}
+ * Animate output: {"player":[quad...],"kind":"cape","trailColor":16766720,
+ *                  "frames":[{"t":0,"motion":0,"quads":[quad...],"tips":[[x,y,z],...]},...]}
  * quad = {"p":[12 floats],"rgb":int,"shade":float}; candidate mode uses the id "candidate".
  *
  * --animate samples a short, fixed window (not a full sway/flap period - CAPE's idle period alone
@@ -32,6 +33,17 @@ import java.util.List;
  * idle sway and the moving lean/flap without an oversized dump. CosmeticAnimation is a no-op for
  * BADGE/HAT (depth01 is always 0 for hats - nothing is meant to swing loose), so every frame comes
  * back identical for those kinds; that's expected, not a bug in this tool.
+ *
+ * Each frame's "tips" are CosmeticGeometry.tipPointsFor(cosmetic) - the SAME local points
+ * CosmeticTrail's particle spawn uses - run through the SAME CosmeticAnimation.animatePoint() call
+ * as the real renderers, at that frame's t/motion, so a rendered trail dot swings in lockstep with
+ * the mesh, exactly as it will in-game. "tips" is always present (empty for HAT/BADGE, whose
+ * tipPointsFor is empty); "trailColor" is the catalog cosmetic's own trailColor (null for candidates
+ * - loadCandidate never sets one - and for any cosmetic that doesn't have one), reported so the
+ * preview can default to it, but a caller may draw the tips in any color regardless of whether
+ * trailColor is set - this tool doesn't decide whether a trail SHOULD render, only where its tip is.
+ * Local-space only: no world/yaw placement here (that's CosmeticTrail.toWorld, deliberately not
+ * exercised by this preview tool - see the skill's SKILL.md on that verification boundary).
  */
 public final class GeometryDump {
     private static final float[] FRAME_TICKS = { 0f, 4f, 8f, 12f, 16f, 20f };
@@ -74,10 +86,13 @@ public final class GeometryDump {
             return;
         }
         List<CosmeticGeometry.Quad> quads = CosmeticGeometry.quadsFor(cosmetic);
+        List<CosmeticGeometry.TipPoint> tips = CosmeticGeometry.tipPointsFor(cosmetic);
 
         StringBuilder json = new StringBuilder("{");
         appendPlayer(json);
-        json.append("\"kind\":\"").append(cosmetic.kind().name().toLowerCase()).append("\",\"frames\":[");
+        json.append("\"kind\":\"").append(cosmetic.kind().name().toLowerCase())
+                .append("\",\"trailColor\":").append(cosmetic.trailColor())
+                .append(",\"frames\":[");
         boolean first = true;
         for (float motion : FRAME_MOTIONS) {
             for (float t : FRAME_TICKS) {
@@ -89,6 +104,13 @@ public final class GeometryDump {
                     CosmeticGeometry.Quad quad = quads.get(i);
                     float[] animated = CosmeticAnimation.animate(quad, cosmetic.kind(), t, motion);
                     appendQuadPositions(json, animated, quad.rgb(), quad.shade());
+                }
+                json.append("],\"tips\":[");
+                for (int i = 0; i < tips.size(); i++) {
+                    if (i > 0) json.append(",");
+                    CosmeticGeometry.TipPoint tip = tips.get(i);
+                    float[] animated = CosmeticAnimation.animatePoint(tip.position(), tip.pivot(), 1f, cosmetic.kind(), t, motion);
+                    json.append("[").append(animated[0]).append(",").append(animated[1]).append(",").append(animated[2]).append("]");
                 }
                 json.append("]}");
             }

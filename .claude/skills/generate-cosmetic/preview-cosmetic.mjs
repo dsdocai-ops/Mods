@@ -3,23 +3,33 @@
 //
 // Renders a gear cosmetic (hat/cape/wings) on a blocky stand-in player, from the REAL pipeline the
 // mod ships: it javac-compiles GeometryDump.java together with the actual CosmeticCatalog/
-// CosmeticGeometry/CosmeticPixelArt/CosmeticAnimation sources (all zero-Minecraft-imports, so they
-// compile standalone even though the full mod build is CI-only), runs the dump - production
-// pixel-art parser, extruder, and (with --animate) production sway/flap animator - and paints the
-// resulting quads with a tiny orthographic projector + painter's algorithm. The preview and the
-// in-game shape/motion can't drift, because they're the same vertex data.
+// CosmeticGeometry/CosmeticPixelArt/CosmeticAnimation/CosmeticTrail sources (all zero-Minecraft-
+// imports, so they compile standalone even though the full mod build is CI-only), runs the dump -
+// production pixel-art parser, extruder, and (with --animate) production sway/flap animator - and
+// paints the resulting quads with a tiny orthographic projector + painter's algorithm. The preview
+// and the in-game shape/motion can't drift, because they're the same vertex data.
 //
 // For BADGE cosmetics use preview-badge.mjs (nametag readability is a different question).
 //
 // Usage:
 //   node preview-cosmetic.mjs --id <cosmetic_id>              # a cosmetic already in the catalog
 //   node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings   # candidate art BEFORE wiring it in
-//   (either form takes [--out file.png] and [--animate] - see below)
+//   (either form takes [--out file.png], [--animate], [--trail-color #hex] - see below)
 //
 // --animate replaces the static 3-view render with a filmstrip: two rows (standing still, full
 // sprint) x six moments in time, single back-¾ camera, straight from CosmeticAnimation - so you can
 // see the actual sway/flap range before shipping it. HAT and BADGE never move (CosmeticAnimation is
 // a no-op for them), so --animate is only useful for CAPE/WINGS.
+//
+// --trail-color #RRGGBB (only meaningful together with --animate) draws each of
+// CosmeticGeometry.tipPointsFor's tip points as a small glowing dot at that frame's animated
+// position - the SAME local point (via CosmeticAnimation.animatePoint) CosmeticTrail's real particle
+// spawn uses, so the dot's motion matches the real trail exactly. Omit it to preview a candidate
+// trail color before wiring it in; for a catalog cosmetic that already has a trailColor, --animate
+// draws its dots automatically without needing --trail-color at all (pass a different hex only to
+// override/compare). This previews WHERE and HOW the trail moves in the cosmetic's own local frame -
+// it does NOT exercise CosmeticTrail.toWorld's world/yaw placement (see that class's doc and
+// SKILL.md's "particle trail model" section for why, and for what's separately verified instead).
 //
 // The art file uses CosmeticPixelArt's text format (palette lines "c=RRGGBB", then pixel rows,
 // '.' = transparent) - the same text that will be pasted into CosmeticPixelArt.java, parsed by the
@@ -41,16 +51,17 @@ const COMMON_SOURCES = [
   "CosmeticGeometry.java",
   "CosmeticPixelArt.java",
   "CosmeticAnimation.java",
+  "CosmeticTrail.java",
 ].map((f) => path.join(repoRoot, "mod/common/src/main/java/com/omega/client/presence", f));
 
 const args = process.argv.slice(2);
-const opts = { id: "", art: "", kind: "", out: "", animate: false };
+const opts = { id: "", art: "", kind: "", out: "", animate: false, trailColor: "" };
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--animate") {
     opts.animate = true;
     continue;
   }
-  const key = args[i].replace(/^--/, "");
+  const key = args[i] === "--trail-color" ? "trailColor" : args[i].replace(/^--/, "");
   if (key in opts) opts[key] = args[++i] ?? "";
 }
 
@@ -60,9 +71,22 @@ if (opts.kind.toLowerCase() === "badge") {
 }
 const candidateMode = Boolean(opts.art);
 if (candidateMode ? !["hat", "cape", "wings"].includes(opts.kind.toLowerCase()) : !opts.id) {
-  console.error("Usage: node preview-cosmetic.mjs --id <cosmetic_id> [--animate] [--out file.png]");
-  console.error("       node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings [--animate] [--out file.png]");
+  console.error("Usage: node preview-cosmetic.mjs --id <cosmetic_id> [--animate] [--trail-color #hex] [--out file.png]");
+  console.error("       node preview-cosmetic.mjs --art <file.txt> --kind hat|cape|wings [--animate] [--trail-color #hex] [--out file.png]");
   process.exit(1);
+}
+
+function normalizeHex(input) {
+  const m = /^(?:#|0x)?([0-9a-fA-F]{6})$/.exec((input ?? "").trim());
+  return m ? parseInt(m[1], 16) : null;
+}
+let trailColorOverride = null;
+if (opts.trailColor) {
+  trailColorOverride = normalizeHex(opts.trailColor);
+  if (trailColorOverride === null) {
+    console.error(`--trail-color "${opts.trailColor}" isn't a color (expected #RRGGBB, RRGGBB, or 0xRRGGBB).`);
+    process.exit(1);
+  }
 }
 
 // Compile the dumper against the REAL mod sources and run it (fast enough to redo every run).
@@ -93,6 +117,16 @@ const shadedCss = (rgb, shade) => {
   return `rgb(${r},${g},${b})`;
 };
 
+/** Shared per-vertex transform used by both project() (mesh quads) and projectDots() (trail tips) - keeps their camera math identical. */
+function projectVertex(X, Y, Z, yaw, pitch, scale, cx, cy) {
+  const y = -Y; // to y-up
+  const x1 = X * Math.cos(yaw) - Z * Math.sin(yaw);
+  const z1 = X * Math.sin(yaw) + Z * Math.cos(yaw);
+  const y2 = y * Math.cos(pitch) - z1 * Math.sin(pitch);
+  const depth = y * Math.sin(pitch) + z1 * Math.cos(pitch);
+  return { x: cx + x1 * scale, y: cy - y2 * scale, depth };
+}
+
 function project(quads, yawDeg, pitchDeg, scale, cx, cy) {
   const yaw = (yawDeg * Math.PI) / 180;
   const pitch = (pitchDeg * Math.PI) / 180;
@@ -102,15 +136,9 @@ function project(quads, yawDeg, pitchDeg, scale, cx, cy) {
     const pts = [];
     let depth = 0;
     for (let v = 0; v < 4; v++) {
-      const X = quad.p[v * 3];
-      const Y = -quad.p[v * 3 + 1]; // to y-up
-      const Z = quad.p[v * 3 + 2];
-      const x1 = X * Math.cos(yaw) - Z * Math.sin(yaw);
-      const z1 = X * Math.sin(yaw) + Z * Math.cos(yaw);
-      const y2 = Y * Math.cos(pitch) - z1 * Math.sin(pitch);
-      const d = Y * Math.sin(pitch) + z1 * Math.cos(pitch);
-      pts.push([cx + x1 * scale, cy - y2 * scale]);
-      depth += d;
+      const vertex = projectVertex(quad.p[v * 3], quad.p[v * 3 + 1], quad.p[v * 3 + 2], yaw, pitch, scale, cx, cy);
+      pts.push([vertex.x, vertex.y]);
+      depth += vertex.depth;
     }
     let area = 0;
     for (let v = 0; v < 4; v++) {
@@ -120,22 +148,42 @@ function project(quads, yawDeg, pitchDeg, scale, cx, cy) {
     }
     area = Math.abs(area) / 2;
     maxArea = Math.max(maxArea, area);
-    polys.push({ pts, depth: depth / 4, area, quad });
+    polys.push({ type: "poly", pts, depth: depth / 4, area, quad });
   }
-  // Painter's algorithm, far first (camera sits at +depth). Centroid depth alone misorders nested
-  // near-coplanar detail, so bias big faces slightly earlier - small accents drawn on top of the
-  // large surface they sit against.
-  polys.sort((a, b) => (a.depth - 0.05 * (a.area / maxArea)) - (b.depth - 0.05 * (b.area / maxArea)));
-  return polys;
+  return { polys, maxArea };
 }
 
-function svgView(gearQuads, label, yawDeg, pitchDeg, W, H, scale) {
-  const polys = project([...playerQuads, ...gearQuads], yawDeg, pitchDeg, scale, W / 2, H / 2 - 20);
+/** Projects trail tip points [[x,y,z],...] the same way as mesh vertices, so a dot's depth sorts correctly against the mesh it should tuck behind or float in front of. */
+function projectDots(points, colorHex, yawDeg, pitchDeg, scale, cx, cy) {
+  const yaw = (yawDeg * Math.PI) / 180;
+  const pitch = (pitchDeg * Math.PI) / 180;
+  return points.map(([X, Y, Z]) => {
+    const v = projectVertex(X, Y, Z, yaw, pitch, scale, cx, cy);
+    return { type: "dot", x: v.x, y: v.y, depth: v.depth, colorHex };
+  });
+}
+
+function svgView(gearQuads, label, yawDeg, pitchDeg, W, H, scale, tipPoints, trailColorHex) {
+  const cx = W / 2, cy = H / 2 - 20;
+  const { polys, maxArea } = project([...playerQuads, ...gearQuads], yawDeg, pitchDeg, scale, cx, cy);
+  const dots = trailColorHex != null && tipPoints ? projectDots(tipPoints, trailColorHex, yawDeg, pitchDeg, scale, cx, cy) : [];
+  // Painter's algorithm, far first (camera sits at +depth). Centroid depth alone misorders nested
+  // near-coplanar mesh detail, so bias big faces slightly earlier - small accents (and dots, area 0)
+  // draw on top of the large surface they sit against/in front of.
+  const items = [...polys, ...dots].sort(
+    (a, b) => (a.depth - 0.05 * ((a.area ?? 0) / maxArea)) - (b.depth - 0.05 * ((b.area ?? 0) / maxArea))
+  );
   let shapes = "";
-  for (const { pts, quad } of polys) {
-    const fill = shadedCss(quad.rgb, quad.shade);
-    const d = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    shapes += `<polygon points="${d}" fill="${fill}" stroke="${fill}" stroke-width="0.4"/>`;
+  for (const item of items) {
+    if (item.type === "poly") {
+      const fill = shadedCss(item.quad.rgb, item.quad.shade);
+      const d = item.pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+      shapes += `<polygon points="${d}" fill="${fill}" stroke="${fill}" stroke-width="0.4"/>`;
+    } else {
+      const fill = toHex(item.colorHex);
+      shapes += `<circle cx="${item.x.toFixed(1)}" cy="${item.y.toFixed(1)}" r="7" fill="${fill}" opacity="0.35"/>`;
+      shapes += `<circle cx="${item.x.toFixed(1)}" cy="${item.y.toFixed(1)}" r="3" fill="${fill}"/>`;
+    }
   }
   return `<figure><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${shapes}</svg><figcaption>${label}</figcaption></figure>`;
 }
@@ -161,6 +209,7 @@ function legendFor(gearQuads) {
 let html;
 let outSuffix;
 if (opts.animate) {
+  const trailColorHex = trailColorOverride ?? dump.trailColor; // dump.trailColor is the catalog cosmetic's own color, or null
   const motions = [...new Set(dump.frames.map((f) => f.motion))];
   const times = [...new Set(dump.frames.map((f) => f.t))];
   const frameOf = (t, motion) => dump.frames.find((f) => f.t === t && f.motion === motion);
@@ -171,11 +220,20 @@ if (opts.animate) {
       (motion) => `<div class="row">
         <div class="row-label">${rowLabel(motion)}</div>
         <div class="frames">
-          ${times.map((t) => svgView(frameOf(t, motion).quads, `t=${t}`, 30, 12, W, H, scale)).join("")}
+          ${times
+            .map((t) => {
+              const frame = frameOf(t, motion);
+              return svgView(frame.quads, `t=${t}`, 30, 12, W, H, scale, frame.tips, trailColorHex);
+            })
+            .join("")}
         </div>
       </div>`
     )
     .join("");
+  const trailNote =
+    trailColorHex != null
+      ? `<div class="legend">trail:<span class="swatch" style="background:${toHex(trailColorHex)}"></span>${toHex(trailColorHex)}${trailColorOverride !== null ? " (override)" : " (catalog default)"}</div>`
+      : `<div class="legend">trail: none${dump.frames[0].tips.length === 0 ? " (this kind has no tip - see CosmeticGeometry.tipPointsFor)" : " (no trailColor set - pass --trail-color to preview one)"}</div>`;
   html = `<!doctype html><html><head><meta charset="utf-8"><style>
     ${commonCss}
     .row { margin-bottom: 14px; }
@@ -184,6 +242,7 @@ if (opts.animate) {
   </style></head><body>
     <h1>${name} (${dump.kind}) - animation filmstrip, back ¾ view, real CosmeticAnimation output</h1>
     <div class="legend">palette:${legendFor(dump.frames[0].quads)}</div>
+    ${trailNote}
     ${rows}
   </body></html>`;
   outSuffix = "-anim";
