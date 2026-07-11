@@ -11,9 +11,13 @@ import java.util.Map;
  * both loaders.
  *
  * A cosmetic is one of four kinds: a BADGE recolors the Ω nametag prefix (EntityRendererMixin) and
- * carries just badgeRgb; HAT/CAPE/WINGS are pixel art (CosmeticPixelArt) extruded onto the player
- * model like a Minecraft item texture (CosmeticGeometry; drawn by CosmeticFeatureRenderer on
- * Fabric, CosmeticRenderLayer on Forge) - their colors live entirely in the art's palette.
+ * carries just badgeRgb; HAT/CAPE/WINGS render as gear on the player model, one of two ways -
+ * PROCEDURAL (art != null): pixel art (CosmeticPixelArt) extruded into solid-color quads like a
+ * Minecraft item texture (CosmeticGeometry) - colors live entirely in the art's palette; or
+ * TEXTURED (textureId != null, CAPE only for now): a real PNG UV-mapped onto cloth-like strips
+ * (CosmeticTexturedMesh) - colors live in the image, not in this catalog. Exactly one of art/
+ * textureId is non-null for any HAT/CAPE/WINGS entry; both renderers (CosmeticFeatureRenderer on
+ * Fabric, CosmeticRenderLayer on Forge) branch on which is set.
  *
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their
@@ -31,13 +35,19 @@ public final class CosmeticCatalog {
 
     /**
      * One catalog entry - plain data so it can cross the common/ boundary. badgeRgb is only read
-     * for BADGE kinds (gear keeps the default nametag red); art is null for badges and the pixel
-     * grid for gear. trailColor is an opt-in per-cosmetic choice (null = no trail, RGB otherwise) -
-     * only CAPE/WINGS ever emit one (see CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to
-     * trail from, so a trailColor there would silently never fire; leave it null for those kinds
-     * rather than setting a color that does nothing).
+     * for BADGE kinds (gear keeps the default nametag red); art is the pixel grid for a PROCEDURAL
+     * gear cosmetic, null for badges and for TEXTURED gear. trailColor is an opt-in per-cosmetic
+     * choice (null = no trail, RGB otherwise) - only CAPE/WINGS ever emit one (see
+     * CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to trail from, so a trailColor there
+     * would silently never fire; leave it null for those kinds rather than setting a color that
+     * does nothing). textureId is null for procedural/badge cosmetics; for a TEXTURED cape it's the
+     * path under textures/ WITHOUT the "cosmetics/" segment or ".png" extension already baked in -
+     * e.g. "cosmetics/starlit_cape" resolves to textures/cosmetics/starlit_cape.png in both
+     * loaders' resource trees (mod/fabric/.../assets/omega-client/, mod/forge/.../assets/
+     * omega_client_forge/ - the same file, duplicated, same convention as every other per-loader
+     * resource in this project. See CosmeticTexturedMesh's class doc for why CAPE only, for now.
      */
-    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art, Integer trailColor) {
+    public record Cosmetic(String id, Kind kind, int badgeRgb, CosmeticPixelArt.PixelArt art, Integer trailColor, String textureId) {
     }
 
     /** The badge color every player (Omega or not) effectively has today - the "no cosmetic" case. */
@@ -45,13 +55,14 @@ public final class CosmeticCatalog {
 
     // Map.of caps at 10 entries - switch to Map.ofEntries(Map.entry(...), ...) at the 11th cosmetic.
     private static final Map<String, Cosmetic> COSMETICS = Map.of(
-            "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null, null),
-            "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null, null),
-            "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE, 0xFFD700),
-            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE, 0xC9B8F0),
-            "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS, 0xFFFFFF),
-            "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null),
-            "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null)
+            "gold_badge", new Cosmetic("gold_badge", Kind.BADGE, 0xFFD700, null, null, null),
+            "azure_badge", new Cosmetic("azure_badge", Kind.BADGE, 0x3B9CFF, null, null, null),
+            "crimson_cape", new Cosmetic("crimson_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.CRIMSON_CAPE, 0xFFD700, null),
+            "nightfall_cape", new Cosmetic("nightfall_cape", Kind.CAPE, DEFAULT_BADGE_RGB, CosmeticPixelArt.NIGHTFALL_CAPE, 0xC9B8F0, null),
+            "seraph_wings", new Cosmetic("seraph_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.SERAPH_WINGS, 0xFFFFFF, null),
+            "obsidian_top_hat", new Cosmetic("obsidian_top_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.OBSIDIAN_TOP_HAT, null, null),
+            "navy_captain_hat", new Cosmetic("navy_captain_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.NAVY_CAPTAIN_HAT, null, null),
+            "starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape")
     );
 
     private CosmeticCatalog() {

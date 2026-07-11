@@ -1,6 +1,6 @@
 ---
 name: generate-cosmetic
-description: Generate a new Omega Client cosmetic - a colored nametag badge, or pixel-art gear (hat, cape, wings) rendered on the player like an extruded Minecraft item texture, with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, or to give one a particle trail/sparkle effect - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail" - including authoring the pixel art, wiring it into the catalog/licensing pipeline, previewing its animation, and minting a license key for it.
+description: Generate a new Omega Client cosmetic - a colored nametag badge, pixel-art gear (hat, cape, wings) rendered like an extruded Minecraft item texture, or a TEXTURED cape wrapping a real PNG onto cloth-like UV-mapped strips - with capes/wings animated by a real sway/flap system and an optional colored particle trail - from a reference image and/or a text description. Use when asked to add, create, generate, or design a cosmetic, badge, hat, cape, or wings, to make one animated/swaying/flapping, to give one a particle trail/sparkle effect, or to make one out of a real texture/image with gradients or soft detail flat pixel art can't do - e.g. "make a cosmetic from this logo", "add an emerald cape", "generate a hat that matches this screenshot", "make the wings flap", "give the cape a sparkle trail", "make a cape from this texture/painting" - including authoring the art or texture, wiring it into the catalog/licensing pipeline, previewing its shape/animation/trail, and minting a license key for it.
 ---
 
 <!-- "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). -->
@@ -8,29 +8,41 @@ description: Generate a new Omega Client cosmetic - a colored nametag badge, or 
 A cosmetic is one of four kinds (`CosmeticCatalog.Kind`):
 
 - **BADGE** - recolors the Ω prefix on the wearer's nametag (`EntityRendererMixin`).
-- **HAT / CAPE / WINGS** - **pixel art**, exactly like a Minecraft item texture:
-  a small grid where each opaque pixel becomes an extruded colored cell in 3D
-  (the way vanilla renders held/dropped items) and transparent pixels cut the
-  silhouette. Art lives in `CosmeticPixelArt` (common), gets extruded by
-  `CosmeticGeometry`, and is drawn by `CosmeticFeatureRenderer` (Fabric) /
-  `CosmeticRenderLayer` (Forge).
+- **HAT / CAPE / WINGS** - gear on the player model, built one of two ways
+  (`CosmeticCatalog.Cosmetic`'s `art`/`textureId` fields - exactly one is
+  non-null for any gear entry):
+  - **PROCEDURAL** (`art` set) - **pixel art**, exactly like a Minecraft item
+    texture: a small grid where each opaque pixel becomes an extruded colored
+    cell in 3D (the way vanilla renders held/dropped items) and transparent
+    pixels cut the silhouette. Art lives in `CosmeticPixelArt` (common), gets
+    extruded by `CosmeticGeometry`. Works for all three kinds.
+  - **TEXTURED** (`textureId` set, **CAPE only** for now) - a real PNG
+    UV-mapped onto cloth-like horizontal strips (`CosmeticTexturedMesh`,
+    common) - the same technique vanilla uses for its own player cape. Colors
+    live in the image, not in any catalog field - use this when a cosmetic
+    needs soft gradients, glow, or detail a coarse pixel grid can't represent
+    (see "The textured rendering model" below). HAT/WINGS stay procedural-only
+    until a textured frame exists for them (not attempted here - see that
+    section for why).
+  Both are drawn by `CosmeticFeatureRenderer` (Fabric) / `CosmeticRenderLayer`
+  (Forge), which branch on which field is set.
 
-The art's palette IS the cosmetic's colors - there are no separate color
-fields for gear. A new cosmetic of an existing kind is a **data-only change**
-(art text block + catalog entry + id lists). What still doesn't exist: skin-
-texture-mapped models (a cape that wraps a PNG around curved geometry) - pixel
-cells are flat-extruded, which is the intended item-like aesthetic.
+A new PROCEDURAL cosmetic of an existing kind is a **data-only change** (art
+text block + catalog entry + id lists). A new TEXTURED cape needs an actual
+PNG asset in both loaders' resource trees, on top of the catalog entry + id
+lists - see that section's workflow.
 
 **CAPE and WINGS animate** - a stylized procedural sway/flap, computed fresh
 every frame by `CosmeticAnimation` (common, pure) and applied by both
-renderers, not baked into the geometry. HAT and BADGE are rigid by design
-(nothing should swing loose off someone's head) - see "The animation model"
-below.
+renderers, not baked into the geometry - true for TEXTURED capes too (see
+below on how). HAT and BADGE are rigid by design (nothing should swing loose
+off someone's head) - see "The animation model" below.
 
 **CAPE and WINGS can also opt into a colored particle trail** from their tip
 (the cape's hem, each wingtip) - an *authoring choice* per cosmetic
-(`trailColor`, nullable), not automatic for every CAPE/WINGS. See "The
-particle trail model" below.
+(`trailColor`, nullable), not automatic for every CAPE/WINGS, and works
+identically for PROCEDURAL and TEXTURED cosmetics. See "The particle trail
+model" below.
 
 All paths below are relative to the repo root (`/home/user/Mods` in this
 container).
@@ -42,26 +54,32 @@ container).
 channel with the player's UUID (`PresenceNetworking`, both loaders) →
 `OmegaPresence` map on every other Omega client → `CosmeticCatalog.get(id)` →
 BADGE kinds recolor the nametag Ω (`colorFor`; gear keeps the default red
-there); gear kinds render `CosmeticGeometry.quadsFor(cosmetic)` - the
-cosmetic's pixel art extruded into per-pixel quads - anchored to the head
+there); gear kinds render either `CosmeticGeometry.quadsFor(cosmetic)`
+(PROCEDURAL - the cosmetic's pixel art extruded into per-pixel quads) or
+`CosmeticTexturedMesh.capeStrips(...)` (TEXTURED) - anchored to the head
 (HAT) or body (CAPE/WINGS) model part.
 
 **One cosmetic id lives in THREE hand-synced lists** (grep
 `KNOWN_COSMETIC_IDS|COSMETICS` if this list rots):
 
 1. `mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java` -
-   the `COSMETICS` map entry: `new Cosmetic(id, Kind, badgeRgb, art, trailColor)`
-   where `art` is a `CosmeticPixelArt` constant (null for badges; badgeRgb is
-   only read for badges - pass `DEFAULT_BADGE_RGB` for gear) and `trailColor`
-   is a nullable boxed `Integer` RGB (null = no particle trail; only ever fires
-   for CAPE/WINGS - see "The particle trail model")
+   the `COSMETICS` map entry: `new Cosmetic(id, Kind, badgeRgb, art, trailColor, textureId)`.
+   `art` is a `CosmeticPixelArt` constant for PROCEDURAL gear, else null.
+   `textureId` is a path string (no "textures/" prefix, no ".png") for
+   TEXTURED gear, else null - exactly one of `art`/`textureId` is non-null for
+   any HAT/CAPE/WINGS entry, both null for BADGE. `badgeRgb` is only read for
+   BADGE kinds - pass `DEFAULT_BADGE_RGB` for gear. `trailColor` is a nullable
+   boxed `Integer` RGB (null = no particle trail; only ever fires for
+   CAPE/WINGS regardless of PROCEDURAL/TEXTURED - see "The particle trail model")
 2. `src/shared/cosmetics.ts` - `KNOWN_COSMETIC_IDS` (what `licensing.ts` will
    redeem)
 3. `scripts/generate-license-key.cjs` - its own private `KNOWN_COSMETIC_IDS`
    copy (not shipped, so it can't import the shared one)
 
-Gear art itself lives as a text block in
-`mod/common/.../presence/CosmeticPixelArt.java`.
+PROCEDURAL gear art lives as a text block in
+`mod/common/.../presence/CosmeticPixelArt.java`. TEXTURED gear's actual PNG
+lives as a real file in both loaders' resource trees (see "The textured
+rendering model" below) - `CosmeticCatalog.java` only holds its path string.
 
 The Settings page (`src/renderer/pages/Settings.tsx`) and the licensing/redeem
 flow need **no** per-cosmetic changes.
@@ -148,7 +166,100 @@ needs one; a plain-colored cape might not want a sparkle). Preview it with
 wiring it in - it renders the tip's actual animated path as a dot, though only
 in local space (see the caveat above on what that does and doesn't verify).
 
-## The pixel art format
+## The textured rendering model
+
+A TEXTURED cape (`Cosmetic.textureId` set, `art` null) is a real PNG UV-mapped
+onto **8 horizontal strips** (`CosmeticTexturedMesh.capeStrips`,
+`DEFAULT_CAPE_STRIPS`), not one rigid plane. This matters for animation: since
+`CosmeticAnimation` rotates each returned quad AS A WHOLE by its own
+`depth01`, a single full-height textured plane would sway as one flat rigid
+slab. Splitting it into 8 thin strips (each with its own `depth01` at its
+vertical midpoint, and its own UV sub-rectangle - row 0 of the source image is
+the collar, the last row is the hem) lets the same per-vertex rotation bend
+the cape progressively from a rigid collar to a freely-swinging hem, the way
+the many small quads of a PROCEDURAL cape already get "for free" from being
+pixel-sized. Every strip is a true parallelogram under the frame's
+origin+u+v basis, so this bending is geometrically exact, not an
+approximation. `CosmeticGeometry.tipPointsFor` (particle trail) and
+`CosmeticAnimation.animatePoint` both work on a TEXTURED cape too - they
+already branch on `art == null` and use `CosmeticTexturedMesh`'s fixed
+`CAPE_FRAME_WIDTH/HEIGHT` (10x16, matching the PROCEDURAL canonical CAPE grid
+exactly, so a textured and a procedural cape hang with the same silhouette
+bounds) instead of an art grid's own dimensions.
+
+The texture image itself can be **any pixel resolution** - it's decoupled
+from world-space size entirely (unlike PROCEDURAL art, where the grid IS the
+silhouette). This is the actual point of TEXTURED: real gradients, soft glow,
+anti-aliased edges, painterly detail - none of which a coarse solid-color
+pixel grid can represent. If the reference material is basically flat color
+blocks, PROCEDURAL is still the better fit (simpler pipeline, no asset file to
+manage); reach for TEXTURED when the look genuinely needs smooth shading.
+
+**Rendering is real Minecraft texture API** (`RenderType.entityCutoutNoCull`
+/ Fabric's `RenderLayer.getEntityCutoutNoCull`, a UV+overlay+light+normal
+vertex format), unlike the PROCEDURAL path's flat `debugQuads` - this is new,
+CI-only-verified ground for this codebase (see
+`CosmeticFeatureRenderer`/`CosmeticRenderLayer`'s class docs for the specific
+method/constant names flagged as least-confident, and fix those first if CI
+reports an unresolved symbol here).
+
+### Where the texture file lives
+
+Both loaders need an **identical copy**, same convention as every other
+per-loader resource in this project (e.g. `lang/en_us.json`):
+
+- `mod/fabric/src/main/resources/assets/omega-client/textures/<textureId>.png`
+- `mod/forge/src/main/resources/assets/omega_client_forge/textures/<textureId>.png`
+
+`textureId` (the catalog field) is the path **without** the leading
+`textures/` and without `.png` - e.g. `"cosmetics/starlit_cape"` resolves to
+`textures/cosmetics/starlit_cape.png` in both trees. Put new textures under
+`textures/cosmetics/` alongside the existing one, matching that convention.
+
+### Workflow for a TEXTURED cape
+
+1. **Get or make the PNG.** From a reference image: use it directly (or crop/
+   resize it) - any resolution works, but keep the aspect ratio reasonably
+   close to 10:16 (the frame's own proportions) so it doesn't look
+   unexpectedly stretched. From a description: author one with canvas
+   gradients/radial glows the same way `starlit_cape`'s placeholder was made
+   (see that texture's generation approach for the pattern - smooth
+   `createLinearGradient`/`createRadialGradient` fills, no flat pixel blocks,
+   since flat blocks are what PROCEDURAL is already for).
+2. **Preview it before writing any resource files** - `preview-cosmetic.mjs
+   --texture <file.png>` (see step 2 below). This is the ONLY step that
+   catches a bad crop/aspect ratio/orientation before it's a real asset.
+3. Place the PNG in **both** resource trees (identical bytes - copy, don't
+   regenerate twice, to guarantee they match).
+4. Add the `COSMETICS` entry: `art` null, `textureId` set to the path (no
+   prefix/extension).
+5. Add the id to the other two lists, same as any cosmetic.
+
+### Gotchas specific to TEXTURED
+
+- **CAPE only.** `CosmeticGeometry.build`'s HAT/WINGS cases and
+  `CosmeticTexturedMesh` don't know about each other - a textured HAT or WINGS
+  needs a NEW frame designed in `CosmeticTexturedMesh` (a hat's real 3D volume
+  UV-unwraps far less trivially than a flat plane; not attempted here) plus a
+  matching renderer branch. Don't set `textureId` on a HAT/WINGS entry -
+  nothing reads it there.
+- **Strip count is a shared constant, not per-cosmetic.**
+  `CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS` (8) applies to every textured
+  cape alike, same "no per-cosmetic tuning knobs" rule as
+  `CosmeticAnimation`'s sway constants. Fewer strips reads more rigid/
+  cardboard-like; more costs quads for a bend refinement nobody will see.
+- **A hard, high-contrast edge in the source image will show strip seams**
+  once the cape bends (each strip is flat, so a sharp line crossing a strip
+  boundary kinks visibly at speed). Smooth gradients (the whole point of
+  TEXTURED) don't have this problem - it's specifically sharp edges near a
+  strip boundary to watch for. The `--animate` preview (not just the static
+  one) is how you'd catch this.
+- **The renderer resolves the file at a fixed path built from `textureId`** -
+  a typo there fails silently at the Minecraft level (usually a missing-
+  texture checkerboard, not a crash) in a way this skill's tooling can't
+  detect (`preview-cosmetic.mjs --id` reads the SAME path convention the
+  renderer uses, so if the preview finds the file, the path is right - that
+  IS the check).
 
 Parsed by `CosmeticPixelArt.parse` (same parser at runtime, in the preview, and
 for candidate files - a malformed grid throws at parse time, never mid-render):
@@ -263,13 +374,33 @@ node .claude/skills/generate-cosmetic/preview-badge.mjs <#hex> [...] [--name Ste
 Readable in ALL three backdrops, distinct from the `#E63946` default red and
 every existing badge.
 
+**TEXTURED cape** - use `--texture` instead of `--art`/`--kind` (kind is
+implicitly CAPE):
+
+```bash
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png                    # static 3-view
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --texture starlit.png --animate           # filmstrip, texture bending across strips
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id starlit_cape --animate               # a catalog textured cosmetic
+```
+
+Crops the REAL PNG into each strip's own UV sub-rectangle and composites it
+with an exact affine transform onto that strip's projected position -
+genuinely how the texture wraps onto the geometry, not a placeholder tint.
+Check: the image maps onto the cape's silhouette with the right orientation
+(not upside-down or mirrored - row 0 of the source is the collar), no visible
+seams between strips even as it bends in the `--animate` filmstrip (see the
+Gotchas below on hard edges near strip boundaries), aspect ratio doesn't look
+badly stretched.
+
 When working interactively, send the user the preview for approval before
 wiring anything in.
 
 ### 3. Pick the id
 
 `snake_case`, charset `[a-z0-9_]`, kind-suffixed like the existing entries
-(`gold_badge`, `crimson_cape`, `seraph_wings`, `obsidian_top_hat`). The
+(`gold_badge`, `crimson_cape`, `seraph_wings`, `obsidian_top_hat`,
+`starlit_cape` - PROCEDURAL and TEXTURED share the same id convention, nothing
+in the id itself signals which). The
 Settings page displays the **raw id** as the owned-cosmetic label, so pick
 something a buyer can read. Must be unique across the three lists. No hyphens:
 license keys are `<id>-<suffix>` split on the *last* `-` - technically
@@ -277,12 +408,16 @@ tolerant of hyphenated ids, but don't create the ambiguity.
 
 ### 4. Wire it in
 
-- Gear: paste the art as a `public static final PixelArt <NAME> = parse("""...""")`
+- PROCEDURAL gear: paste the art as a `public static final PixelArt <NAME> = parse("""...""")`
   constant in `CosmeticPixelArt.java` (pixelate.mjs prints this block), then
-  reference it from the new `COSMETICS` entry in `CosmeticCatalog.java`.
-- Badge: catalog entry with the color as `badgeRgb`, art `null`, trailColor `null`.
-- Optional, CAPE/WINGS only: set `trailColor` to an `0xRRGGBB` int (usually one
-  of the art's own palette colors) to give it a particle trail; `null` for none.
+  reference it from the new `COSMETICS` entry in `CosmeticCatalog.java`
+  (`art` set, `textureId` null).
+- TEXTURED cape: copy the PNG into both loaders' resource trees, then a
+  `COSMETICS` entry with `art` null, `textureId` set - see "The textured
+  rendering model" for the exact path convention.
+- Badge: catalog entry with the color as `badgeRgb`, `art`/`textureId` both null.
+- Optional, CAPE/WINGS only (either PROCEDURAL or TEXTURED): set `trailColor`
+  to an `0xRRGGBB` int to give it a particle trail; `null` for none.
 - Add the id to the other two lists (`cosmetics.ts`, `generate-license-key.cjs`).
 - If the cosmetic set stops matching what `README.md`'s "Paid cosmetics"
   section and `mod/README.md`'s presence-badge feature row describe, update
@@ -292,32 +427,38 @@ tolerant of hyphenated ids, but don't create the ambiguity.
 
 ```bash
 npm run typecheck
-javac -d /tmp/javac-check mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java mod/common/src/main/java/com/omega/client/presence/CosmeticGeometry.java mod/common/src/main/java/com/omega/client/presence/CosmeticPixelArt.java mod/common/src/main/java/com/omega/client/presence/CosmeticAnimation.java mod/common/src/main/java/com/omega/client/presence/CosmeticTrail.java
+javac -d /tmp/javac-check mod/common/src/main/java/com/omega/client/presence/CosmeticCatalog.java mod/common/src/main/java/com/omega/client/presence/CosmeticGeometry.java mod/common/src/main/java/com/omega/client/presence/CosmeticPixelArt.java mod/common/src/main/java/com/omega/client/presence/CosmeticAnimation.java mod/common/src/main/java/com/omega/client/presence/CosmeticTrail.java mod/common/src/main/java/com/omega/client/presence/CosmeticTexturedMesh.java
 node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id <new_id>   # now from the catalog; look at the PNG
 node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id <new_id> --animate   # CAPE/WINGS only; look at the filmstrip
 npm run build:electron && node .claude/skills/run-omega-client/main-process-smoke.cjs
 node scripts/generate-license-key.cjs <new_id>
 ```
 
-- `javac` standalone works because all five cosmetic classes deliberately
+- `javac` standalone works because all six cosmetic classes deliberately
   have zero Minecraft imports - it also executes `parse()` on every art block
-  via the preview step, so a bad grid fails here. The renderers
+  (and, for TEXTURED, builds the real strip geometry) via the preview step,
+  so a bad grid or a malformed frame fails here. The renderers
   (`mod/fabric/.../render/CosmeticFeatureRenderer.java`,
   `mod/forge/.../render/CosmeticRenderLayer.java`) and the full `mod/` Gradle
   build are **CI-only** (Minecraft Maven deps are network-blocked here, see
   `mod/README.md`) - don't claim the render side is verified locally, only
-  that catalog/art/extrusion/animation/trail-math compile and the preview
-  shows the shape/motion. `--animate` is the closest local check the mesh-
-  animation renderer wiring gets: it runs the exact same
+  that catalog/art/extrusion/animation/trail-math/texture-mesh compile and the
+  preview shows the shape/motion. `--animate` is the closest local check the
+  mesh-animation renderer wiring gets: it runs the exact same
   `CosmeticAnimation.animate()`/`animatePoint()` calls both renderers make,
   just fed by `GeometryDump` instead of a real `FeatureRenderer`/`RenderLayer`
   frame - `--trail-color` extends that same real-call coverage to a trail
-  tip's local-space motion. What's still **not** covered by any local check:
-  the actual particle-spawning calls themselves
-  (`DustParticleEffect`/`DustParticleOptions`, `addParticle`) and
-  `CosmeticTrail.toWorld`'s world/yaw placement - see "The particle trail
-  model" above for what those got instead (a numerical sanity check, not a
-  render).
+  tip's local-space motion, and `--texture` extends it further by compositing
+  the real PNG onto that same real geometry. What's still **not** covered by
+  any local check: the actual particle-spawning calls
+  (`DustParticleEffect`/`DustParticleOptions`, `addParticle`),
+  `CosmeticTrail.toWorld`'s world/yaw placement, AND (new, TEXTURED-specific)
+  the actual textured-render-type calls
+  (`RenderType.entityCutoutNoCull`/`RenderLayer.getEntityCutoutNoCull`, the
+  uv/overlay/light/normal vertex chain, `OverlayTexture`'s exact constant
+  name) - see "The particle trail model" and "The textured rendering model"
+  above for what those got instead (numerical sanity checks and a real-
+  geometry preview, never a render through the actual Minecraft API).
 - The smoke test exercises the real `licensing.ts` redeem path against
   `KNOWN_COSMETIC_IDS`.
 - The generated key (`<id>-<12 hex chars>`) is the deliverable to hand the

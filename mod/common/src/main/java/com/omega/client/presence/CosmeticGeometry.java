@@ -86,24 +86,30 @@ public final class CosmeticGeometry {
     /**
      * The free tip(s) of a cosmetic - one for CAPE (hem center), two for WINGS (each wingtip), none
      * for HAT/BADGE (nothing free to trail from). Computed fresh each call (cheap - a couple of
-     * float arrays) from the SAME origin/u/v/pivot literals as build()'s frames; keep the two in
-     * sync if a frame ever changes.
+     * float arrays) from the SAME origin/u/v/pivot literals as build()'s (PROCEDURAL) frames or
+     * CosmeticTexturedMesh's (TEXTURED) frame; keep them in sync if a frame ever changes. Works for
+     * a TEXTURED cape (art() null, textureId() set) too - CAPE's width/height come from art()'s own
+     * dimensions when present, else CosmeticTexturedMesh's fixed canonical size (which is what a
+     * textured cape's own geometry actually uses), so a textured cape's particle trail still hangs
+     * from the right spot without needing a PixelArt at all.
      */
     public static List<TipPoint> tipPointsFor(CosmeticCatalog.Cosmetic cosmetic) {
-        if (cosmetic == null || cosmetic.art() == null) return List.of();
-        CosmeticPixelArt.PixelArt art = cosmetic.art();
+        if (cosmetic == null) return List.of();
         return switch (cosmetic.kind()) {
             case CAPE -> {
-                float[] origin = { -art.width() / 2f, 0.5f, 2.6f };
+                if (cosmetic.art() == null && cosmetic.textureId() == null) yield List.of();
+                float width = cosmetic.art() != null ? cosmetic.art().width() : CosmeticTexturedMesh.CAPE_FRAME_WIDTH;
+                float height = cosmetic.art() != null ? cosmetic.art().height() : CosmeticTexturedMesh.CAPE_FRAME_HEIGHT;
+                float[] origin = { -width / 2f, 0.5f, 2.6f };
                 float[] u = { 1, 0, 0 };
                 float[] v = { 0, 0.966f, 0.259f };
-                float[] pivot = { origin[0] + u[0] * art.width() / 2f, origin[1] + u[1] * art.width() / 2f, origin[2] + u[2] * art.width() / 2f };
+                float[] pivot = { origin[0] + u[0] * width / 2f, origin[1] + u[1] * width / 2f, origin[2] + u[2] * width / 2f };
                 // Hem center: origin, shifted to the horizontal midline by u*(width/2), then all the
                 // way down the hang by v*height.
                 float[] tip = {
-                        origin[0] + u[0] * art.width() / 2f + v[0] * art.height(),
-                        origin[1] + u[1] * art.width() / 2f + v[1] * art.height(),
-                        origin[2] + u[2] * art.width() / 2f + v[2] * art.height(),
+                        origin[0] + u[0] * width / 2f + v[0] * height,
+                        origin[1] + u[1] * width / 2f + v[1] * height,
+                        origin[2] + u[2] * width / 2f + v[2] * height,
                 };
                 yield List.of(new TipPoint(scaledPoint(tip), scaledPoint(pivot)));
             }
@@ -319,7 +325,11 @@ public final class CosmeticGeometry {
         out.add(new Quad(scaled(d, c, b, a), rgb, shade, pivot, depth01));
     }
 
-    private static float[] scaled(float[] a, float[] b, float[] c, float[] d) {
+    // scaled/scaledPoint/normalOf/shadeOf are package-private (not private): CosmeticTexturedMesh
+    // reuses them verbatim for its own quads, rather than duplicating this math - the PX scale
+    // factor and the flat-shade lighting model must stay identical between the procedural and
+    // textured rendering paths, or the two would visibly drift out of sync over time.
+    static float[] scaled(float[] a, float[] b, float[] c, float[] d) {
         float[][] v = { a, b, c, d };
         float[] positions = new float[12];
         for (int i = 0; i < 4; i++) {
@@ -330,20 +340,29 @@ public final class CosmeticGeometry {
         return positions;
     }
 
-    private static float[] scaledPoint(float[] p) {
+    static float[] scaledPoint(float[] p) {
         return new float[]{ p[0] * PX, p[1] * PX, p[2] * PX };
     }
 
-    /** Vanilla-flavored flat shade from the face normal: up-facing 1.0, vertical sides 0.65, down-facing 0.5 (y-down space, so "up" is -y). */
-    private static float shadeOf(float[] a, float[] b, float[] c, float[] d) {
+    /** Unit face normal of a quad (Newell-free cross product, fine for a planar quad) - shadeOf derives its "upness" from this. */
+    static float[] normalOf(float[] a, float[] b, float[] c, float[] d) {
         float ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
         float vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
         float nx = uy * vz - uz * vy;
         float ny = uz * vx - ux * vz;
         float nz = ux * vy - uy * vx;
         float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-        if (len < 1e-6f) return 0.65f;
-        float upness = -ny / len;
+        // y=0 (not up or down) for a degenerate/zero-area face, so shadeOf's upness-based formula
+        // below falls back to its own neutral 0.65 (matching this method's pre-refactor behavior)
+        // rather than reading as fully "down-facing".
+        if (len < 1e-6f) return new float[]{ 0, 0, 1 };
+        return new float[]{ nx / len, ny / len, nz / len };
+    }
+
+    /** Vanilla-flavored flat shade from the face normal: up-facing 1.0, vertical sides 0.65, down-facing 0.5 (y-down space, so "up" is -y). */
+    static float shadeOf(float[] a, float[] b, float[] c, float[] d) {
+        float[] n = normalOf(a, b, c, d);
+        float upness = -n[1];
         return 0.65f + 0.35f * Math.max(0f, upness) - 0.15f * Math.max(0f, -upness);
     }
 }
