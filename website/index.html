@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omega Client — The last client you will ever need</title>
+  <meta name="description" content="Omega Client is a lightweight Minecraft launcher built for smooth PvP performance: one-click mod toggles, built-in installer, shaders out of the box, and a Lunar-style companion mod — free and open source.">
+  <meta property="og:title" content="Omega Client — The last client you will ever need">
+  <meta property="og:description" content="A lightweight Minecraft launcher built for smooth PvP: one-click mod toggles, presets, shaders, and built-in features. Free and open source.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/img/landing.png">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <span class="omega-mark">&Omega;</span>
+        Omega Client
+      </a>
+      <button class="nav-burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="download.html">Download</a>
+        <a href="faq.html">FAQ</a>
+        <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="download.html">Get Omega</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="hero-badge"><span class="dot"></span> Free &amp; open source · Windows, macOS &amp; Linux</div>
+      <h1>The last client<br><span class="dim">you will ever need.</span></h1>
+      <p class="lede">
+        A lightweight Minecraft launcher built for smooth PvP performance —
+        one-click mod toggles, game-mode presets, shaders out of the box,
+        and built-in features you control entirely in-game.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" data-os-download href="download.html">
+          <span class="dl-label">Download Omega Client</span>
+          <span class="sub">free</span>
+        </a>
+        <a class="btn btn-ghost" href="features.html">Explore features</a>
+      </div>
+      <p class="hero-meta">MIT licensed · <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">source on GitHub</a> · no ads, no paywalled gameplay</p>
+
+      <div class="hero-shot reveal">
+        <div class="window">
+          <div class="window-bar"><span></span><span></span><span></span><em class="win-title">Omega Client</em></div>
+          <img src="assets/img/landing.png" alt="Omega Client launcher showing an instance with one-click mod toggles and PvP presets" width="1280" height="720">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <div class="stats reveal">
+        <div class="stat"><b>1-click</b><span>mod toggles — no more <code>mods/</code> folder surgery</span></div>
+        <div class="stat"><b>6 presets</b><span>Smooth PvP, Crystal, UHC, Bedwars &amp; more</span></div>
+        <div class="stat"><b>3 loaders</b><span>Vanilla, Fabric &amp; Forge — installed for you</span></div>
+        <div class="stat"><b>0 lock-in</b><span>works with the <code>.minecraft</code> you already have</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="launcher">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">The launcher</div>
+        <h2>Your whole modded setup, managed like light switches.</h2>
+        <p>Point Omega at an existing Minecraft install — or an empty folder — and it takes care of the rest: real installs straight from Mojang, mods as toggles, and PvP-tuned launches.</p>
+      </div>
+
+      <div class="split reveal">
+        <div class="split-copy">
+          <h3>Mods become switches, not folder surgery.</h3>
+          <p>Import your own <code>.jar</code>s once and flip them per-instance. Omega reads each jar's real metadata to show proper names, versions and descriptions — and auto-tags everything so presets can bulk-switch your setup for the game mode you're queueing.</p>
+          <ul>
+            <li><b>Non-destructive toggling</b> — disabling renames <code>mod.jar</code> to <code>mod.jar.disabled</code>; nothing ever leaves your folder</li>
+            <li><b>One-click presets</b> — Smooth PvP, Crystal PvP, UHC, Bedwars, Survival, Visual/HUD only</li>
+            <li><b>Config editor built in</b> — edit any mod's JSON or TOML config from a generated form, no text editor needed</li>
+          </ul>
+        </div>
+        <div class="split-media">
+          <div class="window">
+            <div class="window-bar"><span></span><span></span><span></span></div>
+            <img src="assets/img/landing.png" alt="Mods tab with toggle switches and preset buttons" loading="lazy" width="1280" height="720">
+          </div>
+        </div>
+      </div>
+
+      <div class="split rev reveal">
+        <div class="split-copy">
+          <h3>A real install engine — nothing re-hosted.</h3>
+          <p>The New Instance dialog downloads any Minecraft release straight from Mojang's own CDNs, with one-click Fabric or Forge on top. Every file is sha1-verified, downloads resume, and each launch is preceded by a genuine install-completeness check.</p>
+          <ul>
+            <li><b>Bring your own install</b> — auto-detects versions and loaders in any standard <code>.minecraft</code> layout</li>
+            <li><b>Real launch engine</b> — resolves version JSON inheritance, builds the classpath, and spawns the JVM directly</li>
+            <li><b>Smooth-PvP JVM tuning</b> — optional G1GC flag preset that cuts GC-pause frame hitches in close fights</li>
+          </ul>
+        </div>
+        <div class="split-media">
+          <div class="window">
+            <div class="window-bar"><span></span><span></span><span></span></div>
+            <img src="assets/img/new-instance.png" alt="New Instance dialog for picking a Minecraft folder" loading="lazy" width="1280" height="720">
+          </div>
+        </div>
+      </div>
+
+      <div class="split reveal">
+        <div class="split-copy">
+          <h3>Shaders and sign-in, handled for you.</h3>
+          <p>A compatible shader loader — Iris + Sodium on Fabric, Oculus on Forge — is preinstalled automatically, so imported shader packs just work. Microsoft sign-in works out of the box with tokens encrypted at rest and refreshed before every launch.</p>
+          <ul>
+            <li><b>Shaders tab</b> — import <code>.zip</code> packs and pick the active one in-game</li>
+            <li><b>Multi-account</b> — link several Microsoft accounts and switch per-instance</li>
+            <li><b>Auto-updates</b> — installed builds update themselves in the background</li>
+          </ul>
+        </div>
+        <div class="split-media">
+          <div class="window">
+            <div class="window-bar"><span></span><span></span><span></span></div>
+            <img src="assets/img/settings.png" alt="Launcher settings with Microsoft accounts, instance defaults and updates" loading="lazy" width="1280" height="720">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="mod">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Built in, Lunar-style</div>
+        <h2>The Omega mod ships inside — and lives entirely in-game.</h2>
+        <p>Every instance gets the Omega companion mod (Fabric and Forge builds) preinstalled automatically. Press <kbd>Right Shift</kbd> — or hit the <b>&Omega;</b> button in the pause menu — and every feature is right there.</p>
+      </div>
+
+      <div class="modgrid reveal">
+        <div class="modfeat"><b><span class="om">&Omega;</span>Fullbright</b><span>See caves and fights clearly — gamma past the vanilla slider cap.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Block Highlight</b><span>Depth-tested outlines on obsidian, anchors and crystals near you. Never through walls.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Custom FOV &amp; Zoom</b><span>Set your FOV freely, plus hold-to-zoom on <kbd>C</kbd>.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Toggle Sprint</b><span>Stay sprinting while you hold forward — no double-tapping.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Info HUD</b><span>Coords, FPS, ping, direction, CPS and keystrokes — each line toggleable.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>No Hurt Cam</b><span>Kills the camera shake when you take damage. Purely visual.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>No Fog</b><span>Pushes fog out to infinity — terrain, water, lava and nether alike.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Weather &amp; Time</b><span>Client-side clear weather, plus real /time and /weather buttons where you have permission.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Particle Control</b><span>Per-category switches, a custom blacklist, and a density slider.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Schematics</b><span>WorldEdit-style select, save, and ghost-preview — with Litematica import.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>Presence Badge</b><span>An &Omega; next to the nametag of players on Omega Client.</span></div>
+        <div class="modfeat"><b><span class="om">&Omega;</span>One config, everywhere</b><span>The in-game menu and the launcher edit the same file — nothing to sync.</span></div>
+      </div>
+
+      <div class="fairplay reveal">
+        <div class="shield">&#128737;&#65039;</div>
+        <p><b>Fair play, by design.</b> Every built-in feature is a visual or convenience setting. There is deliberately no reach, no aim assist, no auto-clicker, no velocity changes, and no X-ray — nothing that reads information you couldn't already see or presses a button for you. <a href="features.html#fairplay" style="text-decoration:underline;text-underline-offset:3px;">Read the full policy</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="presets">
+    <div class="wrap">
+      <div class="section-head center">
+        <div class="kicker">Presets</div>
+        <h2>One click from queue to ready.</h2>
+        <p>Presets bulk-switch your imported mods by tag, so swapping from crystal practice to a Bedwars queue takes exactly one click.</p>
+      </div>
+      <div class="chips reveal" style="justify-content:center;">
+        <span class="chip active">Smooth PvP</span>
+        <span class="chip">Crystal PvP</span>
+        <span class="chip">UHC</span>
+        <span class="chip">Bedwars</span>
+        <span class="chip">Survival</span>
+        <span class="chip">Visual/HUD Only</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Why Omega</div>
+        <h2>Honest about what it does — and doesn't.</h2>
+      </div>
+      <div class="grid grid-3 reveal">
+        <div class="card">
+          <div class="icon">&#128274;</div>
+          <h3>No launcher backend</h3>
+          <p>Installs come straight from Mojang's and the loaders' own servers. Sign-in talks directly to Microsoft, Xbox and Mojang — nowhere else. Nothing is re-hosted.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#129517;</div>
+          <h3>Open source, MIT</h3>
+          <p>The entire launcher and companion mod are public on GitHub. Read the code, build it yourself, or fork it — no black boxes.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#9889;</div>
+          <h3>Performance first</h3>
+          <p>PvP-tuned G1GC flags, granular particle control, and mod presets that strip your setup down to exactly what the fight needs.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128193;</div>
+          <h3>Your files stay yours</h3>
+          <p>Works on top of any standard install — official launcher, MultiMC, Prism, or a fresh folder. Disabling a mod is a rename, never a delete.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128736;&#65039;</div>
+          <h3>Repair, not riddles</h3>
+          <p>Every launch is preceded by a real install-completeness check. A missing library says "re-run Install to repair it" — not a cryptic crash log.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#127912;</div>
+          <h3>Cosmetics, not paywalls</h3>
+          <p>Optional paid badge cosmetics fund development. Nothing needed to launch, mod, or play is ever gated behind them.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band alt">
+    <div class="wrap">
+      <h2>Ready when you are.</h2>
+      <p>Download Omega Client, point it at your <code>.minecraft</code>, and press Play.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" data-os-download href="download.html">
+          <span class="dl-label">Download Omega Client</span>
+        </a>
+        <a class="btn btn-ghost" href="download.html">All platforms</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="index.html"><span class="omega-mark">&Omega;</span> Omega Client</a>
+          <p>The last client you will ever need. A lightweight, open-source Minecraft launcher focused on smooth performance, PvP, and one-click mod toggling.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="features.html">Features</a>
+          <a href="download.html">Download</a>
+          <a href="faq.html">FAQ</a>
+        </div>
+        <div class="foot-col">
+          <h4>Project</h4>
+          <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/dsdocai-ops/Mods/releases/tag/latest-build" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/dsdocai-ops/Mods/issues" target="_blank" rel="noopener">Report an issue</a>
+        </div>
+      </div>
+      <div class="foot-legal">
+        <span>&copy; <span data-year>2026</span> Omega Client · MIT License</span>
+        <span>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

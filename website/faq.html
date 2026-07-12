@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ — Omega Client</title>
+  <meta name="description" content="Frequently asked questions about Omega Client: pricing, accounts, server rules, unsigned builds, mods, and more.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <span class="omega-mark">&Omega;</span>
+        Omega Client
+      </a>
+      <button class="nav-burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="download.html">Download</a>
+        <a href="faq.html" aria-current="page">FAQ</a>
+        <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="download.html">Get Omega</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="wrap">
+      <div class="kicker">FAQ</div>
+      <h1>Questions, answered.</h1>
+      <p>The honest version — the same answers you'd find reading the project's README.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <div class="faq-list reveal">
+
+        <details open>
+          <summary>Is Omega Client free?</summary>
+          <div class="faq-body">
+            <p>Yes. The launcher and companion mod are free and open source under the MIT license. Nothing needed to launch, mod, or play is ever paywalled. Development is funded by optional, clearly-disclosed sponsor placements and optional vanity cosmetics — neither gates any functionality.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Do I need to own Minecraft?</summary>
+          <div class="faq-body">
+            <p>Yes. Omega requires signing in with a Microsoft account that owns Minecraft: Java Edition — the same requirement as Lunar, Feather, and every legitimate launcher. There is no offline or cracked mode. Sign-in uses Microsoft's standard public OAuth flow, works out of the box, and your tokens are stored encrypted on your machine using your OS keychain.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Is it allowed on servers? Is this a hack client?</summary>
+          <div class="faq-body">
+            <p>Omega is not a hack client. Every built-in feature is a visual or convenience setting: fullbright, FOV/zoom, toggle sprint, HUD info, particle control, and similar. There is deliberately no reach, no aim assist, no auto-clicker, no velocity modification, and no X-ray — the block highlighter is depth-tested and will never show blocks through walls.</p>
+            <p>That said, a few servers restrict even visual settings like fullbright. Rules differ, so check the rules of wherever you play.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Windows says "Windows protected your PC" / macOS won't open the app. Is it safe?</summary>
+          <div class="faq-body">
+            <p>The builds are not code-signed (signing certificates cost money the project doesn't spend), so operating systems show their standard unknown-publisher warnings. On Windows, click <b>More info &rarr; Run anyway</b>. On macOS, <b>right-click the app &rarr; Open</b> once — it opens normally after that. On Linux, <code>chmod +x</code> the AppImage first.</p>
+            <p>If you'd rather not trust a prebuilt binary, the entire project is open source — you can <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">read the code and build it yourself</a>. Every release file also lists its sha256 digest on the release page.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Does Omega include mods? Where do mods come from?</summary>
+          <div class="faq-body">
+            <p>You bring your own mods — Omega imports your <code>.jar</code>s and manages them as toggles. The only things installed for you are the Omega companion mod itself and, when an instance needs them, three well-known dependencies fetched from Modrinth: Fabric API, and a shader loader (Iris + Sodium on Fabric, Oculus on Forge). Nothing else is bundled or downloaded, and nothing is re-hosted.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Will it mess with my existing .minecraft folder?</summary>
+          <div class="faq-body">
+            <p>No. Omega works on top of any standard install — official launcher, MultiMC, Prism, or manual. Disabling a mod renames it to <code>mod.jar.disabled</code> (which every loader ignores) rather than moving or deleting anything. Installs download only missing files, sha1-verified, straight from Mojang's own CDNs.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Which Minecraft versions and loaders are supported?</summary>
+          <div class="faq-body">
+            <p>The launcher can install and launch any Minecraft release, vanilla or with Fabric/Forge on top, and auto-detects existing installs of vanilla, Forge, Fabric, Quilt, and NeoForge. The built-in Omega companion mod currently targets Minecraft 1.20.1 (Fabric and Forge builds) — on other versions you still get the full launcher, just without the in-game Omega menu.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>How do updates work?</summary>
+          <div class="faq-body">
+            <p>Builds installed via the Windows installer, the macOS app, or the Linux AppImage check the rolling release on startup, download updates in the background, and apply them on the next restart — a banner offers "Restart now". The check is configurable in <b>Settings &rarr; Updates</b>. The Windows portable .exe can't replace itself; portable users just re-download.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Can I use more than one account?</summary>
+          <div class="faq-body">
+            <p>Yes. Link as many Microsoft accounts as you like and pick which one an instance uses via the account switcher next to Play. Minecraft can't hot-swap accounts mid-game, so the in-game <b>Switch Account</b> button cleanly quits and pops the launcher back up with the switcher open — pick the next account and relaunch.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>How do shaders work?</summary>
+          <div class="faq-body">
+            <p>A compatible shader loader is preinstalled automatically — Iris + Sodium on Fabric, Oculus on Forge. Import <code>.zip</code> shader packs in the launcher's <b>Shaders</b> tab, then pick the active pack in-game under <b>Video Settings &rarr; Shader Packs</b> (that menu lives inside the game, so the launcher can't select it for you).</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>What data does Omega collect?</summary>
+          <div class="faq-body">
+            <p>None — there is no launcher backend of any kind. Installs come straight from Mojang's and the loaders' own servers (plus Modrinth for the three bundled dependencies), and authentication talks directly to Microsoft/Xbox/Mojang, nowhere else. There's no telemetry, no analytics, and no account system beyond your own Microsoft sign-in, which stays on your machine.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Something broke — where do I get help?</summary>
+          <div class="faq-body">
+            <p>Open an issue on <a href="https://github.com/dsdocai-ops/Mods/issues" target="_blank" rel="noopener">GitHub</a> with what you did, what happened, and the output from the launcher's <b>Console</b> tab if the game failed to start. If a launch fails with missing files, the fix is usually one click: re-run <b>Install</b> on the instance to repair it.</p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-band alt">
+    <div class="wrap">
+      <h2>Still curious? Just try it.</h2>
+      <p>It's free, it's small, and it won't touch your existing setup.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" data-os-download href="download.html">
+          <span class="dl-label">Download Omega Client</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="index.html"><span class="omega-mark">&Omega;</span> Omega Client</a>
+          <p>The last client you will ever need. A lightweight, open-source Minecraft launcher focused on smooth performance, PvP, and one-click mod toggling.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="features.html">Features</a>
+          <a href="download.html">Download</a>
+          <a href="faq.html">FAQ</a>
+        </div>
+        <div class="foot-col">
+          <h4>Project</h4>
+          <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/dsdocai-ops/Mods/releases/tag/latest-build" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/dsdocai-ops/Mods/issues" target="_blank" rel="noopener">Report an issue</a>
+        </div>
+      </div>
+      <div class="foot-legal">
+        <span>&copy; <span data-year>2026</span> Omega Client · MIT License</span>
+        <span>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

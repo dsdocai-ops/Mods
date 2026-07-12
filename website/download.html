@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download — Omega Client</title>
+  <meta name="description" content="Download Omega Client for Windows, macOS, or Linux — free and open source. Plus standalone Fabric and Forge builds of the Omega companion mod.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <span class="omega-mark">&Omega;</span>
+        Omega Client
+      </a>
+      <button class="nav-burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="download.html" aria-current="page">Download</a>
+        <a href="faq.html">FAQ</a>
+        <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="download.html">Get Omega</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <div class="wrap">
+      <div class="kicker">Download</div>
+      <h1>Get Omega Client.</h1>
+      <p>Free, open source, and updated on every build. Installed builds keep themselves up to date automatically — download once, stay current.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <div class="dl-grid reveal">
+
+        <div class="dl-card" data-os="windows">
+          <div class="os-icon">&#129706;</div>
+          <h3>Windows</h3>
+          <div class="arch">Windows 10/11 · 64-bit · ~75 MB</div>
+          <a class="btn btn-primary btn-sm" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/OmegaClient-Setup.exe">Download installer</a>
+          <a class="alt-link" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/OmegaClient-Portable.exe">Portable .exe (no install)</a>
+          <p class="dl-note">The installer auto-updates itself. Unsigned build: if SmartScreen appears, click <b>More info &rarr; Run anyway</b>.</p>
+        </div>
+
+        <div class="dl-card" data-os="mac">
+          <div class="os-icon">&#127822;</div>
+          <h3>macOS</h3>
+          <div class="arch">Apple Silicon (arm64) · ~99 MB</div>
+          <a class="btn btn-primary btn-sm" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/OmegaClient-arm64.dmg">Download .dmg</a>
+          <a class="alt-link" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/OmegaClient-arm64.zip">.zip archive</a>
+          <p class="dl-note">Unsigned build: Gatekeeper blocks the first open — <b>right-click the app &rarr; Open</b> once, and it runs normally after that.</p>
+        </div>
+
+        <div class="dl-card" data-os="linux">
+          <div class="os-icon">&#128039;</div>
+          <h3>Linux</h3>
+          <div class="arch">x86_64 · AppImage · ~109 MB</div>
+          <a class="btn btn-primary btn-sm" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/OmegaClient-x86_64.AppImage">Download AppImage</a>
+          <a class="alt-link" href="https://github.com/dsdocai-ops/Mods/releases/tag/latest-build">All release files</a>
+          <p class="dl-note">Make it executable first: <code>chmod +x OmegaClient-x86_64.AppImage</code>, then run it.</p>
+        </div>
+
+      </div>
+
+      <p class="dl-fine">
+        Every download comes from the rolling
+        <a href="https://github.com/dsdocai-ops/Mods/releases/tag/latest-build" target="_blank" rel="noopener">latest-build release</a>,
+        rebuilt by CI on each change — sha256 digests for every file are listed on the release page.
+        Windows is the flagship, most-tested platform; macOS and Linux builds are newer and best-effort.
+      </p>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Standalone mod</div>
+        <h2>Just want the Omega mod?</h2>
+        <p>The launcher preinstalls the companion mod into every instance automatically — but if you use another launcher, you can drop the jar into your <code>mods/</code> folder like any other mod. Built for Minecraft 1.20.1.</p>
+      </div>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <div class="icon">&#129682;</div>
+          <h3>Fabric build</h3>
+          <p>For Fabric Loader 0.15+ on Minecraft 1.20.1. Requires Fabric API.</p>
+          <p style="margin-top:16px;"><a class="btn btn-ghost btn-sm" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/omega-client-fabric-0.1.0.jar">Download omega-client-fabric.jar</a></p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128296;</div>
+          <h3>Forge build</h3>
+          <p>For Forge 47.2 on Minecraft 1.20.1. No other dependencies.</p>
+          <p style="margin-top:16px;"><a class="btn btn-ghost btn-sm" href="https://github.com/dsdocai-ops/Mods/releases/download/latest-build/omega-client-forge-0.1.0.jar">Download omega-client-forge.jar</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <div class="kicker">Getting started</div>
+        <h2>Playing in four steps.</h2>
+      </div>
+      <div class="grid grid-2 reveal">
+        <div class="card">
+          <h3>1 · Sign in</h3>
+          <p>Launch Omega and sign in with the Microsoft account that owns Minecraft. It works out of the box — no setup, and tokens are encrypted on your machine.</p>
+        </div>
+        <div class="card">
+          <h3>2 · Create an instance</h3>
+          <p>Point <b>New Instance</b> at your existing <code>.minecraft</code> folder — or pick an empty one and let Omega download Minecraft + Fabric/Forge fresh from Mojang.</p>
+        </div>
+        <div class="card">
+          <h3>3 · Import your mods</h3>
+          <p>Select your mod <code>.jar</code>s once. They show up as toggle switches with real names, versions, and auto-detected tags. Flip freely or use a preset.</p>
+        </div>
+        <div class="card">
+          <h3>4 · Press Play</h3>
+          <p>Omega verifies the install, builds the launch, and streams the console live. In-game, press <kbd>Right Shift</kbd> for every built-in feature.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="index.html"><span class="omega-mark">&Omega;</span> Omega Client</a>
+          <p>The last client you will ever need. A lightweight, open-source Minecraft launcher focused on smooth performance, PvP, and one-click mod toggling.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="features.html">Features</a>
+          <a href="download.html">Download</a>
+          <a href="faq.html">FAQ</a>
+        </div>
+        <div class="foot-col">
+          <h4>Project</h4>
+          <a href="https://github.com/dsdocai-ops/Mods" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/dsdocai-ops/Mods/releases/tag/latest-build" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/dsdocai-ops/Mods/issues" target="_blank" rel="noopener">Report an issue</a>
+        </div>
+      </div>
+      <div class="foot-legal">
+        <span>&copy; <span data-year>2026</span> Omega Client · MIT License</span>
+        <span>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
