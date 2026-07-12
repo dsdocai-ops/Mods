@@ -44,10 +44,18 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
     try {
       const found = await window.api.instances.detectVersions(dir);
       setVersions(found);
+      // A previous folder's selection must not survive into this one - "Create Instance" stayed
+      // enabled and produced an instance pointing at the new gameDir with the old folder's
+      // versionId, which fails install-verify at launch. A lone detected version is auto-picked.
+      setSelectedVersion(found.length === 1 ? found[0] : null);
       if (found.length === 0) {
         // An empty folder isn't an error anymore - it's the "install fresh" starting point.
         setMode("install");
         loadReleases();
+      } else {
+        // Coming back from an empty folder (or a finished install) the mode could still be
+        // "install" - a folder with detected versions should open on picking one of them.
+        setMode("existing");
       }
     } catch (err) {
       setError(`Couldn't scan that folder: ${err instanceof Error ? err.message : String(err)}`);

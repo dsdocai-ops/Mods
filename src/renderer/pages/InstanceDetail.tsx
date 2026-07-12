@@ -32,6 +32,11 @@ interface Props {
 
 type Tab = "mods" | "shaders" | "console" | "settings";
 
+// Remembered across instance switches: App.tsx remounts InstanceDetail per instance (key={id}),
+// which used to snap the view back to the Mods tab on every switch - hopping between instances to
+// compare the same tab (two Consoles, two Settings) meant re-clicking the tab each time.
+let lastOpenTab: Tab = "mods";
+
 export default function InstanceDetail({
   instance,
   logLines,
@@ -45,7 +50,11 @@ export default function InstanceDetail({
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState<Tab>("mods");
+  const [tab, setTabState] = useState<Tab>(lastOpenTab);
+  const setTab = (next: Tab) => {
+    lastOpenTab = next;
+    setTabState(next);
+  };
   const [modsView, setModsView] = useState<"installed" | "discover">("installed");
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);

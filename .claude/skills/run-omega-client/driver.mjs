@@ -58,11 +58,26 @@ function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
   window.api = {
     instances: {
-      list: async () => [window.__mockInstance],
-      create: async (input) => ({ ...window.__mockInstance, ...input, id: 'inst-' + Date.now() }),
-      update: async (instance) => { window.__calls.update.push(instance); return instance; },
-      delete: async () => {},
-      detectVersions: async () => ([{ id: '1.20.1', type: 'release' }]),
+      // Stateful: window.__mockInstances is seeded by an addInitScript in `launch` below, and
+      // create/update/delete mutate it - so the New Instance flow, sidebar switching, and delete
+      // actually round-trip like the real store-backed handlers do.
+      list: async () => [...window.__mockInstances],
+      create: async (input) => {
+        const instance = { ...window.__mockInstance, ...input, id: 'inst-' + Date.now(), name: input.name };
+        window.__mockInstances.push(instance);
+        return instance;
+      },
+      update: async (instance) => {
+        window.__calls.update.push(instance);
+        window.__mockInstances = window.__mockInstances.map((i) => (i.id === instance.id ? instance : i));
+        return instance;
+      },
+      delete: async (id) => { window.__mockInstances = window.__mockInstances.filter((i) => i.id !== id); },
+      // detectInstalledVersions() in src/main/instances.ts returns DetectedVersion[] (shared/types.ts)
+      // - {versionId, loader, jsonPath}, NOT the installer's {id, type} release shape.
+      detectVersions: async (gameDir) => ([
+        { versionId: '1.20.1', loader: 'fabric', jsonPath: gameDir + '/versions/1.20.1/1.20.1.json' },
+      ]),
     },
     dialog: {
       pickDirectory: async () => '/home/user/.minecraft-demo',
@@ -158,7 +173,10 @@ function installMockApi() {
       start: async (instance) => { window.__calls.launch.push(instance); },
       stop: async () => {},
       isRunning: async () => false,
-      onLog: () => () => {},
+      // The callback is exposed as window.__emitLog so a test can stream fake game output into the
+      // app (e.g. `eval (() => { for (let i = 0; i < 50; i++) window.__emitLog({instanceId: 'inst-1',
+      // stream: 'stdout', data: 'line ' + i}); })()`) and observe Console-tab behavior.
+      onLog: (cb) => { window.__emitLog = cb; return () => {}; },
       onSwitchAccountRequested: () => () => {},
     },
   };
@@ -190,7 +208,7 @@ const COMMANDS = {
     page.on('pageerror', (err) => console.log('PAGEERROR:', err.message));
     page.on('console', (msg) => { if (msg.type() === 'error') console.log('CONSOLE ERROR:', msg.text()); });
     await page.addInitScript(installMockApi);
-    await page.addInitScript((inst) => { window.__mockInstance = inst; }, MOCK_INSTANCE);
+    await page.addInitScript((inst) => { window.__mockInstance = inst; window.__mockInstances = [inst]; }, MOCK_INSTANCE);
     await page.addInitScript((acc) => { window.__mockAccounts = acc ? [acc] : []; }, process.env.MOCK_SIGNED_OUT ? null : MOCK_ACCOUNT);
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(500);
