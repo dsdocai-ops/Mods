@@ -32,6 +32,13 @@ const pendingLaunches = new Set<string>();
 // fallback in case something (a stuck child, a platform quirk) keeps exit from ever firing.
 const stoppingInstances = new Set<string>();
 const STOP_GRACE_MS = 5000;
+// A real Minecraft session never exits this fast on its own - even a slow JVM boot takes several
+// seconds, and the window stays open until the player quits. An abnormal exit before this much
+// time has passed almost certainly means the window never opened at all (wrong/missing Java,
+// crashed graphics driver, a corrupt install), which otherwise looks identical in the UI to a
+// perfectly normal launch: the Play button flips to "running" the instant spawn() succeeds, then
+// silently flips back with no explanation once the process dies. See the launch:start handler.
+const EARLY_EXIT_THRESHOLD_MS = 20000;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -244,12 +251,24 @@ app.whenReady().then(() => {
         ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
       ]);
       const msaClientId = store.getSettings().msaClientId;
+      const launchedAt = Date.now();
       const handle = await launchInstance(instance, msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
-      handle.process.on("exit", () => {
+      handle.process.on("exit", (code, signal) => {
         runningProcesses.delete(instance.id);
+        const wasStopRequested = stoppingInstances.has(instance.id);
         stoppingInstances.delete(instance.id);
         checkSwitchAccountRequest(instance);
+        if (!wasStopRequested && code !== 0 && Date.now() - launchedAt < EARLY_EXIT_THRESHOLD_MS) {
+          onLog({
+            instanceId: instance.id,
+            stream: "crash",
+            data:
+              `Minecraft exited immediately (code ${code ?? "null"}${signal ? `, signal ${signal}` : ""}) without ` +
+              "opening a window - check the Console tab above for the real Java error. Common causes: the wrong " +
+              "Java version for this Minecraft version, a graphics driver crash, or a corrupted/incomplete install.",
+          });
+        }
       });
       instances.markLaunched(instance.id);
       return true;

@@ -77,7 +77,7 @@ export default function App() {
     };
 
     const unsubscribe = window.api.launch.onLog((event: LaunchLogEvent) => {
-      const prefix = event.stream === "stderr" ? "[err] " : event.stream === "status" ? "[launcher] " : "";
+      const prefix = event.stream === "stderr" ? "[err] " : event.stream === "status" || event.stream === "crash" ? "[launcher] " : "";
       const line = event.stream === "exit" ? `[launcher] process exited (code ${event.data})` : `${prefix}${event.data}`;
       const buffer = logBufferRef.current;
       const lines = (buffer[event.instanceId] ??= []);
@@ -96,6 +96,14 @@ export default function App() {
           next.delete(event.instanceId);
           return next;
         });
+      }
+
+      // Without this, a fast crash-on-boot (wrong Java version, a graphics driver failure, a
+      // corrupt install) looks identical to a successful launch from the UI's perspective: the
+      // Play button briefly showed "running", then quietly went back to "Play" with no window
+      // ever appearing and no indication why - see main.ts's EARLY_EXIT_THRESHOLD_MS.
+      if (event.stream === "crash") {
+        toast(event.data, "error");
       }
     });
 

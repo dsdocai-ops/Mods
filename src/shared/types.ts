@@ -129,7 +129,13 @@ export interface InstallProgress {
 
 export interface LaunchLogEvent {
   instanceId: string;
-  stream: "stdout" | "stderr" | "status" | "exit";
+  /**
+   * "crash" is synthesized by main.ts (not launch.ts) when the game process exits abnormally
+   * within EARLY_EXIT_THRESHOLD_MS of spawning - the Play button flipping to "running" only means
+   * the JVM started, not that a window ever opened, so a fast non-zero exit otherwise looks like
+   * "launched but nothing happened" with no explanation. See main.ts's launch:start handler.
+   */
+  stream: "stdout" | "stderr" | "status" | "exit" | "crash";
   data: string;
 }
 
