@@ -5,6 +5,7 @@ import type {
   CreateInstanceInput,
   DetectedVersion,
   DiscoveredMod,
+  DiscoveredModPage,
   InstallableVersion,
   InstallProgress,
   Instance,
@@ -40,7 +41,7 @@ export interface LauncherApi {
     remove(modsDir: string, modId: string): Promise<ModInfo[]>;
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
     setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
-    discover(instance: Instance, query: string): Promise<DiscoveredMod[]>;
+    discover(instance: Instance, query: string, offset?: number): Promise<DiscoveredModPage>;
     installDiscovered(instance: Instance, projectId: string): Promise<ModInfo[]>;
   };
   shaders: {

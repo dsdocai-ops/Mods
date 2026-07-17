@@ -99,16 +99,24 @@ function installMockApi() {
       remove: async () => {},
       applyPreset: async () => {},
       setEnabledBulk: async () => {},
-      // searchDiscoveryMods() in src/main/modDiscovery.ts returns DiscoveredMod[] - an empty
-      // query is the default "most downloaded compatible mods" feed the Discover view opens with.
-      discover: async (_instance, query) => {
-        const hits = [
+      // searchDiscoveryMods() in src/main/modDiscovery.ts returns a DiscoveredModPage
+      // ({hits, totalHits, offset}) - an empty query is the default "most downloaded compatible
+      // mods" feed the Discover view opens with, and it pages 30 at a time as the user scrolls.
+      // 75 canned mods = three pages, enough to exercise the infinite scroll for real.
+      discover: async (_instance, query, offset = 0) => {
+        const all = [
           { projectId: 'P-sodium', slug: 'sodium', title: 'Sodium', description: 'A modern rendering engine for Minecraft which greatly improves performance', author: 'jellysquid3', downloads: 5_300_000, iconUrl: null, categories: ['optimization'] },
           { projectId: 'P-lithium', slug: 'lithium', title: 'Lithium', description: 'No-compromises game logic optimization mod', author: 'jellysquid3', downloads: 3_200_000, iconUrl: null, categories: ['optimization'] },
           { projectId: 'P-modmenu', slug: 'modmenu', title: 'Mod Menu', description: 'Adds a mod menu to view the list of mods you have installed', author: 'Prospector', downloads: 2_900_000, iconUrl: null, categories: ['utility'] },
+          ...[...Array(72)].map((_, i) => ({
+            projectId: 'P-filler-' + i, slug: 'filler-mod-' + i, title: 'Filler Mod ' + i,
+            description: 'Canned discovery result #' + i, author: 'author' + (i % 7),
+            downloads: 900_000 - i * 1_000, iconUrl: null, categories: ['utility'],
+          })),
         ];
         const q = (query ?? '').trim().toLowerCase();
-        return q ? hits.filter((m) => m.title.toLowerCase().includes(q) || m.slug.includes(q)) : hits;
+        const filtered = q ? all.filter((m) => m.title.toLowerCase().includes(q) || m.slug.includes(q)) : all;
+        return { hits: filtered.slice(offset, offset + 30), totalHits: filtered.length, offset };
       },
       // installDiscoveredMod() returns the instance's full refreshed ModInfo[] list.
       installDiscovered: async (_instance, projectId) => {

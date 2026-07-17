@@ -59,11 +59,11 @@ interface ManifestEntry {
   releaseTime: string;
 }
 
-export async function fetchWithRetry(url: string): Promise<Response> {
+export async function fetchWithRetry(url: string, headers?: Record<string, string>): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers });
       if (response.status >= 500) {
         throw new Error(`Server error (${response.status}) for ${url}`);
       }

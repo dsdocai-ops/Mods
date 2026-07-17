@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import path from "node:path";
-import type { DiscoveredMod, Instance, ModInfo } from "../shared/types";
-import { downloadToCache, hasModLike, placeJar } from "./bundledMods";
+import type { DiscoveredMod, DiscoveredModPage, Instance, ModInfo } from "../shared/types";
+import { downloadToCache, hasModLike, MODRINTH_HEADERS, placeJar } from "./bundledMods";
 import { fetchWithRetry } from "./installer";
 import { listMods } from "./mods";
 import { resolveVersion } from "./versionResolver";
@@ -22,7 +22,7 @@ import { resolveVersion } from "./versionResolver";
  */
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
-const SEARCH_LIMIT = 30;
+const PAGE_SIZE = 30;
 // Modrinth search hits mix loaders into `categories`; those are facet noise next to real
 // categories like "optimization" or "utility", so they're stripped before display.
 const LOADER_CATEGORY_NOISE = new Set(["fabric", "forge", "quilt", "neoforge", "liteloader", "modloader", "rift"]);
@@ -63,23 +63,24 @@ function discoveryTarget(instance: Instance): DiscoveryTarget {
   return { loader, minecraftVersion };
 }
 
-export async function searchDiscoveryMods(instance: Instance, query: string): Promise<DiscoveredMod[]> {
+export async function searchDiscoveryMods(instance: Instance, query: string, offset = 0): Promise<DiscoveredModPage> {
   const { loader, minecraftVersion } = discoveryTarget(instance);
   const facets = JSON.stringify([["project_type:mod"], [`categories:${loader}`], [`versions:${minecraftVersion}`]]);
   // No query = the default discovery feed: most-downloaded compatible mods. With a query, let
   // Modrinth rank by relevance instead.
   const index = query.trim() ? "relevance" : "downloads";
+  const safeOffset = Math.max(0, Math.floor(offset));
   const url = `${MODRINTH_API}/search?query=${encodeURIComponent(query.trim())}&facets=${encodeURIComponent(
     facets
-  )}&index=${index}&limit=${SEARCH_LIMIT}`;
+  )}&index=${index}&limit=${PAGE_SIZE}&offset=${safeOffset}`;
 
-  const response = await fetchWithRetry(url);
+  const response = await fetchWithRetry(url, MODRINTH_HEADERS);
   if (!response.ok) {
     throw new Error(`Modrinth search failed (${response.status})`);
   }
-  const body = (await response.json()) as { hits?: any[] };
+  const body = (await response.json()) as { hits?: any[]; total_hits?: number };
 
-  return (body.hits ?? []).map((hit): DiscoveredMod => ({
+  const hits = (body.hits ?? []).map((hit): DiscoveredMod => ({
     projectId: String(hit.project_id),
     slug: String(hit.slug ?? hit.project_id),
     title: String(hit.title ?? hit.slug ?? "Unknown mod"),
@@ -91,6 +92,8 @@ export async function searchDiscoveryMods(instance: Instance, query: string): Pr
       ? hit.categories.filter((c: unknown): c is string => typeof c === "string" && !LOADER_CATEGORY_NOISE.has(c))
       : [],
   }));
+
+  return { hits, totalHits: Number(body.total_hits ?? safeOffset + hits.length), offset: safeOffset };
 }
 
 interface ModrinthVersion {
@@ -112,7 +115,7 @@ async function latestCompatibleVersion(
   const url = `${MODRINTH_API}/project/${encodeURIComponent(projectId)}/version?game_versions=${encodeURIComponent(
     JSON.stringify([minecraftVersion])
   )}&loaders=${encodeURIComponent(JSON.stringify([loader]))}`;
-  const response = await fetchWithRetry(url);
+  const response = await fetchWithRetry(url, MODRINTH_HEADERS);
   if (!response.ok) {
     throw new Error(`Modrinth version lookup failed (${response.status})`);
   }
@@ -126,7 +129,7 @@ async function latestCompatibleVersion(
 
 /** A dependency arrives as a bare project id; its slug is what filenames can be matched against. */
 async function fetchProjectSlug(projectId: string): Promise<string> {
-  const response = await fetchWithRetry(`${MODRINTH_API}/project/${encodeURIComponent(projectId)}`);
+  const response = await fetchWithRetry(`${MODRINTH_API}/project/${encodeURIComponent(projectId)}`, MODRINTH_HEADERS);
   if (!response.ok) {
     throw new Error(`Modrinth project lookup failed (${response.status})`);
   }

@@ -29,13 +29,18 @@ function formatDownloads(count: number): string {
 export default function DiscoverPanel({ instance, installedMods, onModsChanged }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DiscoveredMod[] | null>(null);
+  const [totalHits, setTotalHits] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   // Out-of-order guard for overlapping searches (type fast, responses land last-write-wins
-  // otherwise) - same pattern as InstanceDetail's modsRequestRef.
+  // otherwise) - same pattern as InstanceDetail's modsRequestRef. A bump also invalidates any
+  // in-flight load-more append, so a new search can't get stale pages tacked onto it.
   const requestRef = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const moddable = instance.loader === "fabric" || instance.loader === "quilt" || instance.loader === "forge";
+  const hasMore = results !== null && results.length < totalHits;
 
   useEffect(() => {
     if (!moddable) return;
@@ -44,15 +49,17 @@ export default function DiscoverPanel({ instance, installedMods, onModsChanged }
     const timer = setTimeout(
       () => {
         window.api.mods
-          .discover(instance, query)
-          .then((hits) => {
+          .discover(instance, query, 0)
+          .then((page) => {
             if (requestId !== requestRef.current) return;
-            setResults(hits);
+            setResults(page.hits);
+            setTotalHits(page.totalHits);
             setError(null);
           })
           .catch((err) => {
             if (requestId !== requestRef.current) return;
             setResults([]);
+            setTotalHits(0);
             setError(err instanceof Error ? err.message : String(err));
           });
       },
@@ -61,6 +68,46 @@ export default function DiscoverPanel({ instance, installedMods, onModsChanged }
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance.id, query, moddable]);
+
+  // Fetches the next page and appends it. Lives in a ref so the IntersectionObserver below always
+  // invokes the latest version without needing to be torn down on every render.
+  const loadMoreRef = useRef<() => void>(() => {});
+  loadMoreRef.current = async () => {
+    if (!hasMore || loadingMore || error) return;
+    const requestId = requestRef.current;
+    setLoadingMore(true);
+    try {
+      const page = await window.api.mods.discover(instance, query, results!.length);
+      if (requestId !== requestRef.current) return;
+      setTotalHits(page.hits.length === 0 ? results!.length : page.totalHits);
+      setResults((prev) => {
+        // Modrinth's ranking can shift between page fetches; dedupe instead of double-listing.
+        const seen = new Set((prev ?? []).map((m) => m.projectId));
+        return [...(prev ?? []), ...page.hits.filter((h) => !seen.has(h.projectId))];
+      });
+    } catch (err) {
+      if (requestId === requestRef.current) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Infinite scroll: when the sentinel row at the bottom of the list scrolls into view, load the
+  // next page. Re-created whenever the list length changes on purpose - observe() always fires an
+  // initial callback, which covers the "sentinel is STILL visible after appending" case (short
+  // pages) that would otherwise never produce a new intersection event and stall the feed.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMoreRef.current();
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, error, results?.length]);
 
   const isInstalled = useCallback(
     (mod: DiscoveredMod) => {
@@ -112,8 +159,8 @@ export default function DiscoverPanel({ instance, installedMods, onModsChanged }
       </div>
 
       <p className="instance-subtitle discover-hint">
-        Everything below is compatible with this instance ({instance.loader}). Installs land in the instance's mods
-        folder, required dependencies included.
+        Everything below is compatible with this instance ({instance.loader}), most downloaded first - keep scrolling
+        to load more. Installs land in the instance's mods folder, required dependencies included.
       </p>
 
       <div className="mod-list">
@@ -161,6 +208,14 @@ export default function DiscoverPanel({ instance, installedMods, onModsChanged }
             </div>
           );
         })}
+        {hasMore && !error && (
+          <div ref={sentinelRef} className="discover-sentinel">
+            {loadingMore ? "Loading more mods…" : " "}
+          </div>
+        )}
+        {results !== null && results.length > 0 && !hasMore && (
+          <p className="discover-sentinel">That's every compatible mod ({results.length}).</p>
+        )}
       </div>
     </>
   );

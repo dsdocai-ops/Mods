@@ -174,7 +174,9 @@ app.whenReady().then(() => {
   );
   // Both take the whole Instance (like launch:start) rather than a bare modsDir: resolving the
   // real Minecraft version behind the instance's version id needs gameDir + versionId too.
-  ipcMain.handle("mods:discover", (_e, instance: Instance, query: string) => searchDiscoveryMods(instance, query));
+  ipcMain.handle("mods:discover", (_e, instance: Instance, query: string, offset: number) =>
+    searchDiscoveryMods(instance, query, offset)
+  );
   ipcMain.handle("mods:installDiscovered", (_e, instance: Instance, projectId: string) =>
     installDiscoveredMod(instance, projectId)
   );

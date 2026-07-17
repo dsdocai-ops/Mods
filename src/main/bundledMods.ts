@@ -27,6 +27,16 @@ import { resolveVersion } from "./versionResolver";
 const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/latest-build";
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
+/**
+ * Modrinth's API terms require a uniquely-identifying User-Agent, and their CDN rejects UA-less
+ * requests outright - Node's fetch (undici) sends NO User-Agent by default, so every Modrinth call
+ * without this header fails with a 4xx before it ever reaches the API. Harmless on the GitHub
+ * release fallback that also flows through downloadToCache.
+ */
+export const MODRINTH_HEADERS: Record<string, string> = {
+  "User-Agent": "dsdocai-ops/Mods (Omega Client launcher)",
+};
+
 type OmegaLoader = "fabric" | "forge";
 
 function cacheDir(): string {
@@ -55,7 +65,7 @@ function findBundledJar(loader: OmegaLoader): string | null {
 export async function downloadToCache(url: string, fileName: string): Promise<string> {
   const dest = path.join(cacheDir(), fileName);
   if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return dest;
-  const response = await fetchWithRetry(url);
+  const response = await fetchWithRetry(url, MODRINTH_HEADERS);
   if (!response.ok) {
     throw new Error(`Download failed (${response.status}) for ${url}`);
   }
@@ -104,7 +114,7 @@ async function modrinthLatestUrl(
   const query = `${MODRINTH_API}/project/${projectSlug}/version?game_versions=${encodeURIComponent(
     JSON.stringify([minecraftVersion])
   )}&loaders=${encodeURIComponent(JSON.stringify([loader]))}`;
-  const response = await fetchWithRetry(query);
+  const response = await fetchWithRetry(query, MODRINTH_HEADERS);
   if (!response.ok) {
     throw new Error(`Modrinth query failed (${response.status})`);
   }

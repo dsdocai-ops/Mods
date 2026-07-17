@@ -50,6 +50,17 @@ export interface DiscoveredMod {
 }
 
 /**
+ * One page of discovery results. The Discover view scrolls through the whole compatible catalog,
+ * fetching the next page as the user nears the bottom - `totalHits` (Modrinth's total_hits) is
+ * what tells it when there's nothing left to load.
+ */
+export interface DiscoveredModPage {
+  hits: DiscoveredMod[];
+  totalHits: number;
+  offset: number;
+}
+
+/**
  * A `.zip` shaderpack sitting in an instance's `shaderpacks/` folder. Unlike ModInfo there's no
  * `enabled` flag - Iris/Oculus pick the one active pack via their own in-game Video Settings
  * screen, not a launcher toggle - so this is just enough to render an import/remove list.
