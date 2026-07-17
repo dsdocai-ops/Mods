@@ -68,7 +68,7 @@ public class ModConfig {
 
     /** Show an Omega badge next to the nametag of players known to be on Omega Client. */
     public boolean showOmegaUsersEnabled = true;
-    /** Empty = no cosmetic owned/selected. Set by the launcher's Cosmetics redeem flow; see CosmeticCatalog. */
+    /** Empty = no cosmetic selected. Defaults to whatever the launcher's Cosmetics redeem flow last set, but is also switchable in-game via the menu's Cosmetics... screen; see CosmeticCatalog. */
     public String ownedCosmeticId = "";
 
     public boolean particlesMasterEnabled = true;
