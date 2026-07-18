@@ -27,6 +27,16 @@ import { resolveVersion } from "./versionResolver";
 const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/latest-build";
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
+/**
+ * The Omega mod is only ever built for one Minecraft version at a time - must match mod/gradle.properties'
+ * minecraft_version, which both the Fabric and Forge builds share, and which fabric.mod.json/mods.toml
+ * declare as their own "minecraft" dependency. Placing an Omega jar built for a different version isn't
+ * a soft failure: Fabric/Forge refuse to load a mod whose declared Minecraft dependency doesn't match and
+ * abort the entire launch over it, so this has to be checked *before* ever copying the jar in, not left
+ * to surface as a launch failure.
+ */
+const OMEGA_MOD_MINECRAFT_VERSION = "1.20.1";
+
 type OmegaLoader = "fabric" | "forge";
 
 function cacheDir(): string {
@@ -179,6 +189,24 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
   const loader = instance.loader === "fabric" || instance.loader === "quilt" ? "fabric" : instance.loader === "forge" ? "forge" : null;
   if (!loader) return; // vanilla/neoforge instances: nothing to preinstall (yet)
 
+  // The vanilla root of the version chain is the actual MC version (e.g. "1.20.1"), even when the
+  // instance's own version id is a fabric-loader/forge profile.
+  let minecraftVersion: string;
+  try {
+    const resolved = resolveVersion(instance.gameDir, instance.versionId);
+    minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
+  } catch (err) {
+    log(`[launcher] warning: couldn't resolve this instance's Minecraft version, skipping the Omega ${loader} mod: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
+  if (minecraftVersion !== OMEGA_MOD_MINECRAFT_VERSION) {
+    log(
+      `[launcher] Omega ${loader} mod skipped - it's only built for Minecraft ${OMEGA_MOD_MINECRAFT_VERSION} so far, this instance is ${minecraftVersion}`
+    );
+    return;
+  }
+
   try {
     const jar = await omegaJarFor(loader);
     placeJar(jar, instance.modsDir, `omega-client-${loader}.jar`);
@@ -190,10 +218,6 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
 
   if (loader === "fabric" && !hasModLike(instance.modsDir, "fabric-api")) {
     try {
-      // The vanilla root of the version chain is the actual MC version (e.g. "1.20.1"), even when
-      // the instance's own version id is a fabric-loader profile.
-      const resolved = resolveVersion(instance.gameDir, instance.versionId);
-      const minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
       const { url, fileName } = await fabricApiUrl(minecraftVersion);
       const cached = await downloadToCache(url, fileName);
       placeJar(cached, instance.modsDir, fileName);
