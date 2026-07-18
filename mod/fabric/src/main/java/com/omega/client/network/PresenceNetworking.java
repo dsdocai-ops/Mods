@@ -28,18 +28,21 @@ public final class PresenceNetworking {
     public static void register(ModConfig config) {
         ClientPlayNetworking.registerGlobalReceiver(CHANNEL, (client, handler, buf, responseSender) -> {
             UUID uuid = buf.readUuid();
-            // Cosmetic id rides alongside the UUID - both ends of this channel are always the same
-            // mod version by construction (Omega only ever talks to Omega), so no wire-compat concern.
-            String cosmeticId = buf.readString();
-            client.execute(() -> OmegaPresence.add(uuid, cosmeticId));
+            // The three per-slot cosmetic ids ride alongside the UUID - both ends of this channel are
+            // always the same mod version by construction (Omega only ever talks to Omega), so no
+            // wire-compat concern.
+            OmegaPresence.CosmeticSet set = new OmegaPresence.CosmeticSet(buf.readString(), buf.readString(), buf.readString());
+            client.execute(() -> OmegaPresence.add(uuid, set));
         });
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (!config.showOmegaUsersEnabled || client.player == null) return;
-            OmegaPresence.add(client.player.getUuid(), config.ownedCosmeticId);
+            OmegaPresence.add(client.player.getUuid(), new OmegaPresence.CosmeticSet(config.activeHatId, config.activeCapeId, config.activeWingsId));
             PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
             buf.writeUuid(client.player.getUuid());
-            buf.writeString(config.ownedCosmeticId);
+            buf.writeString(config.activeHatId);
+            buf.writeString(config.activeCapeId);
+            buf.writeString(config.activeWingsId);
             sender.sendPacket(CHANNEL, buf);
         });
 

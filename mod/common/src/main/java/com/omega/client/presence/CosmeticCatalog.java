@@ -6,8 +6,9 @@ import java.util.Map;
 /**
  * Pure lookup table from a cosmetic id (ModConfig.ownedCosmeticId, broadcast over the presence
  * channel alongside a player's UUID - see OmegaPresence/PresenceNetworking) to its display data.
- * Zero Minecraft imports, same sharing rule as ParticleCategory - safe to compile once and use from
- * both loaders.
+ * colorFor() drives two things now: the Ω name-badge tint (EntityRendererMixin) and the worn hat
+ * cosmetic (HatRenderer, per loader). Zero Minecraft imports, same sharing rule as ParticleCategory -
+ * safe to compile once and use from both loaders.
  *
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their
@@ -23,7 +24,21 @@ public final class CosmeticCatalog {
 
     private static final Map<String, Integer> BADGE_COLORS = Map.of(
             "gold_badge", 0xFFD700,
-            "azure_badge", 0x3B9CFF
+            "azure_badge", 0x3B9CFF,
+            "crimson_cape", 0xE63946,
+            "emerald_cape", 0x2FBF71,
+            "phantom_wings", 0xB48CFF
+    );
+
+    /** Where each cosmetic is worn - decides which renderer (head vs back) draws it. Mirror of shared/cosmetics.ts's `type`. */
+    public enum Slot { HAT, CAPE, WINGS }
+
+    private static final Map<String, Slot> TYPES = Map.of(
+            "gold_badge", Slot.HAT,
+            "azure_badge", Slot.HAT,
+            "crimson_cape", Slot.CAPE,
+            "emerald_cape", Slot.CAPE,
+            "phantom_wings", Slot.WINGS
     );
 
     private CosmeticCatalog() {
@@ -33,6 +48,12 @@ public final class CosmeticCatalog {
     public static int colorFor(String cosmeticId) {
         if (cosmeticId == null || cosmeticId.isEmpty()) return DEFAULT_BADGE_RGB;
         return BADGE_COLORS.getOrDefault(cosmeticId, DEFAULT_BADGE_RGB);
+    }
+
+    /** The slot an id is worn in, or null for an empty/unknown id (nothing to draw). */
+    public static Slot typeOf(String cosmeticId) {
+        if (cosmeticId == null || cosmeticId.isEmpty()) return null;
+        return TYPES.get(cosmeticId);
     }
 
     public static boolean isKnown(String cosmeticId) {

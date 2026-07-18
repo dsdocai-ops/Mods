@@ -70,6 +70,7 @@ export function createInstance(input: CreateInstanceInput): Instance {
     loader: input.loader,
     modsDir,
     offlineUsername: settings.defaultOfflineUsername,
+    autoUpdateMods: false,
     jvm: { ...settings.defaultJvm },
     window: { width: 1280, height: 720, fullscreen: false },
     createdAt: Date.now(),

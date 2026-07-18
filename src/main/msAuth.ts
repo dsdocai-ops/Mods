@@ -60,8 +60,38 @@ function formatUuid(raw: string): string {
   return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`;
 }
 
+/**
+ * Per-request cap for every call in the sign-in chain. Plain fetch() has no default timeout, so a
+ * stalled Microsoft/Xbox/Minecraft endpoint (or a half-open connection on flaky WiFi) would hang the
+ * whole sign-in forever - the UI just sits on "Signing in..." with no way out, and since the account
+ * is only stored once the chain finishes, that also looks like "it never stays logged in". Bounding
+ * each request turns an indefinite hang into a clear, retryable error instead.
+ */
+const AUTH_TIMEOUT_MS = 30_000;
+
+// Mojang's api.minecraftservices.com sits behind Cloudflare and returns 403 to requests with no
+// User-Agent - which is exactly what Node/undici's fetch() sends by default. The Xbox Live/XSTS
+// hosts don't care, so the chain gets all the way to login_with_xbox and only *then* 403s, which is
+// the precise symptom we hit. A plain, identifiable app User-Agent is what every third-party
+// launcher (Prism, MultiMC, ...) sends here, and it's what unblocks this. Applied to every auth
+// request (harmless on the Microsoft/Xbox ones).
+const AUTH_USER_AGENT = "OmegaClient/1.0 (+https://github.com/dsdocai-ops/Mods)";
+
+async function authFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    // User-Agent first so a caller's own headers still win, but callers never set it - so it stays.
+    const headers = { "User-Agent": AUTH_USER_AGENT, ...(init.headers ?? {}) };
+    return await fetch(url, { ...init, headers, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("Sign-in timed out waiting for Microsoft/Xbox - check your connection and try again.");
+    }
+    throw err;
+  }
+}
+
 async function postForm(url: string, params: Record<string, string>): Promise<any> {
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString(),
@@ -74,7 +104,7 @@ async function postForm(url: string, params: Record<string, string>): Promise<an
 }
 
 async function postJson(url: string, body: unknown): Promise<any> {
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
@@ -215,7 +245,7 @@ async function loginWithXbox(userHash: string, xstsToken: string): Promise<{ acc
 }
 
 async function fetchProfile(mcAccessToken: string): Promise<{ id: string; name: string }> {
-  const response = await fetch("https://api.minecraftservices.com/minecraft/profile", {
+  const response = await authFetch("https://api.minecraftservices.com/minecraft/profile", {
     headers: { Authorization: `Bearer ${mcAccessToken}` },
   });
   const json: any = await response.json().catch(() => ({}));

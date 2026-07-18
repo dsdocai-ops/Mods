@@ -27,7 +27,7 @@ public abstract class EntityRendererMixin {
         if (!(entity instanceof PlayerEntity player)) return text;
         if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return text;
         if (!OmegaPresence.isOmegaUser(player.getUuid())) return text;
-        int badgeRgb = CosmeticCatalog.colorFor(OmegaPresence.cosmeticOf(player.getUuid()));
+        int badgeRgb = CosmeticCatalog.colorFor(OmegaPresence.cosmeticsOf(player.getUuid()).primary());
         return Text.literal("Ω ")
                 .setStyle(Style.EMPTY.withColor(badgeRgb))
                 .append(text);

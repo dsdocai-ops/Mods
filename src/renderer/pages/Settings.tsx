@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
-import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
 import SponsorCard from "../components/SponsorCard";
+import { PlusIcon } from "../components/Icons";
 import { toast } from "../toast";
 
 interface Props {
@@ -17,23 +17,17 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
   const [saved, setSaved] = useState(false);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
   const [signingIn, setSigningIn] = useState(false);
-  const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
-  const [licenseKey, setLicenseKey] = useState("");
-  const [redeeming, setRedeeming] = useState(false);
 
   const loadAccounts = () =>
     window.api.accounts.list().then((list) => {
       setAccounts(list);
       onAccountsChanged?.();
     });
-  const loadOwnedCosmetics = () => window.api.licensing.listOwned().then(setOwnedCosmetics);
 
   useEffect(() => {
     window.api.settings.get().then(setSettings);
     window.api.java.detect().then(setJavaCandidates);
     loadAccounts();
-    loadOwnedCosmetics();
   }, []);
 
   if (!settings) return <div className="settings-panel">Loading&hellip;</div>;
@@ -76,42 +70,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
     }
   };
 
-  const redeemLicenseKey = async () => {
-    if (!licenseKey.trim()) return;
-    setRedeeming(true);
-    try {
-      const result = await window.api.licensing.redeem(licenseKey.trim());
-      toast(result.message, result.ok ? "success" : "info");
-      if (result.ok) {
-        setLicenseKey("");
-        loadOwnedCosmetics();
-      }
-    } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
-    } finally {
-      setRedeeming(false);
-    }
-  };
-
-  const checkForUpdates = async () => {
-    setCheckingUpdate(true);
-    try {
-      const result = await window.api.updates.checkNow();
-      if (result === "unsupported") {
-        toast("Auto-update isn't available in this build (dev run or portable exe) - re-download from the Releases page instead.", "info");
-      } else if (result === "ready") {
-        toast("Update downloaded - a restart banner will appear.", "success");
-      } else if (result === "downloading") {
-        toast("Update found - downloading in the background, a restart banner will appear when it's ready.", "info");
-      } else if (result === "checked") {
-        toast("You're on the latest build.", "success");
-      } else {
-        toast("Couldn't check for updates - check your network connection.", "error");
-      }
-    } finally {
-      setCheckingUpdate(false);
-    }
-  };
 
   return (
     <div className="settings-panel">
@@ -149,9 +107,19 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
 
       <div className="settings-actions">
         <button className="btn btn-secondary" disabled={signingIn} onClick={addMicrosoftAccount}>
-          {signingIn ? "Signing in..." : "+ Add Microsoft Account"}
+          <PlusIcon size={14} /> {signingIn ? "Signing in..." : "Add Microsoft Account"}
         </button>
       </div>
+
+      <h3 className="settings-subheading">Mods</h3>
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.showModDownloadWarning}
+          onChange={(e) => setSettings({ ...settings, showModDownloadWarning: e.target.checked })}
+        />
+        <span>Show a warning that mods are downloaded from the internet when browsing the Discover tab</span>
+      </label>
 
       <h3 className="settings-subheading">Instance Defaults</h3>
       <p className="instance-subtitle">Applied to newly created instances.</p>
@@ -197,97 +165,11 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
         </label>
       </div>
 
-      <label className="field-checkbox">
-        <input
-          type="checkbox"
-          checked={settings.defaultJvm.useSmoothPvpFlags}
-          onChange={(e) =>
-            setSettings({ ...settings, defaultJvm: { ...settings.defaultJvm, useSmoothPvpFlags: e.target.checked } })
-          }
-        />
-        <span>Enable smooth-PvP GC tuning by default</span>
-      </label>
-
-      <h3 className="settings-subheading">Updates</h3>
-      <p className="instance-subtitle">
-        Only applies to <code>OmegaClient-Setup.exe</code> installs - the portable exe can't replace itself in place,
-        so re-download it manually instead.
-      </p>
-
-      <label className="field-checkbox">
-        <input
-          type="checkbox"
-          checked={settings.autoUpdateEnabled}
-          onChange={(e) => setSettings({ ...settings, autoUpdateEnabled: e.target.checked })}
-        />
-        <span>Automatically check for updates on startup</span>
-      </label>
-
-      <div className="settings-actions">
-        <button className="btn btn-secondary" disabled={checkingUpdate} onClick={checkForUpdates}>
-          {checkingUpdate ? "Checking..." : "Check for updates now"}
-        </button>
-      </div>
-
-      <h3 className="settings-subheading">Discord Rich Presence</h3>
-      <p className="instance-subtitle">
-        Shows "Playing Omega Client" on your Discord profile while an instance is running - works out of the box via
-        your local Discord app, on by default. Turn it off below if you'd rather not share that.
-      </p>
-
-      <label className="field-checkbox">
-        <input
-          type="checkbox"
-          checked={settings.discordRichPresenceEnabled}
-          onChange={(e) => setSettings({ ...settings, discordRichPresenceEnabled: e.target.checked })}
-        />
-        <span>Show Discord Rich Presence while playing</span>
-      </label>
-
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={save}>
           Save
         </button>
         {saved && <span className="saved-hint">Saved</span>}
-      </div>
-
-      <h3 className="settings-subheading">Cosmetics</h3>
-      <p className="instance-subtitle">
-        A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Buy one, then redeem the license key you're
-        given below.
-      </p>
-
-      <div className="settings-actions">
-        <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)}>
-          Buy a cosmetic
-        </button>
-      </div>
-
-      <div className="account-list">
-        {ownedCosmetics.length === 0 && <p className="empty-hint">No cosmetics owned yet.</p>}
-        {ownedCosmetics.map((cosmeticId) => (
-          <div key={cosmeticId} className="account-row">
-            <span className="account-name">{cosmeticId}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="field-row">
-        <label className="field">
-          <span>License key</span>
-          <input
-            className="input"
-            placeholder="paste the license key you were given"
-            value={licenseKey}
-            onChange={(e) => setLicenseKey(e.target.value)}
-          />
-        </label>
-        <div className="settings-actions">
-          <button className="btn btn-secondary" disabled={redeeming || !licenseKey.trim()} onClick={redeemLicenseKey}>
-            {redeeming ? "Redeeming..." : "Redeem"}
-          </button>
-        </div>
       </div>
 
       <h3 className="settings-subheading">Recommended</h3>

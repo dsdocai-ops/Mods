@@ -27,16 +27,6 @@ import { resolveVersion } from "./versionResolver";
 const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/latest-build";
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
-/**
- * The Omega mod is only ever built for one Minecraft version at a time - must match mod/gradle.properties'
- * minecraft_version, which both the Fabric and Forge builds share, and which fabric.mod.json/mods.toml
- * declare as their own "minecraft" dependency. Placing an Omega jar built for a different version isn't
- * a soft failure: Fabric/Forge refuse to load a mod whose declared Minecraft dependency doesn't match and
- * abort the entire launch over it, so this has to be checked *before* ever copying the jar in, not left
- * to surface as a launch failure.
- */
-const OMEGA_MOD_MINECRAFT_VERSION = "1.20.1";
-
 type OmegaLoader = "fabric" | "forge";
 
 function cacheDir(): string {
@@ -132,52 +122,63 @@ async function fabricApiUrl(minecraftVersion: string): Promise<{ url: string; fi
   return modrinthLatestUrl("fabric-api", minecraftVersion, "fabric");
 }
 
+/** Which shader-loader project an instance's loader needs, or null if its loader can't do shaders. */
+function shaderLoaderFor(instance: Instance): { loader: "fabric" | "forge"; project: "iris" | "oculus" } | null {
+  if (instance.loader === "fabric" || instance.loader === "quilt") return { loader: "fabric", project: "iris" };
+  if (instance.loader === "forge") return { loader: "forge", project: "oculus" };
+  return null; // vanilla/neoforge: no shader loader available (yet)
+}
+
 /**
- * The shaders capability itself ("can shaderpacks even be loaded") vs. which .zip is active
- * (managed separately - see shaders.ts) needs a shader-loading mod, which vanilla has none of:
- * Iris (+ its Sodium dependency) on Fabric, Oculus (which pulls in its own Sodium fork, Rubidium)
- * on Forge. Fetched from Modrinth the same way Fabric API is, and only ever added to instances the
- * user points the launcher at - never throws, same non-fatal contract as ensureOmegaMods.
+ * Whether a shader loader (Iris on Fabric, Oculus on Forge) is already present in the instance -
+ * lets the Shaders tab show an install prompt only when one is actually needed. Vanilla/NeoForge
+ * report "true" because there's nothing to install for them (the UI gates those with its own hint).
  */
-export async function ensureShaderSupport(instance: Instance, log: (line: string) => void): Promise<void> {
-  const loader = instance.loader === "fabric" || instance.loader === "quilt" ? "fabric" : instance.loader === "forge" ? "forge" : null;
-  if (!loader) return; // vanilla/neoforge: no shader loader to install (yet)
+export function hasShaderLoader(instance: Instance): boolean {
+  const target = shaderLoaderFor(instance);
+  if (!target) return true;
+  return hasModLike(instance.modsDir, target.project);
+}
 
-  const shaderLoaderProject = loader === "fabric" ? "iris" : "oculus";
-  if (hasModLike(instance.modsDir, shaderLoaderProject)) return; // already present (bundled or user-added)
-
-  let minecraftVersion: string;
-  try {
-    const resolved = resolveVersion(instance.gameDir, instance.versionId);
-    minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
-  } catch (err) {
-    log(`[launcher] warning: couldn't resolve Minecraft version for shader support: ${err instanceof Error ? err.message : String(err)}`);
-    return;
+/**
+ * Installs a shader loader (Iris + Sodium on Fabric, Oculus + its bundled Rubidium on Forge) into an
+ * instance from Modrinth. These are third-party, independently-owned mods (Iris/Sodium/Oculus are
+ * LGPL-3.0) that Omega does not own or bundle - so, unlike the Omega mod and its own Fabric API
+ * dependency, this is NOT run automatically. It only happens when the user explicitly asks for
+ * shader support (the "Install shader loader" button in the Shaders tab), which keeps the launcher's
+ * "don't silently pull in other people's mods" principle intact and gives proper, visible intent.
+ * Throws on failure so the UI can report it. Returns the file names it installed.
+ */
+export async function installShaderSupport(instance: Instance, log: (line: string) => void): Promise<{ installed: string[] }> {
+  const target = shaderLoaderFor(instance);
+  if (!target) {
+    throw new Error("Shaders need a Fabric or Forge instance - this instance's loader has no shader loader available.");
   }
 
-  try {
-    const { url, fileName } = await modrinthLatestUrl(shaderLoaderProject, minecraftVersion, loader);
+  const resolved = resolveVersion(instance.gameDir, instance.versionId);
+  const minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
+  const installed: string[] = [];
+
+  if (!hasModLike(instance.modsDir, target.project)) {
+    const { url, fileName } = await modrinthLatestUrl(target.project, minecraftVersion, target.loader);
     const cached = await downloadToCache(url, fileName);
     placeJar(cached, instance.modsDir, fileName);
-    log(`[launcher] ${shaderLoaderProject === "iris" ? "Iris" : "Oculus"} (${fileName}) installed from Modrinth - shaderpacks can now be added`);
-  } catch (err) {
-    log(`[launcher] warning: couldn't fetch a shader loader from Modrinth: ${err instanceof Error ? err.message : String(err)}`);
-    return;
+    installed.push(fileName);
+    log(`[launcher] ${target.project === "iris" ? "Iris" : "Oculus"} (${fileName}) installed from Modrinth`);
   }
 
   // Iris on Fabric needs Sodium as a separate dependency (not bundled inside its own jar); Oculus
   // on Forge brings its Sodium fork (Rubidium) in as its own dependency chain, so only Fabric needs
   // this extra fetch.
-  if (loader === "fabric" && !hasModLike(instance.modsDir, "sodium")) {
-    try {
-      const { url, fileName } = await modrinthLatestUrl("sodium", minecraftVersion, "fabric");
-      const cached = await downloadToCache(url, fileName);
-      placeJar(cached, instance.modsDir, fileName);
-      log(`[launcher] Sodium (${fileName}) installed from Modrinth`);
-    } catch (err) {
-      log(`[launcher] warning: couldn't fetch Sodium from Modrinth: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  if (target.loader === "fabric" && !hasModLike(instance.modsDir, "sodium")) {
+    const { url, fileName } = await modrinthLatestUrl("sodium", minecraftVersion, "fabric");
+    const cached = await downloadToCache(url, fileName);
+    placeJar(cached, instance.modsDir, fileName);
+    installed.push(fileName);
+    log(`[launcher] Sodium (${fileName}) installed from Modrinth`);
   }
+
+  return { installed };
 }
 
 /**
@@ -188,24 +189,6 @@ export async function ensureShaderSupport(instance: Instance, log: (line: string
 export async function ensureOmegaMods(instance: Instance, log: (line: string) => void): Promise<void> {
   const loader = instance.loader === "fabric" || instance.loader === "quilt" ? "fabric" : instance.loader === "forge" ? "forge" : null;
   if (!loader) return; // vanilla/neoforge instances: nothing to preinstall (yet)
-
-  // The vanilla root of the version chain is the actual MC version (e.g. "1.20.1"), even when the
-  // instance's own version id is a fabric-loader/forge profile.
-  let minecraftVersion: string;
-  try {
-    const resolved = resolveVersion(instance.gameDir, instance.versionId);
-    minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
-  } catch (err) {
-    log(`[launcher] warning: couldn't resolve this instance's Minecraft version, skipping the Omega ${loader} mod: ${err instanceof Error ? err.message : String(err)}`);
-    return;
-  }
-
-  if (minecraftVersion !== OMEGA_MOD_MINECRAFT_VERSION) {
-    log(
-      `[launcher] Omega ${loader} mod skipped - it's only built for Minecraft ${OMEGA_MOD_MINECRAFT_VERSION} so far, this instance is ${minecraftVersion}`
-    );
-    return;
-  }
 
   try {
     const jar = await omegaJarFor(loader);
@@ -218,6 +201,10 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
 
   if (loader === "fabric" && !hasModLike(instance.modsDir, "fabric-api")) {
     try {
+      // The vanilla root of the version chain is the actual MC version (e.g. "1.20.1"), even when
+      // the instance's own version id is a fabric-loader profile.
+      const resolved = resolveVersion(instance.gameDir, instance.versionId);
+      const minecraftVersion = resolved.chainIds[resolved.chainIds.length - 1];
       const { url, fileName } = await fabricApiUrl(minecraftVersion);
       const cached = await downloadToCache(url, fileName);
       placeJar(cached, instance.modsDir, fileName);

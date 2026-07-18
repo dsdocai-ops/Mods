@@ -197,6 +197,24 @@ jobs:
       - run: npm run build:electron
       - run: node scripts/install-smoke.cjs
 
+  # Runs the compiled Modrinth mod-browser client against the real api.modrinth.com / cdn.modrinth.com
+  # (search + a real one-mod install) - the only environment where that network path executes, since
+  # the dev sandbox blocks these hosts. Deliberately its OWN job and NOT in the release gate below:
+  # a Modrinth outage is a third-party flake and must never block shipping the launcher (same
+  # philosophy as mod-jars / launcher-mac / launcher-linux). It still runs on every branch push as a
+  # visible check, so a real shape regression in our code is caught before it merges.
+  modrinth-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:electron
+      - run: node scripts/modrinth-smoke.cjs
+
   # Publishes everything to a rolling "latest-build" GitHub Release - the repo's Releases page
   # shows plain download links, unlike run artifacts which GitHub's mobile app/site often hides.
   #
@@ -258,6 +276,45 @@ jobs:
           # that actually succeeded on a prior attempt just clobbers it again with identical bytes.
           for attempt in 1 2 3 4 5; do
             if gh release upload latest-build --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"; then
+              exit 0
+            fi
+            echo "gh release upload failed (attempt $attempt/5) - likely the documented delete/upload race, retrying..." >&2
+            sleep 5
+          done
+          echo "gh release upload failed after 5 attempts" >&2
+          exit 1
+
+  # Branch-preview counterpart to `release`: publishes every claude/** dev-branch build to a SEPARATE
+  # "dev-preview" prerelease so branch builds are one click from the Releases page instead of buried
+  # in run artifacts. Deliberately distinct from "latest-build": installed clients auto-update only
+  # from latest-build (see updater.ts), so nothing here can ever ship to real users - this tag is
+  # purely a convenient download link for testing WIP. Auto-update metadata (latest*.yml/.blockmap)
+  # is intentionally NOT uploaded here, to keep it unmistakably a manual-download-only preview.
+  preview-release:
+    needs: [launcher-windows, launcher-mac, launcher-linux, mod-jars]
+    if: ${{ needs.launcher-windows.result == 'success' && !cancelled() && startsWith(github.ref, 'refs/heads/claude/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+      - name: Create/update dev-preview prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="Latest dev-branch build (branch: ${GITHUB_REF_NAME}, commit: ${GITHUB_SHA::7}) - updated by CI on every push to a claude/** branch. This is WORK IN PROGRESS for testing, NOT the stable release, and installed clients never auto-update from here. Windows: OmegaClient-Portable.exe / OmegaClient-Setup.exe. macOS: OmegaClient-*.dmg / .zip (unsigned - right-click > Open past Gatekeeper). Linux: OmegaClient-*.AppImage (chmod +x it). Mod: the -fabric / -forge jars (skip -sources)."
+          gh release create dev-preview --repo "$GITHUB_REPOSITORY" \
+            --title "Omega Client - dev preview (branch build)" \
+            --notes "$NOTES" \
+            --prerelease || true
+          gh release edit dev-preview --repo "$GITHUB_REPOSITORY" --title "Omega Client - dev preview (branch build)" --notes "$NOTES" --prerelease
+          # Manual-download installers only - no auto-update yml/.blockmap (see the job comment).
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \))
+          for attempt in 1 2 3 4 5; do
+            if gh release upload dev-preview --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"; then
               exit 0
             fi
             echo "gh release upload failed (attempt $attempt/5) - likely the documented delete/upload race, retrying..." >&2
