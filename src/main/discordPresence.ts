@@ -8,7 +8,7 @@ import type { Instance } from "../shared/types";
 // asking every player to register their own Discord application. Not user-configurable - Rich
 // Presence art assets (see LARGE_IMAGE_KEY below) are uploaded per-application in the Developer
 // Portal, so there's nothing a player could usefully override it with anyway.
-const OMEGA_DISCORD_CLIENT_ID = "REPLACE_WITH_OMEGA_DISCORD_APPLICATION_ID";
+const OMEGA_DISCORD_CLIENT_ID = "1528018640199487498";
 
 // Must match a Rich Presence asset key uploaded under OMEGA_DISCORD_CLIENT_ID's application in the
 // Discord Developer Portal (Rich Presence -> Art Assets). An unknown key just renders with no
@@ -47,7 +47,6 @@ async function ensureConnected(): Promise<Client | null> {
 
 /** Sets the "Playing Omega Client" activity. No-ops silently if Discord isn't reachable. */
 export async function setPlaying(instance: Instance, startedAt: number): Promise<void> {
-  if (!OMEGA_DISCORD_CLIENT_ID || OMEGA_DISCORD_CLIENT_ID.startsWith("REPLACE_")) return;
   try {
     const c = await ensureConnected();
     if (!c?.user) return;
