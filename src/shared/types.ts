@@ -204,6 +204,8 @@ export interface AppSettings {
   autoUpdateEnabled: boolean;
   /** Show the "mods are downloaded from the internet" disclaimer in the Discover browser. On by default; the disclaimer's "Don't show again" button and a Settings toggle both flip this. */
   showModDownloadWarning: boolean;
+  /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
+  discordRichPresenceEnabled: boolean;
 }
 
 /**

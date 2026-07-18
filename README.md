@@ -22,6 +22,7 @@ Most launchers either lock you into vanilla, or require full manual `mods/` fold
 - **Per-mod config editor**: click **Configure** on any mod to edit its actual config file (JSON or Forge-style TOML) from a schema-inferred form, no text editor required. Works on any mod that follows the standard `config/<modid>.toml` / `config/<modid>.json` convention.
 - **Built-in features, Lunar-style** (`mod/`): the Omega companion mod (Fabric + Forge builds) ships inside the launcher and is preinstalled into every instance automatically — fullbright, combat-clarity block highlighting, FOV/zoom, toggle-sprint, no-hurt-cam, no-fog, clear weather, a weather/time changer, info HUD, granular particle control, and a WorldEdit-style schematic tool. Every toggle lives entirely in-game (Right Shift, or the Omega button in the pause menu) - the launcher itself has no Features screen at all, so there's exactly one place in charge of the config file — see [`mod/README.md`](mod/README.md).
 - **Shader support**: shaderpacks need a shader loader (Iris on Fabric, Oculus on Forge) - these are third-party, independently-owned mods (Iris/Sodium/Oculus are LGPL-3.0) that Omega does **not** bundle or install silently. The **Shaders** tab offers a clearly-attributed, opt-in **Install shader loader** button that fetches them from Modrinth into that instance when *you* choose to. Import `.zip` shader packs there too; pick the active one in-game under Video Settings → Shader Packs (that menu lives inside the game, the launcher can't drive it).
+- **Discord Rich Presence**: shows "Playing Omega Client" on your Discord profile for as long as an instance is running, and clears itself the moment you stop - works out of the box, same shared-app model as Lunar/Modrinth, see "Discord Rich Presence" below (opt-out toggle in Settings).
 
 ## Project layout
 
@@ -91,6 +92,14 @@ Using your own Azure app registration instead (optional - e.g. if you're distrib
 Once signed in, every instance uses the signed-in account automatically - there's no offline mode to opt out into. If you've linked more than one account, the account switcher next to the **Play** button (or the **Account** dropdown in an instance's **Instance Settings** tab) picks which one an instance uses.
 
 Minecraft has no way to hot-swap a live session mid-game, so the mod's in-game menu can't switch accounts on its own either - its **Switch Account** button (double-click to confirm) just quits cleanly and signals the launcher, which pops back to the foreground with its account switcher already open so you can pick the next account and relaunch.
+
+## Discord Rich Presence
+
+Works out of the box, on by default - same model as Lunar Client and the Modrinth App: one Discord application owned by this project (`main/discordPresence.ts`), shared by every install, the same way the Microsoft sign-in client id is shared. There's nothing to register or configure - launching any instance sets your Discord status to "Playing Omega Client" with the instance name underneath and an elapsed-time counter; stopping (or quitting) the instance clears it. **Settings** → **Discord Rich Presence** has a single opt-out checkbox if you'd rather not show it.
+
+This talks to your local Discord desktop app over its RPC socket - it's not a Discord login or OAuth flow, and it never asks you to sign in to or authorize anything. The launcher's only sign-in prompt, ever, is the Microsoft one required to play. If Discord isn't installed or running, the launcher just skips Rich Presence silently rather than failing the launch.
+
+The status card's icon is [`build/discord-rich-presence-icon.png`](build/discord-rich-presence-icon.png) - a rounded-square gradient mark with a bold Ω, not the app's black taskbar/dock icon (`build/icon.png`), which reads as a near-invisible black square on Discord's own dark theme. Uploaded under the application's **Rich Presence → Art Assets** as `omega_icon`, matching `LARGE_IMAGE_KEY` in `main/discordPresence.ts`.
 
 ## Using it
 

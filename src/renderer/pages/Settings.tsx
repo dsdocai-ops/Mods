@@ -121,6 +121,20 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
         <span>Show a warning that mods are downloaded from the internet when browsing the Discover tab</span>
       </label>
 
+      <h3 className="settings-subheading">Discord Rich Presence</h3>
+      <p className="instance-subtitle">
+        Shows "Playing Omega Client" on your Discord profile while an instance is running - works out of the box via
+        your local Discord app, on by default. Turn it off below if you'd rather not share that.
+      </p>
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.discordRichPresenceEnabled}
+          onChange={(e) => setSettings({ ...settings, discordRichPresenceEnabled: e.target.checked })}
+        />
+        <span>Show Discord Rich Presence while playing</span>
+      </label>
+
       <h3 className="settings-subheading">Instance Defaults</h3>
       <p className="instance-subtitle">Applied to newly created instances.</p>
 

@@ -26,6 +26,7 @@ const DEFAULT_STORE: StoreShape = {
     msaClientId: DEFAULT_MSA_CLIENT_ID,
     autoUpdateEnabled: true,
     showModDownloadWarning: true,
+    discordRichPresenceEnabled: true,
   },
 };
 
@@ -55,6 +56,7 @@ function readStore(): StoreShape {
         msaClientId: parsed.settings?.msaClientId || DEFAULT_MSA_CLIENT_ID,
         autoUpdateEnabled: parsed.settings?.autoUpdateEnabled ?? true,
         showModDownloadWarning: parsed.settings?.showModDownloadWarning ?? true,
+        discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? true,
       },
     };
   } catch {

@@ -16,6 +16,7 @@ import { installFabric, installForge, installVanilla, listInstallableVersions } 
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
+import * as discordPresence from "./discordPresence";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 import * as licensing from "./licensing";
@@ -283,7 +284,13 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("settings:get", () => store.getSettings());
-  ipcMain.handle("settings:set", (_e, settings: AppSettings) => store.saveSettings(settings));
+  ipcMain.handle("settings:set", (_e, settings: AppSettings) => {
+    const saved = store.saveSettings(settings);
+    // Torn down eagerly, not just left to expire on next launch: a user flipping this off wants
+    // their Discord status gone immediately, even mid-game.
+    if (!settings.discordRichPresenceEnabled) discordPresence.disconnect().catch(() => {});
+    return saved;
+  });
 
   ipcMain.handle("accounts:list", () => accounts.listAccounts());
   ipcMain.handle("accounts:addMicrosoft", async () => {
@@ -320,12 +327,18 @@ app.whenReady().then(() => {
           onLog({ instanceId: instance.id, stream: "status", data: `warning: mod auto-update skipped: ${err instanceof Error ? err.message : String(err)}` });
         }
       }
-      const msaClientId = store.getSettings().msaClientId;
-      const handle = await launchInstance(instance, msaClientId, onLog);
+      const settingsForLaunch = store.getSettings();
+      const handle = await launchInstance(instance, settingsForLaunch.msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
+      if (settingsForLaunch.discordRichPresenceEnabled) {
+        discordPresence.setPlaying(instance, Date.now()).catch(() => {});
+      }
       handle.process.on("exit", () => {
         runningProcesses.delete(instance.id);
         stoppingInstances.delete(instance.id);
+        // Rich Presence is one global status for the local Discord client, not per-instance - only
+        // clear it once nothing else launched by this app is still running.
+        if (runningProcesses.size === 0) discordPresence.clearPresence().catch(() => {});
         checkSwitchAccountRequest(instance);
       });
       instances.markLaunched(instance.id);
@@ -358,5 +371,6 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   for (const proc of runningProcesses.values()) proc.kill();
+  discordPresence.disconnect().catch(() => {});
   if (process.platform !== "darwin") app.quit();
 });
