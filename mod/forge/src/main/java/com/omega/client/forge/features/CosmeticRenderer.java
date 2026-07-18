@@ -16,8 +16,11 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Forge-side twin of the Fabric CosmeticRenderer: hats on the head, capes and wings on the back, for
  * every Omega Client player wearing a cosmetic (type from CosmeticCatalog.typeOf, color from
- * colorFor). Same showOmegaUsersEnabled gate, same "reuse only proven render paths" approach (the
- * wire-box primitive + the AFTER_TRANSLUCENT_BLOCKS RenderLevelStageEvent dispatch). Solid colored boxes (SolidBoxRenderer / debugFilledBox). Same v1 caveats
+ * colorFor). Visibility is its own settings group (cosmeticsMasterEnabled/showOwnCosmeticsEnabled/
+ * showOthersCosmeticsEnabled/*CosmeticsEnabled on ModConfig, set via the in-game Cosmetics... screen),
+ * deliberately independent of showOmegaUsersEnabled (which only gates the Ω name badge) - same as the
+ * Fabric twin. Same "reuse only proven render paths" approach (the wire-box primitive + the
+ * AFTER_TRANSLUCENT_BLOCKS RenderLevelStageEvent dispatch). Solid colored boxes (SolidBoxRenderer / debugFilledBox). Same v1 caveats
  * as the Fabric twin: axis-aligned, back cosmetics need on-client tuning. Official-mappings
  * renames (xo/yo/zo, yBodyRot, isCrouching, getUUID, RenderType.lines()) match the forge WireBoxRenderer.
  */
@@ -25,7 +28,7 @@ public final class CosmeticRenderer {
     private static final double HAT_BASE_Y = 1.85;
 
     public void render(PoseStack matrices, MultiBufferSource consumers, Vec3 camPos, float partialTick, ModConfig config) {
-        if (!config.showOmegaUsersEnabled) return;
+        if (!config.cosmeticsMasterEnabled) return;
         Minecraft client = Minecraft.getInstance();
         if (client.level == null) return;
 
@@ -36,15 +39,17 @@ public final class CosmeticRenderer {
         for (var player : client.level.players()) {
             if (player.isInvisible()) continue;
             if (!OmegaPresence.isOmegaUser(player.getUUID())) continue;
+            boolean isSelf = player == client.player;
+            if (isSelf ? !config.showOwnCosmeticsEnabled : !config.showOthersCosmeticsEnabled) continue;
             OmegaPresence.CosmeticSet set = OmegaPresence.cosmeticsOf(player.getUUID());
 
             double px = Mth.lerp(partialTick, player.xo, player.getX());
             double py = Mth.lerp(partialTick, player.yo, player.getY()) - (player.isCrouching() ? 0.25 : 0.0);
             double pz = Mth.lerp(partialTick, player.zo, player.getZ());
 
-            if (!set.hat().isEmpty()) drawHat(matrices, buffer, px, py, pz, rgba(set.hat()));
-            if (!set.cape().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.yBodyRot, rgba(set.cape()), false);
-            if (!set.wings().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.yBodyRot, rgba(set.wings()), true);
+            if (config.hatCosmeticsEnabled && !set.hat().isEmpty()) drawHat(matrices, buffer, px, py, pz, rgba(set.hat()));
+            if (config.capeCosmeticsEnabled && !set.cape().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.yBodyRot, rgba(set.cape()), false);
+            if (config.wingsCosmeticsEnabled && !set.wings().isEmpty()) drawBack(matrices, buffer, px, py, pz, player.yBodyRot, rgba(set.wings()), true);
         }
 
         matrices.popPose();

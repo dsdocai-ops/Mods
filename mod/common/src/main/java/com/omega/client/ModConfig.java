@@ -86,6 +86,21 @@ public class ModConfig {
     public String activeHatId = "";
     public String activeCapeId = "";
     public String activeWingsId = "";
+
+    /**
+     * Cosmetic *visibility* toggles - separate from the Ω badge (showOmegaUsersEnabled above) and
+     * from which cosmetic is equipped (active*Id above). These only decide what CosmeticRenderer
+     * draws for whoever's already broadcasting a cosmetic; same master+per-category shape as the
+     * particle toggles below. Both self and others start enabled so this is purely opt-out.
+     */
+    public boolean cosmeticsMasterEnabled = true;
+    /** Whether your own worn cosmetic renders (e.g. visible to yourself in third-person). */
+    public boolean showOwnCosmeticsEnabled = true;
+    /** Whether other players' worn cosmetics render on your screen. */
+    public boolean showOthersCosmeticsEnabled = true;
+    public boolean hatCosmeticsEnabled = true;
+    public boolean capeCosmeticsEnabled = true;
+    public boolean wingsCosmeticsEnabled = true;
     /**
      * Deprecated single-cosmetic field from before cosmetics had slots. Kept so old launcher writes
      * and old configs still load; migrated into the per-slot fields on load (see loadFromDisk) and
