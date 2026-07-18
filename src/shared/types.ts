@@ -140,6 +140,8 @@ export interface AppSettings {
   msaClientId: string;
   /** Background-check the rolling release for a newer build on startup and download it silently. On by default; portable installs ignore this (they can't self-update either way). */
   autoUpdateEnabled: boolean;
+  /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
+  discordRichPresenceEnabled: boolean;
 }
 
 /**
