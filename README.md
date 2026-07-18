@@ -99,6 +99,8 @@ Works out of the box, on by default - same model as Lunar Client and the Modrint
 
 This talks to your local Discord desktop app over its RPC socket - it's not a Discord login or OAuth flow, and it never asks you to sign in to or authorize anything. The launcher's only sign-in prompt, ever, is the Microsoft one required to play. If Discord isn't installed or running, the launcher just skips Rich Presence silently rather than failing the launch.
 
+The status card's icon is [`build/discord-rich-presence-icon.png`](build/discord-rich-presence-icon.png) - the same rounded-square gradient mark used for the sidebar logo (`.brand-mark` in `styles.css`), not the app's black taskbar/dock icon (`build/icon.png`), which reads as a near-invisible black square on Discord's own dark theme. Uploaded under the application's **Rich Presence → Art Assets** as `omega_icon`, matching `LARGE_IMAGE_KEY` in `main/discordPresence.ts`.
+
 ## Using it
 
 1. **Settings** → set a default Java path (or leave blank to use `java` on PATH) and default RAM.
