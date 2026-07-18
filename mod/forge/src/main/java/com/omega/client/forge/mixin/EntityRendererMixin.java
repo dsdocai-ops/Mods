@@ -1,9 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.forge.mixin;
 
-import com.omega.client.ModConfig;
-import com.omega.client.presence.CosmeticCatalog;
-import com.omega.client.presence.OmegaPresence;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -18,15 +16,18 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * Forge-side twin of the Fabric EntityRendererMixin - prepends an Omega badge to nametags of
  * players known to be on Omega Client. Official-mappings target: renderNameTag (Yarn's
  * renderLabelIfPresent); Text -> Component, Style.withColor(int) shape assumed identical.
+ *
+ * Injection point only: the badge decision lives in {@link OmegaHooks#nametagBadgeColor}, shared
+ * verbatim with the Fabric twin - all that's left here is wrapping the returned color into Mojmap's
+ * {@code Component}, the one mapping-specific step.
  */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
     @ModifyVariable(method = "renderNameTag", at = @At("HEAD"), argsOnly = true)
     private Component omega$badgeOmegaUsers(Component text, Entity entity) {
         if (!(entity instanceof Player player)) return text;
-        if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return text;
-        if (!OmegaPresence.isOmegaUser(player.getUUID())) return text;
-        int badgeRgb = CosmeticCatalog.colorFor(OmegaPresence.cosmeticsOf(player.getUUID()).primary());
+        int badgeRgb = OmegaHooks.nametagBadgeColor(player.getUUID());
+        if (badgeRgb == OmegaHooks.NO_BADGE) return text;
         MutableComponent badge = Component.literal("Ω ").setStyle(Style.EMPTY.withColor(badgeRgb));
         return badge.append(text);
     }

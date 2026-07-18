@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.forge.mixin;
 
-import com.omega.client.ModConfig;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class GameRendererMixin {
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
     private void omega$noHurtCam(CallbackInfo ci) {
-        if (ModConfig.ACTIVE.noHurtCamEnabled) {
+        if (OmegaHooks.noHurtCam()) {
             ci.cancel();
         }
     }

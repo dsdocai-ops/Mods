@@ -1,9 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.mixin;
 
-import com.omega.client.ModConfig;
-import com.omega.client.presence.CosmeticCatalog;
-import com.omega.client.presence.OmegaPresence;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -19,15 +17,18 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * lightest touch: vanilla still does all its own label rendering (background, sneaking dimming,
  * scoreboard scores via PlayerEntityRenderer, which funnels into this super method), we only swap
  * the Text it was going to draw.
+ *
+ * Injection point only: the badge decision (feature-on? known user? which color?) lives in
+ * {@link OmegaHooks#nametagBadgeColor}, shared verbatim with the Forge twin - all that's left here
+ * is wrapping the returned color into Yarn's {@code Text}, the one mapping-specific step.
  */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
     @ModifyVariable(method = "renderLabelIfPresent", at = @At("HEAD"), argsOnly = true)
     private Text omega$badgeOmegaUsers(Text text, Entity entity) {
         if (!(entity instanceof PlayerEntity player)) return text;
-        if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return text;
-        if (!OmegaPresence.isOmegaUser(player.getUuid())) return text;
-        int badgeRgb = CosmeticCatalog.colorFor(OmegaPresence.cosmeticsOf(player.getUuid()).primary());
+        int badgeRgb = OmegaHooks.nametagBadgeColor(player.getUuid());
+        if (badgeRgb == OmegaHooks.NO_BADGE) return text;
         return Text.literal("Ω ")
                 .setStyle(Style.EMPTY.withColor(badgeRgb))
                 .append(text);
