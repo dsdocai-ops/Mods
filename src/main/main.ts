@@ -253,8 +253,8 @@ app.whenReady().then(() => {
       const settingsForLaunch = store.getSettings();
       const handle = await launchInstance(instance, settingsForLaunch.msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
-      if (settingsForLaunch.discordRichPresenceEnabled && settingsForLaunch.discordClientId) {
-        discordPresence.setPlaying(instance, settingsForLaunch.discordClientId, Date.now()).catch(() => {});
+      if (settingsForLaunch.discordRichPresenceEnabled) {
+        discordPresence.setPlaying(instance, Date.now()).catch(() => {});
       }
       handle.process.on("exit", () => {
         runningProcesses.delete(instance.id);

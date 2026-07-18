@@ -25,8 +25,7 @@ const DEFAULT_STORE: StoreShape = {
     defaultOfflineUsername: "Player",
     msaClientId: DEFAULT_MSA_CLIENT_ID,
     autoUpdateEnabled: true,
-    discordRichPresenceEnabled: false,
-    discordClientId: "",
+    discordRichPresenceEnabled: true,
   },
 };
 
@@ -55,8 +54,7 @@ function readStore(): StoreShape {
         // custom client id a user has since set is truthy and passes through unchanged either way.
         msaClientId: parsed.settings?.msaClientId || DEFAULT_MSA_CLIENT_ID,
         autoUpdateEnabled: parsed.settings?.autoUpdateEnabled ?? true,
-        discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? false,
-        discordClientId: parsed.settings?.discordClientId ?? "",
+        discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? true,
       },
     };
   } catch {

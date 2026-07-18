@@ -2,38 +2,40 @@
 import { Client } from "@xhayper/discord-rpc";
 import type { Instance } from "../shared/types";
 
-// Must match a Rich Presence asset key uploaded under the configured application in the Discord
-// Developer Portal (Rich Presence -> Art Assets) - see README. An unknown key just renders with no
+// Omega Client's own Discord application (Rich Presence only - no OAuth scopes, so this never
+// prompts a player to authorize or sign in to anything). Same shared-app model as store.ts's
+// DEFAULT_MSA_CLIENT_ID: one id embedded in the launcher so it works with zero setup, rather than
+// asking every player to register their own Discord application. Not user-configurable - Rich
+// Presence art assets (see LARGE_IMAGE_KEY below) are uploaded per-application in the Developer
+// Portal, so there's nothing a player could usefully override it with anyway.
+const OMEGA_DISCORD_CLIENT_ID = "REPLACE_WITH_OMEGA_DISCORD_APPLICATION_ID";
+
+// Must match a Rich Presence asset key uploaded under OMEGA_DISCORD_CLIENT_ID's application in the
+// Discord Developer Portal (Rich Presence -> Art Assets). An unknown key just renders with no
 // image rather than erroring, so there's nothing to validate here.
 const LARGE_IMAGE_KEY = "omega_icon";
 
 let client: Client | null = null;
-let connectedClientId: string | null = null;
 // Dedupes concurrent ensureConnected() calls (e.g. two instances launched back to back) onto a
-// single in-flight login rather than racing multiple RPC connections for the same client id.
+// single in-flight login rather than racing multiple RPC connections.
 let connectPromise: Promise<void> | null = null;
 
-async function ensureConnected(clientId: string): Promise<Client | null> {
-  if (connectedClientId && connectedClientId !== clientId) {
-    await disconnect();
-  }
+async function ensureConnected(): Promise<Client | null> {
   if (client?.isConnected) {
     return client;
   }
   if (!connectPromise) {
-    const next = new Client({ clientId });
-    connectedClientId = clientId;
+    const next = new Client({ clientId: OMEGA_DISCORD_CLIENT_ID });
     connectPromise = next
       .login()
       .then(() => {
         client = next;
       })
       .catch((err) => {
-        // Discord not installed/running, or an invalid client id - Rich Presence is purely
-        // cosmetic and best-effort, never worth interrupting a launch over.
+        // Discord not installed/running - Rich Presence is purely cosmetic and best-effort, never
+        // worth interrupting a launch over, and never surfaced as a login/auth prompt of any kind.
         console.warn("Discord Rich Presence: couldn't connect -", err instanceof Error ? err.message : err);
         client = null;
-        connectedClientId = null;
       })
       .finally(() => {
         connectPromise = null;
@@ -43,11 +45,11 @@ async function ensureConnected(clientId: string): Promise<Client | null> {
   return client;
 }
 
-/** Sets the "Playing Omega Client" activity. No-ops silently if disabled, unconfigured, or Discord isn't reachable. */
-export async function setPlaying(instance: Instance, clientId: string, startedAt: number): Promise<void> {
-  if (!clientId) return;
+/** Sets the "Playing Omega Client" activity. No-ops silently if Discord isn't reachable. */
+export async function setPlaying(instance: Instance, startedAt: number): Promise<void> {
+  if (!OMEGA_DISCORD_CLIENT_ID || OMEGA_DISCORD_CLIENT_ID.startsWith("REPLACE_")) return;
   try {
-    const c = await ensureConnected(clientId);
+    const c = await ensureConnected();
     if (!c?.user) return;
     await c.user.setActivity({
       details: "Playing Omega Client",
@@ -73,7 +75,6 @@ export async function clearPresence(): Promise<void> {
 export async function disconnect(): Promise<void> {
   const toClose = client;
   client = null;
-  connectedClientId = null;
   try {
     await toClose?.destroy();
   } catch {

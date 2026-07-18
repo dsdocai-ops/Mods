@@ -231,8 +231,8 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
 
       <h3 className="settings-subheading">Discord Rich Presence</h3>
       <p className="instance-subtitle">
-        Shows "Playing Omega Client" on your Discord profile while an instance is running. Needs a Discord
-        application of your own to work - see the README's "Discord Rich Presence" section for the setup steps.
+        Shows "Playing Omega Client" on your Discord profile while an instance is running - works out of the box via
+        your local Discord app, on by default. Turn it off below if you'd rather not share that.
       </p>
 
       <label className="field-checkbox">
@@ -242,16 +242,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
           onChange={(e) => setSettings({ ...settings, discordRichPresenceEnabled: e.target.checked })}
         />
         <span>Show Discord Rich Presence while playing</span>
-      </label>
-
-      <label className="field">
-        <span>Discord application client ID</span>
-        <input
-          className="input"
-          placeholder="paste your Discord application's Client ID (see README)"
-          value={settings.discordClientId}
-          onChange={(e) => setSettings({ ...settings, discordClientId: e.target.value })}
-        />
       </label>
 
       <div className="settings-actions">
