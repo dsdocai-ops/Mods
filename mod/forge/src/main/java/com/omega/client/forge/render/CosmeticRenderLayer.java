@@ -38,12 +38,10 @@ import org.joml.Vector3f;
  * divergent types that can't cross common/. Registered via EntityRenderersEvent.AddLayers in
  * OmegaClientForge.
  *
- * **renderTextured is this class's least-verified method**, same as its Fabric counterpart: the
- * uv/overlay/light("uv2")/normal VertexConsumer chain, RenderType.entityCutoutNoCull, and
- * OverlayTexture.NO_OVERLAY are Minecraft rendering API this codebase has never touched before this
- * cosmetic, CI-only verified like everything else here (see mod/README.md). If CI reports an
- * unresolved symbol, start with OverlayTexture.NO_OVERLAY (Yarn's equivalent constant may be named
- * DEFAULT_UV instead - see the Fabric class) and the exact uv2()/normal() method names.
+ * renderTextured's uv/overlayCoords/uv2/normal VertexConsumer chain diverges from the Fabric
+ * counterpart only in one name: official mappings call it overlayCoords(int), not overlay(int)
+ * (Yarn's name) - everything else in the chain (uv2, normal, OverlayTexture.NO_OVERLAY,
+ * RenderType.entityCutoutNoCull) has the same name in both mapping sets.
  */
 public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
     private static final String TEXTURE_NAMESPACE = "omega_client_forge";
@@ -121,7 +119,7 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
                 buffer.vertex(pose, animated[0], animated[1], animated[2])
                         .color(shade, shade, shade, 1f)
                         .uv(uv[v * 2], uv[v * 2 + 1])
-                        .overlay(OverlayTexture.NO_OVERLAY)
+                        .overlayCoords(OverlayTexture.NO_OVERLAY)
                         .uv2(packedLight)
                         .normal(normal, n[0], n[1], n[2])
                         .endVertex();
