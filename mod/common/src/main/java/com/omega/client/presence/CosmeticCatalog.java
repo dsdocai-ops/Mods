@@ -8,7 +8,9 @@ import java.util.Map;
  * Pure lookup table from a cosmetic id (ModConfig.ownedCosmeticId, broadcast over the presence
  * channel alongside a player's UUID - see OmegaPresence/PresenceNetworking) to its display data.
  * Zero Minecraft imports, same sharing rule as ParticleCategory - safe to compile once and use from
- * both loaders.
+ * both loaders. Also backs the in-game Cosmetics screen's click-to-cycle button (see CosmeticsScreen
+ * in each loader module), the same click-to-cycle-value pattern VisualScreenSupport uses for the
+ * highlight color.
  *
  * A cosmetic is one of four kinds: a BADGE recolors the Ω nametag prefix (EntityRendererMixin) and
  * carries just badgeRgb; HAT/CAPE/WINGS render as gear on the player model, one of two ways -
@@ -26,7 +28,11 @@ import java.util.Map;
  * Cosmetic ownership is self-reported by each client (the mod only ever reads its own config file),
  * the same trust model every other toggle in this app already uses - a user who hand-edits their
  * config can grant themselves a cosmetic without paying, same as they already could with any other
- * flag. Proportionate to a vanity-only feature; not something this class tries to harden.
+ * flag. Proportionate to a vanity-only feature; not something this class tries to harden. The
+ * in-game Cosmetics screen cycles through every entry here rather than only ones actually redeemed
+ * for the same reason: there is no separate "owned list" synced into the mod today (only the single
+ * currently-equipped ownedCosmeticId, written by the launcher's redeem flow), so gating the picker
+ * would need to hold back the id you *did* pay for equally as often as one you didn't.
  *
  * Starts with placeholder ids covering every kind so the broadcast/render pipeline is real and
  * testable end to end - actual cosmetic art/copy is a content decision, not a blocker for the

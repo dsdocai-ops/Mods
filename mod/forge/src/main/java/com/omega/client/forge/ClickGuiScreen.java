@@ -117,6 +117,13 @@ public class ClickGuiScreen extends Screen {
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Cosmetics..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new CosmeticsScreen(config, this));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
         y += ROW_HEIGHT + 8;
 
         this.addRenderableWidget(Button.builder(switchAccountText(), b -> {
