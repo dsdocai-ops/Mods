@@ -1945,12 +1945,6 @@ input[type="checkbox"] {
   color: #0a0a0a;
 }
 
-.mode-toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
 .install-progress {
   margin: 4px 0 12px 0;
 }

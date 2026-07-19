@@ -70,11 +70,26 @@ function installMockApi() {
   ];
   window.api = {
     instances: {
-      list: async () => [window.__mockInstance, ...EXTRA_INSTANCES],
-      create: async (input) => ({ ...window.__mockInstance, ...input, id: 'inst-' + Date.now() }),
-      update: async (instance) => { window.__calls.update.push(instance); return instance; },
-      delete: async () => {},
-      detectVersions: async () => ([{ id: '1.20.1', type: 'release' }]),
+      // Stateful: window.__mockInstances is seeded by an addInitScript in `launch` below, and
+      // create/update/delete mutate it - so the New Instance flow, sidebar switching, and delete
+      // actually round-trip like the real store-backed handlers do.
+      list: async () => [...window.__mockInstances, ...EXTRA_INSTANCES],
+      create: async (input) => {
+        const instance = { ...window.__mockInstance, ...input, id: 'inst-' + Date.now(), name: input.name };
+        window.__mockInstances.push(instance);
+        return instance;
+      },
+      update: async (instance) => {
+        window.__calls.update.push(instance);
+        window.__mockInstances = window.__mockInstances.map((i) => (i.id === instance.id ? instance : i));
+        return instance;
+      },
+      delete: async (id) => { window.__mockInstances = window.__mockInstances.filter((i) => i.id !== id); },
+      // detectInstalledVersions() in src/main/instances.ts returns DetectedVersion[] (shared/types.ts)
+      // - {versionId, loader, jsonPath}, NOT the installer's {id, type} release shape.
+      detectVersions: async (gameDir) => ([
+        { versionId: '1.20.1', loader: 'fabric', jsonPath: gameDir + '/versions/1.20.1/1.20.1.json' },
+      ]),
     },
     dialog: {
       pickDirectory: async () => '/home/user/.minecraft-demo',
@@ -83,9 +98,13 @@ function installMockApi() {
     },
     external: { open: async () => true },
     mods: {
+      // listMods() in src/main/mods.ts returns full ModInfo objects (shared/types.ts) - the
+      // Discover view (modrinth mock below) matches its modId/fileName fields against Modrinth
+      // slugs, so a partial shape here crashes it. "sodium" doubles as the Discover view's
+      // installed-state demo (it matches the mocked modrinth.search() hit below).
       list: async () => ([
-        { id: 'omega-client', fileName: 'omega-client-1.0.0.jar', enabled: true, name: 'Omega Client', tags: ['cpvp'] },
-        { id: 'sodium', fileName: 'sodium-fabric-0.5.jar', enabled: true, name: 'Sodium', tags: ['performance'] },
+        { id: 'omega-client-1.0.0.jar', fileName: 'omega-client-1.0.0.jar', modId: 'omega-client', name: 'Omega Client', version: '1.0.0', description: '', loader: 'fabric', enabled: true, tags: ['cpvp'], sizeBytes: 1024, importedAt: Date.now() },
+        { id: 'sodium-fabric-0.5.jar', fileName: 'sodium-fabric-0.5.jar', modId: 'sodium', name: 'Sodium', version: '0.5', description: '', loader: 'fabric', enabled: true, tags: ['performance'], sizeBytes: 2048, importedAt: Date.now() },
       ]),
       import: async () => [],
       setEnabled: async () => {},
@@ -225,7 +244,10 @@ function installMockApi() {
       start: async (instance) => { window.__calls.launch.push(instance); },
       stop: async () => {},
       isRunning: async () => false,
-      onLog: () => () => {},
+      // The callback is exposed as window.__emitLog so a test can stream fake game output into the
+      // app (e.g. `eval (() => { for (let i = 0; i < 50; i++) window.__emitLog({instanceId: 'inst-1',
+      // stream: 'stdout', data: 'line ' + i}); })()`) and observe Console-tab behavior.
+      onLog: (cb) => { window.__emitLog = cb; return () => {}; },
       onSwitchAccountRequested: () => () => {},
     },
   };
@@ -257,7 +279,7 @@ const COMMANDS = {
     page.on('pageerror', (err) => console.log('PAGEERROR:', err.message));
     page.on('console', (msg) => { if (msg.type() === 'error') console.log('CONSOLE ERROR:', msg.text()); });
     await page.addInitScript(installMockApi);
-    await page.addInitScript((inst) => { window.__mockInstance = inst; }, MOCK_INSTANCE);
+    await page.addInitScript((inst) => { window.__mockInstance = inst; window.__mockInstances = [inst]; }, MOCK_INSTANCE);
     await page.addInitScript((acc) => { window.__mockAccounts = acc ? [acc] : []; }, process.env.MOCK_SIGNED_OUT ? null : MOCK_ACCOUNT);
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(500);

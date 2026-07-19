@@ -28,6 +28,16 @@ const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
 /**
+ * Modrinth's API terms require a uniquely-identifying User-Agent, and their CDN rejects UA-less
+ * requests outright - Node's fetch (undici) sends NO User-Agent by default, so every Modrinth call
+ * without this header fails with a 4xx before it ever reaches the API. Harmless on the GitHub
+ * release fallback that also flows through downloadToCache.
+ */
+export const MODRINTH_HEADERS: Record<string, string> = {
+  "User-Agent": "dsdocai-ops/Mods (Omega Client launcher)",
+};
+
+/**
  * The Minecraft versions the Omega mod actually ships a build for. Placing an Omega jar built for a
  * version the instance isn't running isn't a soft failure: Fabric/Forge refuse to load a mod whose
  * declared "minecraft" dependency doesn't match and abort the whole launch over it, so an instance on
@@ -76,10 +86,10 @@ function findBundledJar(loader: OmegaLoader, minecraftVersion: string): string |
   return null;
 }
 
-async function downloadToCache(url: string, fileName: string): Promise<string> {
+export async function downloadToCache(url: string, fileName: string): Promise<string> {
   const dest = path.join(cacheDir(), fileName);
   if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return dest;
-  const response = await fetchWithRetry(url);
+  const response = await fetchWithRetry(url, { headers: MODRINTH_HEADERS });
   if (!response.ok) {
     throw new Error(`Download failed (${response.status}) for ${url}`);
   }
@@ -105,7 +115,7 @@ async function omegaJarFor(loader: OmegaLoader, minecraftVersion: string): Promi
  * disabled it (the .disabled variant exists), the disabled file is updated instead - "preinstalled"
  * must not mean "un-disableable".
  */
-function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
+export function placeJar(sourceJar: string, modsDir: string, stableName: string): void {
   fs.mkdirSync(modsDir, { recursive: true });
   // Most callers pass a hardcoded name, but the Fabric API / Iris / Oculus / Sodium call sites
   // pass a filename read straight out of a Modrinth API response - path.basename keeps a
@@ -117,7 +127,7 @@ function placeJar(sourceJar: string, modsDir: string, stableName: string): void 
 }
 
 /** True if any file that looks like the given mod id is already in the mods dir (enabled or not). */
-function hasModLike(modsDir: string, prefix: string): boolean {
+export function hasModLike(modsDir: string, prefix: string): boolean {
   if (!fs.existsSync(modsDir)) return false;
   return fs.readdirSync(modsDir).some((f) => f.toLowerCase().startsWith(prefix) && f.includes(".jar"));
 }
@@ -131,7 +141,7 @@ async function modrinthLatestUrl(
   const query = `${MODRINTH_API}/project/${projectSlug}/version?game_versions=${encodeURIComponent(
     JSON.stringify([minecraftVersion])
   )}&loaders=${encodeURIComponent(JSON.stringify([loader]))}`;
-  const response = await fetchWithRetry(query);
+  const response = await fetchWithRetry(query, { headers: MODRINTH_HEADERS });
   if (!response.ok) {
     throw new Error(`Modrinth query failed (${response.status})`);
   }

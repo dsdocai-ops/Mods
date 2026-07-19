@@ -185,7 +185,6 @@ app.whenReady().then(() => {
   ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
     mods.setModsEnabledBulk(modsDir, changes)
   );
-
   ipcMain.handle("shaders:list", (_e, modsDir: string) => shaders.listShaderPacks(modsDir));
   ipcMain.handle("shaders:import", (_e, modsDir: string, sourcePaths: string[]) => shaders.importShaderPacks(modsDir, sourcePaths));
   ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
