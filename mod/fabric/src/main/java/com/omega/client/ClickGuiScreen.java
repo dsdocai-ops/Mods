@@ -66,6 +66,9 @@ public class ClickGuiScreen extends Screen {
         addToggleRow(rightX, y, "Clear Weather (visual)", () -> config.clearWeatherEnabled, v -> config.clearWeatherEnabled = v);
         y += ROW_HEIGHT;
         addToggleRow(leftX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
+        // Applies on the next launch, not live: the launcher reads this to decide the low-latency
+        // G1GC flags, and JVM GC flags can't change mid-run. Label says so.
+        addToggleRow(rightX, y, "Smooth PvP (next launch)", () -> config.smoothPvpEnabled, v -> config.smoothPvpEnabled = v);
         y += ROW_HEIGHT;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Schematics..."), b -> {
@@ -77,6 +80,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Particles..."), b -> {
                     if (this.client != null) this.client.setScreen(new ParticleScreen(config, this));
+                })
+                .dimensions(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Cosmetics..."), b -> {
+                    if (this.client != null) this.client.setScreen(new CosmeticsScreen(config, this));
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());

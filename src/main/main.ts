@@ -3,9 +3,10 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
-import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, ModTag } from "../shared/types";
+import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, Loader, ModrinthUpdate, ModTag } from "../shared/types";
 import * as instances from "./instances";
 import * as mods from "./mods";
+import * as modrinth from "./modrinth";
 import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
@@ -13,7 +14,8 @@ import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } fro
 import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
-import { ensureOmegaMods, ensureShaderSupport } from "./bundledMods";
+import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
+import * as discordPresence from "./discordPresence";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 import * as licensing from "./licensing";
@@ -67,6 +69,21 @@ function createWindow(): BrowserWindow {
     // opened an empty window (a failed loadFile renders as a blank page).
     win.loadFile(path.join(app.getAppPath(), "dist-renderer", "index.html"));
   }
+
+  // Last-resort diagnostics: if the renderer hard-crashes (not a React error the on-screen boundary
+  // can catch) or the preload fails, there's otherwise no trace at all in a packaged build. Append
+  // these to a log file in userData so a blank/crashed window is still diagnosable.
+  const logRendererIssue = (label: string, detail: string) => {
+    try {
+      const logPath = path.join(app.getPath("userData"), "renderer-error.log");
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${label}: ${detail}\n`);
+      console.error(`[renderer] ${label}: ${detail}`);
+    } catch {
+      // Logging the failure must never itself crash the app.
+    }
+  };
+  win.webContents.on("render-process-gone", (_e, details) => logRendererIssue("render-process-gone", `${details.reason} (exitCode ${details.exitCode})`));
+  win.webContents.on("preload-error", (_e, preloadPath, error) => logRendererIssue("preload-error", `${preloadPath}: ${error.message}`));
 
   return win;
 }
@@ -126,14 +143,11 @@ app.whenReady().then(() => {
   ipcMain.handle("instances:list", () => instances.listInstances());
   ipcMain.handle("instances:create", async (_e, input: CreateInstanceInput) => {
     const instance = instances.createInstance(input);
-    // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance
-    // exists. Neither call ever throws (each logs and moves on), and they touch disjoint jars, so
-    // running them concurrently instead of one-after-the-other roughly halves the network time on
-    // a fresh instance (each is a separate Modrinth round trip + download the first time around).
-    await Promise.all([
-      ensureOmegaMods(instance, (line) => console.log(line)),
-      ensureShaderSupport(instance, (line) => console.log(line)),
-    ]);
+    // Lunar-style: the Omega mod is a launcher feature, preinstalled the moment an instance exists
+    // (this never throws - it logs and moves on). It pulls its own Fabric API dependency, but does
+    // NOT silently install third-party shader mods (Iris/Sodium/Oculus) - those are user-initiated
+    // from the Shaders tab, see installShaderSupport / the shaders:installLoader handler.
+    await ensureOmegaMods(instance, (line) => console.log(line));
     return instance;
   });
   ipcMain.handle("instances:update", (_e, instance: Instance) => instances.updateInstance(instance));
@@ -178,10 +192,13 @@ app.whenReady().then(() => {
   ipcMain.handle("mods:setEnabledBulk", (_e, modsDir: string, changes: Record<string, boolean>) =>
     mods.setModsEnabledBulk(modsDir, changes)
   );
-
   ipcMain.handle("shaders:list", (_e, modsDir: string) => shaders.listShaderPacks(modsDir));
   ipcMain.handle("shaders:import", (_e, modsDir: string, sourcePaths: string[]) => shaders.importShaderPacks(modsDir, sourcePaths));
   ipcMain.handle("shaders:remove", (_e, modsDir: string, fileName: string) => shaders.removeShaderPack(modsDir, fileName));
+  ipcMain.handle("shaders:hasLoader", (_e, instance: Instance) => hasShaderLoader(instance));
+  ipcMain.handle("shaders:installLoader", (_e, instance: Instance) =>
+    installShaderSupport(instance, (line) => sendToRenderer("launch:log", { instanceId: instance.id, stream: "status", data: line }))
+  );
 
   ipcMain.handle("modconfig:find", (_e, modsDir: string, modId: string) => findModConfigPath(path.dirname(modsDir), modId));
   ipcMain.handle("modconfig:read", (_e, filePath: string) => {
@@ -198,6 +215,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle("licensing:redeem", (_e, key: string) => licensing.redeemLicenseKey(key));
   ipcMain.handle("licensing:listOwned", () => licensing.getOwnedCosmetics());
+  ipcMain.handle("licensing:getActive", () => licensing.getActiveCosmetic());
+  ipcMain.handle("licensing:equip", (_e, cosmeticId: string) => licensing.equipOwnedCosmetic(cosmeticId));
 
   ipcMain.handle("install:listVersions", () => listInstallableVersions());
 
@@ -227,8 +246,56 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle("modrinth:search", (_e, query: string, loader: Loader, versionId: string) =>
+    modrinth.searchModrinth(query, loader, versionId)
+  );
+
+  // One Modrinth install at a time: concurrent installs into the same modsDir could both try to
+  // write the same shared dependency jar, and the single progress channel couldn't tell two
+  // installs apart. (Separate from installInFlight above, which guards version installs.)
+  let modrinthInstallInFlight = false;
+  ipcMain.handle("modrinth:install", async (_e, modsDir: string, projectId: string, loader: Loader, versionId: string) => {
+    if (modrinthInstallInFlight) {
+      throw new Error("Another mod is already installing - wait for it to finish.");
+    }
+    modrinthInstallInFlight = true;
+    try {
+      return await modrinth.installFromModrinth(modsDir, projectId, loader, versionId, (progress) =>
+        sendToRenderer("modrinth:installProgress", progress)
+      );
+    } finally {
+      modrinthInstallInFlight = false;
+    }
+  });
+
+  ipcMain.handle("modrinth:checkUpdates", (_e, modsDir: string, loader: Loader, versionId: string) =>
+    modrinth.checkModrinthUpdates(modsDir, loader, versionId)
+  );
+
+  ipcMain.handle("modrinth:applyUpdates", async (_e, modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string) => {
+    // Shares the single install-in-flight guard: updating and installing both write jars into the
+    // same modsDir and stream over the same progress channel, so they must not overlap.
+    if (modrinthInstallInFlight) {
+      throw new Error("Another mod operation is already running - wait for it to finish.");
+    }
+    modrinthInstallInFlight = true;
+    try {
+      return await modrinth.applyModrinthUpdates(modsDir, updates, loader, versionId, (progress) =>
+        sendToRenderer("modrinth:installProgress", progress)
+      );
+    } finally {
+      modrinthInstallInFlight = false;
+    }
+  });
+
   ipcMain.handle("settings:get", () => store.getSettings());
-  ipcMain.handle("settings:set", (_e, settings: AppSettings) => store.saveSettings(settings));
+  ipcMain.handle("settings:set", (_e, settings: AppSettings) => {
+    const saved = store.saveSettings(settings);
+    // Torn down eagerly, not just left to expire on next launch: a user flipping this off wants
+    // their Discord status gone immediately, even mid-game.
+    if (!settings.discordRichPresenceEnabled) discordPresence.disconnect().catch(() => {});
+    return saved;
+  });
 
   ipcMain.handle("accounts:list", () => accounts.listAccounts());
   ipcMain.handle("accounts:addMicrosoft", async () => {
@@ -236,6 +303,8 @@ app.whenReady().then(() => {
     return accounts.addMicrosoftAccount(clientId, win);
   });
   ipcMain.handle("accounts:remove", (_e, id: string) => accounts.removeAccount(id));
+  // TEMPORARY (testing only): offline account that bypasses sign-in - see accountStore.addOfflineAccount.
+  ipcMain.handle("accounts:addOffline", (_e, username: string) => accounts.addOfflineAccount(username));
 
   ipcMain.handle("launch:start", async (_e, instance: Instance) => {
     if (runningProcesses.has(instance.id) || pendingLaunches.has(instance.id) || stoppingInstances.has(instance.id)) {
@@ -244,20 +313,41 @@ app.whenReady().then(() => {
     pendingLaunches.add(instance.id);
     const onLog = (event: LaunchLogEvent) => sendToRenderer("launch:log", event);
     try {
-      // Keep the preinstalled Omega mod (and shader loader) current on every launch - also
-      // self-heals a deleted jar. Run concurrently: see the instances:create handler above for why.
-      await Promise.all([
-        ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
-        ensureShaderSupport(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line })),
-      ]);
-      const msaClientId = store.getSettings().msaClientId;
+      // Keep the preinstalled Omega mod current on every launch - also self-heals a deleted jar.
+      // Shader mods are deliberately NOT touched here: they're third-party and user-installed (see
+      // the shaders:installLoader handler), so re-adding them behind the user's back on every launch
+      // is exactly the silent behaviour we don't want.
+      await ensureOmegaMods(instance, (line) => onLog({ instanceId: instance.id, stream: "status", data: line }));
+
+      // Opt-in per instance (Instance Settings > "Automatically update mods on launch"): bring this
+      // instance's Modrinth-sourced mods up to date before launching. Non-fatal - a Modrinth outage
+      // or offline machine must never block the game from starting, so it logs and launches anyway.
+      if (instance.autoUpdateMods) {
+        try {
+          const status = (line: string) => onLog({ instanceId: instance.id, stream: "status", data: line });
+          const found = await modrinth.checkModrinthUpdates(instance.modsDir, instance.loader, instance.versionId);
+          if (found.length > 0) {
+            status(`Auto-updating ${found.length} mod${found.length === 1 ? "" : "s"} from Modrinth...`);
+            await modrinth.applyModrinthUpdates(instance.modsDir, found, instance.loader, instance.versionId, (p) => status(p.detail));
+          }
+        } catch (err) {
+          onLog({ instanceId: instance.id, stream: "status", data: `warning: mod auto-update skipped: ${err instanceof Error ? err.message : String(err)}` });
+        }
+      }
+      const settingsForLaunch = store.getSettings();
       const launchedAt = Date.now();
-      const handle = await launchInstance(instance, msaClientId, onLog);
+      const handle = await launchInstance(instance, settingsForLaunch.msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
+      if (settingsForLaunch.discordRichPresenceEnabled) {
+        discordPresence.setPlaying(instance, Date.now()).catch(() => {});
+      }
       handle.process.on("exit", (code, signal) => {
         runningProcesses.delete(instance.id);
         const wasStopRequested = stoppingInstances.has(instance.id);
         stoppingInstances.delete(instance.id);
+        // Rich Presence is one global status for the local Discord client, not per-instance - only
+        // clear it once nothing else launched by this app is still running.
+        if (runningProcesses.size === 0) discordPresence.clearPresence().catch(() => {});
         checkSwitchAccountRequest(instance);
         if (!wasStopRequested && code !== 0 && Date.now() - launchedAt < EARLY_EXIT_THRESHOLD_MS) {
           onLog({
@@ -300,5 +390,6 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   for (const proc of runningProcesses.values()) proc.kill();
+  discordPresence.disconnect().catch(() => {});
   if (process.platform !== "darwin") app.quit();
 });

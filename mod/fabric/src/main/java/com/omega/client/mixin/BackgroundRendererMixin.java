@@ -2,7 +2,7 @@
 package com.omega.client.mixin;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.omega.client.ModConfig;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.client.render.BackgroundRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class BackgroundRendererMixin {
     @Inject(method = "applyFog", at = @At("RETURN"))
     private static void omega$noFog(CallbackInfo ci) {
-        if (ModConfig.ACTIVE.noFogEnabled) {
+        if (OmegaHooks.noFog()) {
             RenderSystem.setShaderFogStart(Float.MAX_VALUE);
             RenderSystem.setShaderFogEnd(Float.MAX_VALUE);
         }

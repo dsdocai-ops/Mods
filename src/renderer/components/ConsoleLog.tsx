@@ -10,7 +10,6 @@ const PINNED_THRESHOLD_PX = 48;
 
 export default function ConsoleLog({ lines }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   // Whether the user is at (or near) the bottom. Tracked in a ref updated by onScroll so new lines
   // only autoscroll when the user is actually following the tail - scrolling up to read an earlier
   // error used to get yanked back to the bottom on every incoming line.
@@ -22,11 +21,17 @@ export default function ConsoleLog({ lines }: Props) {
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < PINNED_THRESHOLD_PX;
   };
 
+  // Scroll the console's OWN scrollTop, never scrollIntoView: scrollIntoView scrolls every
+  // scrollable ancestor too, so each incoming line also yanked the page (.main-area) down to the
+  // console's bottom edge - scrolling the instance page up while a game streamed output was a
+  // constant losing fight. Depends on `lines`, not `lines.length`: the log is capped at
+  // MAX_LOG_LINES, after which the length never changes again and autoscroll silently died.
   useEffect(() => {
-    if (pinnedRef.current) {
-      bottomRef.current?.scrollIntoView({ block: "end" });
+    const el = containerRef.current;
+    if (el && pinnedRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
-  }, [lines.length]);
+  }, [lines]);
 
   return (
     <div className="console-log" ref={containerRef} onScroll={handleScroll}>
@@ -36,7 +41,6 @@ export default function ConsoleLog({ lines }: Props) {
           {line}
         </div>
       ))}
-      <div ref={bottomRef} />
     </div>
   );
 }

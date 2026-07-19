@@ -8,8 +8,13 @@ import type {
   InstallProgress,
   Instance,
   LaunchLogEvent,
+  Loader,
   ModConfigFile,
   ModInfo,
+  ModrinthInstallProgress,
+  ModrinthInstallResult,
+  ModrinthSearchHit,
+  ModrinthUpdate,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -40,10 +45,19 @@ export interface LauncherApi {
     applyPreset(modsDir: string, tags: ModTag[]): Promise<ModInfo[]>;
     setEnabledBulk(modsDir: string, changes: Record<string, boolean>): Promise<ModInfo[]>;
   };
+  modrinth: {
+    search(query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]>;
+    install(modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
+    checkUpdates(modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]>;
+    applyUpdates(modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
+    onProgress(callback: (progress: ModrinthInstallProgress) => void): () => void;
+  };
   shaders: {
     list(modsDir: string): Promise<ShaderPackInfo[]>;
     import(modsDir: string, sourcePaths: string[]): Promise<ShaderPackInfo[]>;
     remove(modsDir: string, fileName: string): Promise<ShaderPackInfo[]>;
+    hasLoader(instance: Instance): Promise<boolean>;
+    installLoader(instance: Instance): Promise<{ installed: string[] }>;
   };
   modConfig: {
     find(modsDir: string, modId: string): Promise<string | null>;
@@ -57,6 +71,8 @@ export interface LauncherApi {
   licensing: {
     redeem(key: string): Promise<RedeemLicenseResult>;
     listOwned(): Promise<string[]>;
+    getActive(): Promise<string>;
+    equip(cosmeticId: string): Promise<void>;
   };
   install: {
     listVersions(): Promise<InstallableVersion[]>;
@@ -75,6 +91,8 @@ export interface LauncherApi {
   accounts: {
     list(): Promise<PublicAccount[]>;
     addMicrosoft(): Promise<PublicAccount>;
+    /** TEMPORARY (testing only): offline account that bypasses Microsoft sign-in. */
+    addOffline(username: string): Promise<PublicAccount>;
     remove(id: string): Promise<void>;
   };
   launch: {

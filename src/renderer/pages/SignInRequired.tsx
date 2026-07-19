@@ -1,33 +1,86 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { PublicAccount } from "@shared/types";
 import { toast } from "../toast";
 
 interface Props {
-  /** Called after a Microsoft account is successfully linked - the caller re-checks accounts.list() and unlocks the app. */
-  onSignedIn: () => void;
+  /**
+   * Called after a Microsoft account is linked. Returns the app's freshly-loaded account list so we
+   * can confirm the sign-in actually unlocked the app (a linked-but-not-visible account is a distinct
+   * failure worth naming, rather than silently bouncing back to this screen).
+   */
+  onSignedIn: () => Promise<PublicAccount[]>;
 }
 
 /**
- * Blocks the entire launcher (sidebar, instances, settings - everything) until at least one
- * Microsoft account is linked. Rendered instead of the normal app shell in App.tsx, not alongside
- * it - there is no "skip" or offline option here by design, matching how Lunar/Feather-style
- * launchers require sign-in before anything else is reachable. The Microsoft-account plumbing
- * itself (msAuth.ts, accountStore.ts) is unchanged; this only removes the ability to reach any
- * screen without using it first.
+ * Blocks the entire launcher until at least one Microsoft account is linked. Because everything -
+ * including Settings, where you'd normally paste your own Microsoft client ID - lives behind this
+ * gate, the client-ID override is offered right here too: if the shipped default ever fails to sign
+ * in, there'd otherwise be no way to reach the field to fix it (chicken-and-egg). Errors are shown
+ * inline (not just as an easily-missed toast) so a failed sign-in says exactly why.
  */
 export default function SignInRequired({ onSignedIn }: Props) {
   const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [clientId, setClientId] = useState("");
+  // TEMPORARY (testing only) - offline mode state, remove with the offline section below.
+  const [offlineName, setOfflineName] = useState("Player");
+
+  useEffect(() => {
+    window.api.settings.get().then((s) => setClientId(s.msaClientId));
+  }, []);
 
   const signIn = async () => {
     setSigningIn(true);
+    setError(null);
     try {
+      // Persist a custom client ID (if the user entered one) before signing in, so addMicrosoft uses
+      // it - the whole point of exposing it here is unblocking a broken shipped default.
+      const settings = await window.api.settings.get();
+      if (clientId.trim() !== settings.msaClientId) {
+        await window.api.settings.set({ ...settings, msaClientId: clientId.trim() });
+      }
+
       const account = await window.api.accounts.addMicrosoft();
+
+      // Confirm the app actually sees the saved account. If sign-in "succeeded" but the app still has
+      // no account, it would otherwise just bounce back here with no explanation - name that case.
+      const list = await onSignedIn();
+      if (!list.some((a) => a.id === account.id)) {
+        setError(
+          `Signed in as ${account.username}, but the launcher still can't see the saved account. The account file may have failed to write or read back - check the app's data-folder permissions, then try again.`
+        );
+        return;
+      }
       toast(`Signed in as ${account.username}`, "success");
-      onSignedIn();
     } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setShowAdvanced(true); // a failure is exactly when the client-ID override becomes relevant
+      toast(msg, "error");
     } finally {
       setSigningIn(false);
+    }
+  };
+
+  // TEMPORARY (testing only): skips Microsoft sign-in with an offline account so the rest of the
+  // launcher can be tested while sign-in is blocked on Mojang's client-ID approval. Remove this
+  // (plus accounts.addOffline and its accountStore/main/preload plumbing) once sign-in works.
+  const continueOffline = async () => {
+    setError(null);
+    try {
+      const account = await window.api.accounts.addOffline(offlineName);
+      const list = await onSignedIn();
+      if (!list.some((a) => a.id === account.id)) {
+        setError("Created the offline account, but the launcher still can't see it - check the app's data-folder permissions.");
+        return;
+      }
+      toast(`Continuing offline as ${account.username} (testing only)`, "info");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      toast(msg, "error");
     }
   };
 
@@ -40,6 +93,49 @@ export default function SignInRequired({ onSignedIn }: Props) {
         <button className="btn btn-primary" disabled={signingIn} onClick={signIn}>
           {signingIn ? "Signing in..." : "Sign in with Microsoft"}
         </button>
+
+        {error && <p className="sign-in-error">{error}</p>}
+
+        <button className="sign-in-advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
+          {showAdvanced ? "Hide advanced" : "Advanced: use your own Microsoft client ID"}
+        </button>
+        {showAdvanced && (
+          <div className="sign-in-advanced">
+            <p className="instance-subtitle">
+              If sign-in fails with the shipped default, register your own Azure app (see the README&rsquo;s
+              &ldquo;Microsoft sign-in&rdquo; section) and paste its Application (client) ID here.
+            </p>
+            <input
+              className="input"
+              placeholder="Azure Application (client) ID"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        )}
+
+        {/* TEMPORARY (testing only) - remove this whole block once Microsoft sign-in works. */}
+        <div className="sign-in-advanced" style={{ marginTop: 20 }}>
+          <p className="instance-subtitle">
+            Testing only: skip sign-in with an offline session. Singleplayer works; servers that verify
+            accounts won&rsquo;t. This option will be removed.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              className="input"
+              placeholder="Offline username"
+              value={offlineName}
+              onChange={(e) => setOfflineName(e.target.value)}
+              maxLength={16}
+              spellCheck={false}
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-secondary" disabled={signingIn} onClick={continueOffline}>
+              Continue offline
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

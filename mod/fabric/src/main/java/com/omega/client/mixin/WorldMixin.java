@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.mixin;
 
-import com.omega.client.ModConfig;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,14 +19,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class WorldMixin {
     @Inject(method = "getRainGradient", at = @At("HEAD"), cancellable = true)
     private void omega$clearRain(float delta, CallbackInfoReturnable<Float> cir) {
-        if (ModConfig.ACTIVE.clearWeatherEnabled && ((World) (Object) this).isClient) {
+        if (OmegaHooks.clearWeather() && ((World) (Object) this).isClient) {
             cir.setReturnValue(0.0F);
         }
     }
 
     @Inject(method = "getThunderGradient", at = @At("HEAD"), cancellable = true)
     private void omega$clearThunder(float delta, CallbackInfoReturnable<Float> cir) {
-        if (ModConfig.ACTIVE.clearWeatherEnabled && ((World) (Object) this).isClient) {
+        if (OmegaHooks.clearWeather() && ((World) (Object) this).isClient) {
             cir.setReturnValue(0.0F);
         }
     }

@@ -1,8 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.mixin;
 
-import com.omega.client.ModConfig;
-import com.omega.client.particle.ParticleFilter;
+import com.omega.client.platform.OmegaHooks;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleManager;
 import net.minecraft.particle.ParticleEffect;
@@ -49,7 +48,7 @@ public abstract class ParticleManagerMixin {
         // getId returns null for a type not present in this registry (e.g. a modded/transient
         // type) - ParticleFilter itself already treats a null namespace/path as "always spawn",
         // so short-circuit here rather than NPE-ing on the .getNamespace()/.getPath() calls below.
-        if (id != null && !ParticleFilter.shouldSpawn(ModConfig.ACTIVE, id.getNamespace(), id.getPath())) {
+        if (id != null && !OmegaHooks.shouldSpawnParticle(id.getNamespace(), id.getPath())) {
             cir.setReturnValue(null);
         }
     }
@@ -60,7 +59,7 @@ public abstract class ParticleManagerMixin {
             cancellable = true
     )
     private void omega$filterConstructedParticle(Particle particle, CallbackInfo ci) {
-        if (!ModConfig.ACTIVE.particlesMasterEnabled) {
+        if (!OmegaHooks.particlesMasterOn()) {
             ci.cancel();
         }
     }

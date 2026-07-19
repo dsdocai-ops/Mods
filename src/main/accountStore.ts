@@ -8,7 +8,7 @@ import { loginInteractive, refreshAccount } from "./msAuth";
 
 interface StoredAccount {
   id: string;
-  type: "microsoft";
+  type: "microsoft" | "offline";
   username: string;
   uuid: string;
   refreshTokenBlob: string;
@@ -111,19 +111,75 @@ export async function addMicrosoftAccount(clientId: string, parentWindow: Browse
   return toPublic(stored);
 }
 
+/**
+ * TEMPORARY (testing only): the same offline UUID vanilla servers derive in offline mode -
+ * a name-based (version 3) UUID of "OfflinePlayer:<name>", i.e. Java's
+ * UUID.nameUUIDFromBytes(). Matching that keeps skins-off/offline-server identity consistent
+ * with what the rest of the ecosystem expects for this username.
+ */
+function offlineUuid(username: string): string {
+  const hash = crypto.createHash("md5").update(`OfflinePlayer:${username}`, "utf-8").digest();
+  hash[6] = (hash[6] & 0x0f) | 0x30; // version 3 (name-based)
+  hash[8] = (hash[8] & 0x3f) | 0x80; // IETF variant
+  const hex = hash.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * TEMPORARY (testing only): stores an offline account that bypasses Microsoft sign-in entirely,
+ * so the launcher can be exercised end-to-end while real sign-in is blocked on Mojang's
+ * client-ID approval. No tokens are involved; launch.ts starts these as an offline session.
+ * Remove together with the sign-in screen's offline button once sign-in works.
+ */
+export function addOfflineAccount(usernameRaw: string): PublicAccount {
+  // Minecraft usernames: 3-16 chars of [A-Za-z0-9_]. Sanitize rather than reject - this is a
+  // testing convenience, not a real account flow.
+  const username = usernameRaw.trim().replace(/[^A-Za-z0-9_]/g, "_").slice(0, 16) || "Player";
+  const accounts = readAll();
+  const uuid = offlineUuid(username);
+  const existingIndex = accounts.findIndex((a) => a.uuid === uuid);
+
+  const stored: StoredAccount = {
+    id: existingIndex >= 0 ? accounts[existingIndex].id : crypto.randomUUID(),
+    type: "offline",
+    username,
+    uuid,
+    refreshTokenBlob: "",
+    accessTokenBlob: "",
+    accessTokenExpiresAt: 0,
+    addedAt: existingIndex >= 0 ? accounts[existingIndex].addedAt : Date.now(),
+  };
+
+  if (existingIndex >= 0) {
+    accounts[existingIndex] = stored;
+  } else {
+    accounts.push(stored);
+  }
+  writeAll(accounts);
+  return toPublic(stored);
+}
+
 // Coalesces concurrent refreshes for the same account - two instances configured with the same
 // Microsoft account, launched within moments of each other while the cached token is expired,
 // would otherwise both read the same about-to-be-stale refresh token, both call refreshAccount()
 // independently, and race to writeAll() - whichever finishes last silently discards the other's
 // persisted result (and, if Microsoft has already rotated/invalidated the refresh token by then,
 // the loser's call can simply fail with a spurious error on that instance's launch).
-const inFlightRefreshes = new Map<string, Promise<{ accessToken: string; uuid: string; username: string }>>();
+const inFlightRefreshes = new Map<string, Promise<AccountSession>>();
+
+export interface AccountSession {
+  accessToken: string;
+  uuid: string;
+  username: string;
+  /** "legacy" marks a TEMPORARY offline testing session (no real token) - see addOfflineAccount. */
+  userType: "msa" | "legacy";
+}
 
 /**
  * Returns a currently-valid Minecraft access token for an account, silently refreshing it first
  * if it's expired or about to expire. This is what launch.ts calls right before starting the game.
  */
-export async function getValidAccessToken(clientId: string, accountId: string): Promise<{ accessToken: string; uuid: string; username: string }> {
+export async function getValidAccessToken(clientId: string, accountId: string): Promise<AccountSession> {
   const accounts = readAll();
   const index = accounts.findIndex((a) => a.id === accountId);
   if (index < 0) {
@@ -131,8 +187,14 @@ export async function getValidAccessToken(clientId: string, accountId: string): 
   }
   const account = accounts[index];
 
+  if (account.type === "offline") {
+    // No real session exists to fetch or refresh - hand launch.ts a dummy token. Enough for
+    // singleplayer and offline-mode servers; anything requiring authentication won't work.
+    return { accessToken: "offline", uuid: account.uuid, username: account.username, userType: "legacy" };
+  }
+
   if (Date.now() + EXPIRY_BUFFER_MS < account.accessTokenExpiresAt) {
-    return { accessToken: decryptFromBlob(account.accessTokenBlob), uuid: account.uuid, username: account.username };
+    return { accessToken: decryptFromBlob(account.accessTokenBlob), uuid: account.uuid, username: account.username, userType: "msa" };
   }
 
   const existing = inFlightRefreshes.get(accountId);
@@ -158,7 +220,7 @@ export async function getValidAccessToken(clientId: string, accountId: string): 
       writeAll(current);
     }
 
-    return { accessToken: refreshed.mcAccessToken, uuid: refreshed.uuid, username: refreshed.username };
+    return { accessToken: refreshed.mcAccessToken, uuid: refreshed.uuid, username: refreshed.username, userType: "msa" as const };
   })();
 
   inFlightRefreshes.set(accountId, refreshPromise);

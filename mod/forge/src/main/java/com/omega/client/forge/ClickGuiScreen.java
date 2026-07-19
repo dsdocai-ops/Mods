@@ -72,6 +72,9 @@ public class ClickGuiScreen extends Screen {
         addToggleRow(rightX, y, "Clear Weather (visual)", () -> config.clearWeatherEnabled, v -> config.clearWeatherEnabled = v);
         y += ROW_HEIGHT;
         addToggleRow(leftX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
+        // Applies on the next launch, not live: the launcher reads this to decide the low-latency
+        // G1GC flags, and JVM GC flags can't change mid-run. Label says so.
+        addToggleRow(rightX, y, "Smooth PvP (next launch)", () -> config.smoothPvpEnabled, v -> config.smoothPvpEnabled = v);
         y += ROW_HEIGHT;
 
         this.addRenderableWidget(Button.builder(Component.literal("Schematics..."), b -> {
@@ -83,6 +86,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal("Particles..."), b -> {
                     if (this.minecraft != null) this.minecraft.setScreen(new ParticleScreen(config, this));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Cosmetics..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new CosmeticsScreen(config, this));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());
