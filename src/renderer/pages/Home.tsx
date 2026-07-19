@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
+import { RELEASES_URL } from "@shared/links";
 import SponsorCard from "../components/SponsorCard";
 import { ArrowRightIcon, ChevronDownIcon, CubeIcon, GearIcon, PlayIcon } from "../components/Icons";
 
@@ -25,8 +26,6 @@ const NEWS = [
     date: "May 18, 2024",
   },
 ];
-
-const RELEASES_URL = "https://github.com/dsdocai-ops/Mods/releases";
 
 /**
  * The launcher's landing screen, recreated from the Omega home mockup: welcome header, a

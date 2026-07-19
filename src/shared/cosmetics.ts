@@ -52,9 +52,6 @@ export const COSMETIC_CATALOG: Cosmetic[] = [
   { id: "twilight_summit_cape", name: "Twilight Summit Cape", colorHex: "#CFE8FF", type: "cape", description: "A real painted texture cape of a starry sky over icy mountain peaks." },
 ];
 
-/** The badge/hat color a player with no cosmetic shows - mirrors CosmeticCatalog.DEFAULT_BADGE_RGB (0xE63946). */
-export const DEFAULT_BADGE_HEX = "#E63946";
-
 /** Id list, still exported for the license-key validator (see main/licensing.ts). */
 export const KNOWN_COSMETIC_IDS = COSMETIC_CATALOG.map((c) => c.id) as readonly string[];
 
