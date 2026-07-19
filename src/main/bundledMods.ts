@@ -61,12 +61,16 @@ function bundledDirs(): string[] {
   return dirs;
 }
 
-function findBundledJar(loader: OmegaLoader): string | null {
+function findBundledJar(loader: OmegaLoader, minecraftVersion: string): string | null {
+  // Jars are named omega-client-<loader>-<mcVersion>-<modVersion>.jar (see the mod's build.gradle),
+  // so the version prefix is what selects the right one when jars for several MC versions are bundled
+  // side by side. `-` after the version guards against a prefix like "1.20.1" matching "1.20.10".
+  const prefix = `omega-client-${loader}-${minecraftVersion}-`;
   for (const dir of bundledDirs()) {
     if (!fs.existsSync(dir)) continue;
     const match = fs
       .readdirSync(dir)
-      .find((f) => f.startsWith(`omega-client-${loader}`) && f.endsWith(".jar") && !f.includes("-sources"));
+      .find((f) => f.startsWith(prefix) && f.endsWith(".jar") && !f.includes("-sources"));
     if (match) return path.join(dir, match);
   }
   return null;
@@ -84,12 +88,15 @@ async function downloadToCache(url: string, fileName: string): Promise<string> {
   return dest;
 }
 
-/** Bundled jar if present, else the rolling release (dev fallback), cached. */
-async function omegaJarFor(loader: OmegaLoader): Promise<string> {
-  const bundled = findBundledJar(loader);
+/** The mod's own version (mod/gradle.properties' mod_version), which trails the MC version in every jar name. */
+const OMEGA_MOD_VERSION = "0.1.0";
+
+/** Bundled jar for this MC version if present, else the rolling release (dev fallback), cached. */
+async function omegaJarFor(loader: OmegaLoader, minecraftVersion: string): Promise<string> {
+  const bundled = findBundledJar(loader, minecraftVersion);
   if (bundled) return bundled;
-  // Version-specific file name in the release; 0.1.0 matches gradle.properties' mod_version.
-  const releaseName = `omega-client-${loader}-0.1.0.jar`;
+  // Matches the mod build's archivesName: omega-client-<loader>-<mcVersion>-<modVersion>.jar.
+  const releaseName = `omega-client-${loader}-${minecraftVersion}-${OMEGA_MOD_VERSION}.jar`;
   return downloadToCache(`${RELEASE_JAR_BASE}/${releaseName}`, releaseName);
 }
 
@@ -229,7 +236,7 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
   }
 
   try {
-    const jar = await omegaJarFor(loader);
+    const jar = await omegaJarFor(loader, minecraftVersion);
     placeJar(jar, instance.modsDir, `omega-client-${loader}.jar`);
     log(`[launcher] Omega ${loader} mod installed/updated in mods folder`);
   } catch (err) {
