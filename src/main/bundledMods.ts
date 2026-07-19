@@ -28,14 +28,24 @@ const RELEASE_JAR_BASE = "https://github.com/dsdocai-ops/Mods/releases/download/
 const MODRINTH_API = "https://api.modrinth.com/v2";
 
 /**
- * The Omega mod is only ever built for one Minecraft version at a time - must match mod/gradle.properties'
- * minecraft_version, which both the Fabric and Forge builds share, and which fabric.mod.json/mods.toml
- * declare as their own "minecraft" dependency. Placing an Omega jar built for a different version isn't
- * a soft failure: Fabric/Forge refuse to load a mod whose declared Minecraft dependency doesn't match and
- * abort the entire launch over it, so this has to be checked *before* ever copying the jar in, not left
- * to surface as a launch failure.
+ * The Minecraft versions the Omega mod actually ships a build for. Placing an Omega jar built for a
+ * version the instance isn't running isn't a soft failure: Fabric/Forge refuse to load a mod whose
+ * declared "minecraft" dependency doesn't match and abort the whole launch over it, so an instance on
+ * an unsupported version must be skipped *before* any jar is copied in, not left to surface at launch.
+ *
+ * This is the launcher-side half of the multi-version architecture (see mod/README.md's "Multi-version
+ * architecture" section). Adding a version here is a one-line change - but only once the mod build
+ * actually produces (and the release actually publishes) a jar built against that version's mappings;
+ * this list must never get ahead of what `omegaJarFor` can really fetch, or a matching instance would
+ * be handed a jar that doesn't exist. Today the mod builds for exactly one version, so this has one
+ * entry that matches mod/gradle.properties' `minecraft_version`.
  */
-const OMEGA_MOD_MINECRAFT_VERSION = "1.20.1";
+const OMEGA_MOD_MINECRAFT_VERSIONS: readonly string[] = ["1.20.1"];
+
+/** Whether the Omega mod ships a build compatible with the given Minecraft version. */
+export function omegaModSupportsVersion(minecraftVersion: string): boolean {
+  return OMEGA_MOD_MINECRAFT_VERSIONS.includes(minecraftVersion);
+}
 
 type OmegaLoader = "fabric" | "forge";
 
@@ -211,9 +221,9 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
     return;
   }
 
-  if (minecraftVersion !== OMEGA_MOD_MINECRAFT_VERSION) {
+  if (!omegaModSupportsVersion(minecraftVersion)) {
     log(
-      `[launcher] Omega ${loader} mod skipped - it's only built for Minecraft ${OMEGA_MOD_MINECRAFT_VERSION} so far, this instance is ${minecraftVersion}`
+      `[launcher] Omega ${loader} mod skipped - this instance is Minecraft ${minecraftVersion}, and the mod is only built for ${OMEGA_MOD_MINECRAFT_VERSIONS.join(", ")} so far`
     );
     return;
   }
