@@ -36,7 +36,7 @@ let page = null;
 const MOCK_INSTANCE = {
   id: 'inst-1', name: 'Demo Instance', gameDir: '/home/user/.minecraft-demo',
   versionId: '1.20.1', loader: 'fabric', modsDir: '/home/user/.minecraft-demo/mods',
-  offlineUsername: 'Steve', accountId: 'acc-1',
+  offlineUsername: 'Steve', accountId: 'acc-1', autoUpdateMods: false,
   jvm: { javaPath: '', minRamMb: 2048, maxRamMb: 4096, extraArgs: '', useSmoothPvpFlags: true },
   window: { width: 854, height: 480, fullscreen: false },
   createdAt: Date.now(), lastPlayedAt: null, iconColor: '#48484f',
@@ -56,12 +56,24 @@ const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 
 // ipcMain.handle(...) calls before changing any shape here.
 function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
+  // Cosmetics demo state: owns a hat + a cape (equipped in their slots) so the per-slot grid shows
+  // owned/active/locked across types; wings + azure hat stay locked ("Buy") until "redeemed".
+  window.__owned = ['gold_badge', 'crimson_cape'];
+  window.__slots = { hat: 'gold_badge', cape: 'crimson_cape', wings: '' };
+  // Catalog id -> slot (mirrors shared/cosmetics.ts), used by the mock redeem + setActiveSlot.
+  window.__catalogTypes = { gold_badge: 'hat', azure_badge: 'hat', crimson_cape: 'cape', emerald_cape: 'cape', phantom_wings: 'wings' };
+  // A couple of extra instances so the Play screen's instance grid has something to show beyond
+  // the single MOCK_INSTANCE (which the rest of the app keys off).
+  const EXTRA_INSTANCES = [
+    { ...window.__mockInstance, id: 'inst-2', name: 'CPvP Practice', versionId: '1.8.9', loader: 'forge' },
+    { ...window.__mockInstance, id: 'inst-3', name: 'Bedwars', versionId: '1.20.4', loader: 'fabric' },
+  ];
   window.api = {
     instances: {
       // Stateful: window.__mockInstances is seeded by an addInitScript in `launch` below, and
       // create/update/delete mutate it - so the New Instance flow, sidebar switching, and delete
       // actually round-trip like the real store-backed handlers do.
-      list: async () => [...window.__mockInstances],
+      list: async () => [...window.__mockInstances, ...EXTRA_INSTANCES],
       create: async (input) => {
         const instance = { ...window.__mockInstance, ...input, id: 'inst-' + Date.now(), name: input.name };
         window.__mockInstances.push(instance);
@@ -87,9 +99,9 @@ function installMockApi() {
     external: { open: async () => true },
     mods: {
       // listMods() in src/main/mods.ts returns full ModInfo objects (shared/types.ts) - the
-      // Discover view matches its modId/fileName fields against Modrinth slugs, so a partial
-      // shape here crashes DiscoverPanel. "sodium" doubles as the Discover view's installed-state
-      // demo (it matches the mocked discover() hit below).
+      // Discover view (modrinth mock below) matches its modId/fileName fields against Modrinth
+      // slugs, so a partial shape here crashes it. "sodium" doubles as the Discover view's
+      // installed-state demo (it matches the mocked modrinth.search() hit below).
       list: async () => ([
         { id: 'omega-client-1.0.0.jar', fileName: 'omega-client-1.0.0.jar', modId: 'omega-client', name: 'Omega Client', version: '1.0.0', description: '', loader: 'fabric', enabled: true, tags: ['cpvp'], sizeBytes: 1024, importedAt: Date.now() },
         { id: 'sodium-fabric-0.5.jar', fileName: 'sodium-fabric-0.5.jar', modId: 'sodium', name: 'Sodium', version: '0.5', description: '', loader: 'fabric', enabled: true, tags: ['performance'], sizeBytes: 2048, importedAt: Date.now() },
@@ -99,36 +111,64 @@ function installMockApi() {
       remove: async () => {},
       applyPreset: async () => {},
       setEnabledBulk: async () => {},
-      // searchDiscoveryMods() in src/main/modDiscovery.ts returns a DiscoveredModPage
-      // ({hits, totalHits, offset}) - an empty query is the default "most downloaded compatible
-      // mods" feed the Discover view opens with, and it pages 30 at a time as the user scrolls.
-      // 75 canned mods = three pages, enough to exercise the infinite scroll for real.
-      discover: async (_instance, query, offset = 0) => {
+    },
+    // Modrinth mod browser. The real handlers live in src/main/modrinth.ts and hit
+    // api.modrinth.com (blocked in this sandbox), so these stand in with a couple of fixed hits and
+    // a fake progress stream so the Discover UI renders and its install flow is exercisable. icon_url
+    // is left blank so no real network image is needed (the card's fallback swatch shows instead).
+    modrinth: {
+      search: async (query) => {
         const all = [
-          { projectId: 'P-sodium', slug: 'sodium', title: 'Sodium', description: 'A modern rendering engine for Minecraft which greatly improves performance', author: 'jellysquid3', downloads: 5_300_000, iconUrl: null, categories: ['optimization'] },
-          { projectId: 'P-lithium', slug: 'lithium', title: 'Lithium', description: 'No-compromises game logic optimization mod', author: 'jellysquid3', downloads: 3_200_000, iconUrl: null, categories: ['optimization'] },
-          { projectId: 'P-modmenu', slug: 'modmenu', title: 'Mod Menu', description: 'Adds a mod menu to view the list of mods you have installed', author: 'Prospector', downloads: 2_900_000, iconUrl: null, categories: ['utility'] },
-          ...[...Array(72)].map((_, i) => ({
-            projectId: 'P-filler-' + i, slug: 'filler-mod-' + i, title: 'Filler Mod ' + i,
-            description: 'Canned discovery result #' + i, author: 'author' + (i % 7),
-            downloads: 900_000 - i * 1_000, iconUrl: null, categories: ['utility'],
-          })),
+          { projectId: 'AANobbMI', slug: 'sodium', title: 'Sodium', description: 'A modern rendering engine that massively improves frame rates and reduces stuttering.', author: 'jellysquid3', downloads: 24000000, iconUrl: '', categories: ['performance', 'fabric'] },
+          { projectId: 'gvQqBUqZ', slug: 'lithium', title: 'Lithium', description: 'No-compromises game logic/server optimization mod. Improves tick performance.', author: 'jellysquid3', downloads: 18000000, iconUrl: '', categories: ['performance', 'fabric'] },
+          { projectId: 'P7dR8mSH', slug: 'fabric-api', title: 'Fabric API', description: 'Core library for the most common hooks and intercompatibility measures utilized by mods.', author: 'modmuss50', downloads: 42000000, iconUrl: '', categories: ['library', 'fabric'] },
+          { projectId: 'YL57xq9U', slug: 'iris', title: 'Iris Shaders', description: 'A modern shaders mod compatible with Sodium and most OptiFine shaderpacks.', author: 'coderbot', downloads: 9000000, iconUrl: '', categories: ['visual', 'fabric'] },
         ];
-        const q = (query ?? '').trim().toLowerCase();
-        const filtered = q ? all.filter((m) => m.title.toLowerCase().includes(q) || m.slug.includes(q)) : all;
-        return { hits: filtered.slice(offset, offset + 30), totalHits: filtered.length, offset };
+        const q = (query || '').toLowerCase();
+        return q ? all.filter((h) => h.title.toLowerCase().includes(q) || h.description.toLowerCase().includes(q)) : all;
       },
-      // installDiscoveredMod() returns the instance's full refreshed ModInfo[] list.
-      installDiscovered: async (_instance, projectId) => {
-        window.__calls.write.push({ installDiscovered: projectId });
-        const installed = await window.api.mods.list();
-        return [
-          ...installed,
-          { id: 'lithium-fabric-0.11.jar', fileName: 'lithium-fabric-0.11.jar', modId: 'lithium', name: 'Lithium', version: '0.11', description: '', loader: 'fabric', enabled: true, tags: ['performance'], sizeBytes: 512, importedAt: Date.now() },
-        ];
+      install: async (modsDir, projectId) => {
+        // Emit a little fake progress stream like the real main process does, then resolve.
+        const emit = window.__modrinthProgress;
+        if (emit) {
+          emit({ phase: 'resolving', name: projectId, done: 0, total: 0, detail: 'Resolving dependencies...' });
+          emit({ phase: 'downloading', name: 'mod.jar', done: 0, total: 1, detail: 'Downloading (1/1)...' });
+          emit({ phase: 'done', name: '', done: 1, total: 1, detail: 'Installed 1 file.' });
+        }
+        window.__calls.write.push({ modrinthInstall: projectId });
+        return { installedFiles: ['mock-installed.jar'], skippedDependencies: [] };
+      },
+      // Reports one pretend update for the mocked Sodium jar (matches mods.list's fileName) so the
+      // "N updates available" banner and per-row badge/button render. Clears once "updated" so the
+      // demo flow (click Update all -> banner disappears) behaves.
+      checkUpdates: async () => (window.__modrinthUpdated ? [] : [
+        { fileName: 'sodium-fabric-0.5.jar', newVersion: '0.6.0', projectId: 'AANobbMI', url: '', newFileName: 'sodium-fabric-0.6.0.jar', sha1: 'deadbeef', enabled: true },
+      ]),
+      // Signature matches preload: (modsDir, updates, loader, versionId). Returns one extra file
+      // beyond the updated jars to stand in for a newly-required dependency the updated build pulled
+      // in, so the "+N new dependency" path is demoable offline.
+      applyUpdates: async (modsDir, updates) => {
+        const emit = window.__modrinthProgress;
+        if (emit) emit({ phase: 'done', name: '', done: updates.length, total: updates.length, detail: `Updated ${updates.length} mod(s).` });
+        window.__modrinthUpdated = true;
+        window.__calls.write.push({ modrinthApplyUpdates: updates.map((u) => u.fileName) });
+        return { installedFiles: [...updates.map((u) => u.newFileName), 'fabric-api-0.92.0.jar'], skippedDependencies: [] };
+      },
+      onProgress: (cb) => { window.__modrinthProgress = cb; return () => { window.__modrinthProgress = null; }; },
+    },
+    shaders: {
+      list: async () => [],
+      import: async () => [],
+      remove: async () => [],
+      // Report no loader by default so the opt-in "Install shader loader" card renders; install
+      // "succeeds" and flips it present.
+      hasLoader: async () => !!window.__shaderLoaderInstalled,
+      installLoader: async () => {
+        window.__shaderLoaderInstalled = true;
+        window.__calls.write.push({ shaderInstallLoader: true });
+        return { installed: ['iris-fabric-1.7.0.jar', 'sodium-fabric-0.5.8.jar'] };
       },
     },
-    shaders: { list: async () => [], import: async () => [], remove: async () => [] },
     modConfig: {
       find: async (_dir, modId) => (modId === 'omega-client' ? '/x/config/omega-client.json' : null),
       read: async () => ({ format: 'json', data: { fullbrightEnabled: false, hudEnabled: true } }),
@@ -142,8 +182,22 @@ function installMockApi() {
       verify: async () => ({ ok: true, version: '17.0.9' }),
     },
     licensing: {
-      redeem: async (key) => { window.__calls.write.push({ licensingRedeem: key }); return { ok: false, message: "That license key isn't valid." }; },
-      listOwned: async () => ([]),
+      // Owns the gold badge by default (active), so the Cosmetics grid shows owned/active/locked
+      // states and the picker is exercisable offline. azure stays locked ("Buy") until "redeemed".
+      redeem: async (key) => {
+        window.__calls.write.push({ licensingRedeem: key });
+        // A key shaped "<catalogId>-<suffix>" unlocks that cosmetic + equips it in its slot.
+        const id = typeof key === 'string' ? Object.keys(window.__catalogTypes).find((c) => key.startsWith(c + '-')) : null;
+        if (id) {
+          if (!window.__owned.includes(id)) window.__owned.push(id);
+          window.__slots[window.__catalogTypes[id]] = id;
+          return { ok: true, cosmeticId: id, message: 'Unlocked: ' + id };
+        }
+        return { ok: false, message: "That license key isn't valid." };
+      },
+      listOwned: async () => ([...window.__owned]),
+      getActiveSlots: async () => ({ ...window.__slots }),
+      setActiveSlot: async (slot, id) => { window.__slots[slot] = id; window.__calls.write.push({ setActiveSlot: [slot, id] }); return { ...window.__slots }; },
     },
     install: {
       listVersions: async () => ([{ id: '1.20.1', type: 'release', url: '' }]),
@@ -161,6 +215,7 @@ function installMockApi() {
         defaultOfflineUsername: 'Player',
         msaClientId: '',
         autoUpdateEnabled: true,
+        showModDownloadWarning: true,
       }),
       set: async () => {},
     },
@@ -172,6 +227,14 @@ function installMockApi() {
       list: async () => ([...window.__mockAccounts]),
       addMicrosoft: async () => {
         const account = { id: 'acc-' + Date.now(), type: 'microsoft', username: 'MockUser', uuid: 'mock-uuid-' + Date.now(), addedAt: Date.now() };
+        window.__mockAccounts.push(account);
+        return account;
+      },
+      // TEMPORARY (testing only) - mirrors accountStore.addOfflineAccount: sanitized username,
+      // type "offline", no tokens. Remove together with the real offline-account plumbing.
+      addOffline: async (username) => {
+        const name = String(username ?? '').trim().replace(/[^A-Za-z0-9_]/g, '_').slice(0, 16) || 'Player';
+        const account = { id: 'acc-' + Date.now(), type: 'offline', username: name, uuid: 'offline-uuid-' + name, addedAt: Date.now() };
         window.__mockAccounts.push(account);
         return account;
       },

@@ -32,35 +32,6 @@ export interface ModInfo {
 }
 
 /**
- * A mod surfaced by in-launcher discovery (Modrinth search) - a browsable/installable search hit,
- * not something on disk yet. The Mods tab's Discover view lists these (most-downloaded compatible
- * mods by default, before the user types any search) and installs them via mods:installDiscovered.
- */
-export interface DiscoveredMod {
-  /** Modrinth project id - the stable handle install requests use. */
-  projectId: string;
-  /** URL-ish short name (e.g. "sodium") - used to match against already-installed jars. */
-  slug: string;
-  title: string;
-  description: string;
-  author: string;
-  downloads: number;
-  iconUrl: string | null;
-  categories: string[];
-}
-
-/**
- * One page of discovery results. The Discover view scrolls through the whole compatible catalog,
- * fetching the next page as the user nears the bottom - `totalHits` (Modrinth's total_hits) is
- * what tells it when there's nothing left to load.
- */
-export interface DiscoveredModPage {
-  hits: DiscoveredMod[];
-  totalHits: number;
-  offset: number;
-}
-
-/**
  * A `.zip` shaderpack sitting in an instance's `shaderpacks/` folder. Unlike ModInfo there's no
  * `enabled` flag - Iris/Oculus pick the one active pack via their own in-game Video Settings
  * screen, not a launcher toggle - so this is just enough to render an import/remove list.
@@ -99,6 +70,13 @@ export interface Instance {
   offlineUsername: string;
   /** If set, launch with this signed-in Microsoft/Minecraft account instead of an offline session. */
   accountId?: string;
+  /**
+   * When true, this instance's Modrinth-sourced mods are checked for newer builds and updated right
+   * before it launches. Off by default and opt-in per instance - auto-changing mods before a launch
+   * is exactly the kind of surprise a competitive/frozen setup doesn't want. Optional so instances
+   * saved before this field existed read as "off". See main.ts's launch:start handler.
+   */
+  autoUpdateMods?: boolean;
   jvm: JvmSettings;
   window: WindowSettings;
   createdAt: number;
@@ -113,7 +91,10 @@ export interface Instance {
  */
 export interface PublicAccount {
   id: string;
-  type: "microsoft";
+  // "offline" is TEMPORARY, for testing the launcher while Microsoft sign-in is blocked on
+  // Mojang's client-ID approval - remove it (and its accountStore/SignInRequired plumbing)
+  // once real sign-in works.
+  type: "microsoft" | "offline";
   username: string;
   uuid: string;
   addedAt: number;
@@ -156,6 +137,61 @@ export interface InstallProgress {
   detail: string;
 }
 
+/**
+ * One search result from Modrinth's `/v2/search` endpoint (the in-launcher "Discover" browser),
+ * flattened to just what a result card needs. `projectId`/`slug` identify the project for the
+ * follow-up install call.
+ */
+export interface ModrinthSearchHit {
+  projectId: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  downloads: number;
+  iconUrl: string;
+  categories: string[];
+}
+
+/**
+ * Progress streamed while a Modrinth project (and its required dependencies) is resolved and
+ * downloaded into an instance's modsDir - see main/modrinth.ts. Mirrors InstallProgress's shape so
+ * the renderer can drive the same kind of little progress line.
+ */
+export interface ModrinthInstallProgress {
+  phase: "resolving" | "downloading" | "done";
+  /** Human-readable name of whatever is being handled right now (the mod or a dependency). */
+  name: string;
+  done: number;
+  total: number;
+  detail: string;
+}
+
+/** What a completed Modrinth install returns: the jar file names written into modsDir (mod + any auto-installed required deps). */
+export interface ModrinthInstallResult {
+  installedFiles: string[];
+  /** Required dependencies that had no build matching this instance's loader/version and were skipped - surfaced as a warning. */
+  skippedDependencies: string[];
+}
+
+/**
+ * One installed jar that Modrinth has a newer compatible build for - found by hashing the jars in
+ * modsDir and asking Modrinth's `/version_files/update` endpoint (no local provenance tracking
+ * needed). The trailing fields are opaque download details the renderer just hands back to
+ * modrinth:applyUpdates; only `fileName`/`newVersion` are meant for display.
+ */
+export interface ModrinthUpdate {
+  /** Current on-disk file name, including a `.disabled` suffix if the mod is currently disabled. */
+  fileName: string;
+  /** The newer version number available on Modrinth (e.g. "0.6.0"). */
+  newVersion: string;
+  projectId: string;
+  url: string;
+  newFileName: string;
+  sha1: string;
+  enabled: boolean;
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   stream: "stdout" | "stderr" | "status" | "exit";
@@ -169,6 +205,10 @@ export interface AppSettings {
   msaClientId: string;
   /** Background-check the rolling release for a newer build on startup and download it silently. On by default; portable installs ignore this (they can't self-update either way). */
   autoUpdateEnabled: boolean;
+  /** Show the "mods are downloaded from the internet" disclaimer in the Discover browser. On by default; the disclaimer's "Don't show again" button and a Settings toggle both flip this. */
+  showModDownloadWarning: boolean;
+  /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
+  discordRichPresenceEnabled: boolean;
 }
 
 /**

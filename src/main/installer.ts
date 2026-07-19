@@ -59,11 +59,11 @@ interface ManifestEntry {
   releaseTime: string;
 }
 
-export async function fetchWithRetry(url: string, headers?: Record<string, string>): Promise<Response> {
+export async function fetchWithRetry(url: string, init?: RequestInit): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers });
+      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (response.status >= 500) {
         throw new Error(`Server error (${response.status}) for ${url}`);
       }
@@ -91,7 +91,7 @@ function sha1Of(buffer: Buffer): string {
 }
 
 /** Downloads one file, verifying sha1 when known. Skips work when the file already exists with the right hash/size. */
-async function downloadFile(url: string, destPath: string, expectedSha1?: string): Promise<void> {
+export async function downloadFile(url: string, destPath: string, expectedSha1?: string): Promise<void> {
   if (fs.existsSync(destPath)) {
     if (!expectedSha1) return;
     const existing = fs.readFileSync(destPath);

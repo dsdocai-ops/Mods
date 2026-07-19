@@ -51,7 +51,7 @@ public class ClickGuiScreen extends Screen {
         // "auto" GUI scale on 1080p the scaled screen is only ~270px tall, and nine stacked rows
         // plus the nav buttons would push "Done" off-screen.
         int toggleRows = 5;
-        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 5 + 8 + ROW_HEIGHT + 8 + 20;
+        int contentHeight = 34 + toggleRows * ROW_HEIGHT + ROW_HEIGHT * 6 + 8 + ROW_HEIGHT + 8 + 20;
         headerY = Math.max(6, (this.height - contentHeight) / 2);
         int leftX = this.width / 2 - ROW_WIDTH - 4;
         int rightX = this.width / 2 + 4;
@@ -72,6 +72,9 @@ public class ClickGuiScreen extends Screen {
         addToggleRow(rightX, y, "Clear Weather (visual)", () -> config.clearWeatherEnabled, v -> config.clearWeatherEnabled = v);
         y += ROW_HEIGHT;
         addToggleRow(leftX, y, "Info HUD", () -> config.hudEnabled, v -> config.hudEnabled = v);
+        // Applies on the next launch, not live: the launcher reads this to decide the low-latency
+        // G1GC flags, and JVM GC flags can't change mid-run. Label says so.
+        addToggleRow(rightX, y, "Smooth PvP (next launch)", () -> config.smoothPvpEnabled, v -> config.smoothPvpEnabled = v);
         y += ROW_HEIGHT;
 
         this.addRenderableWidget(Button.builder(Component.literal("Schematics..."), b -> {
@@ -83,6 +86,13 @@ public class ClickGuiScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal("Particles..."), b -> {
                     if (this.minecraft != null) this.minecraft.setScreen(new ParticleScreen(config, this));
+                })
+                .bounds(startX, y, ROW_WIDTH, 20)
+                .build());
+        y += ROW_HEIGHT;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Cosmetics..."), b -> {
+                    if (this.minecraft != null) this.minecraft.setScreen(new CosmeticsScreen(config, this));
                 })
                 .bounds(startX, y, ROW_WIDTH, 20)
                 .build());

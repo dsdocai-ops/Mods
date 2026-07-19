@@ -3,7 +3,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- img-src additionally allows Modrinth's CDN so the Mods tab's Discover view can show mod icons. -->
+    <!-- img-src also allows Modrinth's CDN so the Mods tab's Discover view can show mod icons.
+         Modrinth API *calls* happen in the main process (see src/main/modrinth.ts), so no connect-src
+         opening is needed - the renderer only ever loads images from that host. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self' 'unsafe-inline' data:; script-src 'self'; img-src 'self' data: https://cdn.modrinth.com"

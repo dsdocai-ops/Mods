@@ -56,6 +56,24 @@ const SMOOTH_PVP_JVM_FLAGS = [
 ];
 
 /**
+ * Reads the in-game "Smooth PvP" toggle out of the instance's config/omega-client.json. That file is
+ * owned by the Omega mod's in-game menu, so this is what makes an in-game toggle actually drive the
+ * launcher's GC flags. Deliberately tolerant: no file yet (first launch), unparseable JSON, or a
+ * missing field all fall back to the passed-in default rather than throwing - a launch must never
+ * fail over a config read.
+ */
+function readSmoothPvpPreference(runDir: string, fallback: boolean): boolean {
+  try {
+    const configPath = path.join(runDir, "config", "omega-client.json");
+    if (!fs.existsSync(configPath)) return fallback;
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    return typeof raw?.smoothPvpEnabled === "boolean" ? raw.smoothPvpEnabled : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Splits a user-supplied "extra JVM args" string into argv tokens, honoring single/double quotes
  * so values with spaces work (-Dfoo="a b" stays one token, quotes stripped). No backslash-escape
  * support - none of the JVM flags people actually paste here use them, and pretending to be a full
@@ -187,11 +205,14 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
   }
   log("Signing in with your Microsoft account...");
   const token = await getValidAccessToken(msaClientId, instance.accountId);
+  if (token.userType === "legacy") {
+    log(`[launcher] TESTING: offline session as "${token.username}" - no real account; authenticated servers won't work.`);
+  }
   const auth: { username: string; uuid: string; accessToken: string; userType: string } = {
     username: token.username,
     uuid: token.uuid,
     accessToken: token.accessToken,
-    userType: "msa",
+    userType: token.userType,
   };
 
   const resolved = resolveVersion(instance.gameDir, instance.versionId);
@@ -260,10 +281,17 @@ export async function launchInstance(instance: Instance, msaClientId: string, on
 
   const userExtraArgs = tokenizeArgs(instance.jvm.extraArgs);
 
+  // Smooth PvP is toggled in-game (the Omega menu writes config/omega-client.json's
+  // smoothPvpEnabled) so it lives alongside every other setting, Lunar-style. The launcher honours
+  // that here on each launch - JVM GC flags can't change once the JVM is up, which is why the
+  // in-game toggle is labelled "next launch". Before the mod has ever written a config, fall back to
+  // the instance's own jvm.useSmoothPvpFlags (its seeded default).
+  const smoothPvp = readSmoothPvpPreference(runDir, instance.jvm.useSmoothPvpFlags);
+
   const jvmArgs = [
     `-Xms${instance.jvm.minRamMb}M`,
     `-Xmx${instance.jvm.maxRamMb}M`,
-    ...(instance.jvm.useSmoothPvpFlags ? SMOOTH_PVP_JVM_FLAGS : []),
+    ...(smoothPvp ? SMOOTH_PVP_JVM_FLAGS : []),
     ...userExtraArgs,
     ...templatedJvmArgs,
   ];

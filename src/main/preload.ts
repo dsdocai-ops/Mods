@@ -8,6 +8,11 @@ import type {
   InstallProgress,
   Instance,
   LaunchLogEvent,
+  Loader,
+  ModrinthInstallProgress,
+  ModrinthInstallResult,
+  ModrinthSearchHit,
+  ModrinthUpdate,
   ModTag,
   PublicAccount,
   RedeemLicenseResult,
@@ -39,9 +44,21 @@ const api = {
     applyPreset: (modsDir: string, tags: ModTag[]) => ipcRenderer.invoke("mods:applyPreset", modsDir, tags),
     setEnabledBulk: (modsDir: string, changes: Record<string, boolean>) =>
       ipcRenderer.invoke("mods:setEnabledBulk", modsDir, changes),
-    discover: (instance: Instance, query: string, offset = 0) => ipcRenderer.invoke("mods:discover", instance, query, offset),
-    installDiscovered: (instance: Instance, projectId: string) =>
-      ipcRenderer.invoke("mods:installDiscovered", instance, projectId),
+  },
+  modrinth: {
+    search: (query: string, loader: Loader, versionId: string): Promise<ModrinthSearchHit[]> =>
+      ipcRenderer.invoke("modrinth:search", query, loader, versionId),
+    install: (modsDir: string, projectId: string, loader: Loader, versionId: string): Promise<ModrinthInstallResult> =>
+      ipcRenderer.invoke("modrinth:install", modsDir, projectId, loader, versionId),
+    checkUpdates: (modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]> =>
+      ipcRenderer.invoke("modrinth:checkUpdates", modsDir, loader, versionId),
+    applyUpdates: (modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string): Promise<ModrinthInstallResult> =>
+      ipcRenderer.invoke("modrinth:applyUpdates", modsDir, updates, loader, versionId),
+    onProgress: (callback: (progress: ModrinthInstallProgress) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, progress: ModrinthInstallProgress) => callback(progress);
+      ipcRenderer.on("modrinth:installProgress", listener);
+      return () => ipcRenderer.removeListener("modrinth:installProgress", listener);
+    },
   },
   shaders: {
     list: (modsDir: string): Promise<ShaderPackInfo[]> => ipcRenderer.invoke("shaders:list", modsDir),
@@ -49,6 +66,8 @@ const api = {
       ipcRenderer.invoke("shaders:import", modsDir, sourcePaths),
     remove: (modsDir: string, fileName: string): Promise<ShaderPackInfo[]> =>
       ipcRenderer.invoke("shaders:remove", modsDir, fileName),
+    hasLoader: (instance: Instance): Promise<boolean> => ipcRenderer.invoke("shaders:hasLoader", instance),
+    installLoader: (instance: Instance): Promise<{ installed: string[] }> => ipcRenderer.invoke("shaders:installLoader", instance),
   },
   modConfig: {
     find: (modsDir: string, modId: string): Promise<string | null> => ipcRenderer.invoke("modconfig:find", modsDir, modId),
@@ -63,6 +82,8 @@ const api = {
   licensing: {
     redeem: (key: string): Promise<RedeemLicenseResult> => ipcRenderer.invoke("licensing:redeem", key),
     listOwned: (): Promise<string[]> => ipcRenderer.invoke("licensing:listOwned"),
+    getActive: (): Promise<string> => ipcRenderer.invoke("licensing:getActive"),
+    equip: (cosmeticId: string): Promise<void> => ipcRenderer.invoke("licensing:equip", cosmeticId),
   },
   install: {
     listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),
@@ -90,6 +111,8 @@ const api = {
   accounts: {
     list: (): Promise<PublicAccount[]> => ipcRenderer.invoke("accounts:list"),
     addMicrosoft: (): Promise<PublicAccount> => ipcRenderer.invoke("accounts:addMicrosoft"),
+    // TEMPORARY (testing only): bypasses sign-in with an offline account - remove with the sign-in screen's offline button.
+    addOffline: (username: string): Promise<PublicAccount> => ipcRenderer.invoke("accounts:addOffline", username),
     remove: (id: string): Promise<void> => ipcRenderer.invoke("accounts:remove", id),
   },
   launch: {

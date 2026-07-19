@@ -13,7 +13,11 @@ apply plugin: 'architectury-plugin'
 apply plugin: 'dev.architectury.loom'
 
 base {
-    archivesName = "${project.archives_base_name}-fabric"
+    // Minecraft version is baked into the jar name so a build matrix can produce one jar per MC
+    // version without them colliding, and the launcher can pick the jar matching an instance's
+    // version (see src/main/bundledMods.ts). Gradle appends `project.version` (mod_version), giving
+    // e.g. omega-client-fabric-1.20.1-0.1.0.jar.
+    archivesName = "${project.archives_base_name}-fabric-${project.minecraft_version}"
 }
 
 // Architectury Loom is a drop-in superset of Fabric Loom (same `loom {}` extension, same task
