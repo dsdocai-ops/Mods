@@ -159,15 +159,38 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.8"
-      - name: Build Fabric jar
+      # One jar per supported Minecraft version (see mod/PORTING.md). Each version's coordinates are
+      # passed as -P overrides of mod/gradle.properties' defaults; the jar name carries the MC version
+      # (archivesName in the loader build.gradle files), so all versions' jars coexist in build/libs
+      # and the launcher picks the right one per instance. Loader version, the mods.toml `minecraft`
+      # range ([1.20.1,1.21)) and the FML loader range ([47,) admits Forge 49) already cover 1.20.x,
+      # so only the MC-specific coordinates are overridden below.
+      #
+      # Every step is if: always() so all four attempt regardless of an earlier failure - each
+      # loader/version pair fails and gets fixed independently, and one CI round surfaces every bad
+      # coordinate at once instead of one per round.
+      - name: Build Fabric jar (1.20.1)
         working-directory: mod
         run: gradle :fabric:build --no-daemon --stacktrace
-      - name: Build Forge jar
-        # if: always() so a Fabric compile failure still exercises the Forge build - they fail (and
-        # get fixed) independently.
+      - name: Build Forge jar (1.20.1)
         if: always()
         working-directory: mod
         run: gradle :forge:build --no-daemon --stacktrace
+      - name: Build Fabric jar (1.20.4)
+        if: always()
+        working-directory: mod
+        run: >
+          gradle :fabric:build --no-daemon --stacktrace
+          "-Pminecraft_version=1.20.4"
+          "-Pyarn_mappings=1.20.4+build.3"
+          "-Pfabric_version=0.97.0+1.20.4"
+      - name: Build Forge jar (1.20.4)
+        if: always()
+        working-directory: mod
+        run: >
+          gradle :forge:build --no-daemon --stacktrace
+          "-Pminecraft_version=1.20.4"
+          "-Pforge_version=1.20.4-49.0.30"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
