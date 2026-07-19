@@ -25,7 +25,8 @@ apply plugin: 'architectury-plugin'
 apply plugin: 'dev.architectury.loom'
 
 base {
-    archivesName = "${project.archives_base_name}-forge"
+    // See the Fabric module's build.gradle for why the MC version is in the jar name.
+    archivesName = "${project.archives_base_name}-forge-${project.minecraft_version}"
 }
 
 architectury {

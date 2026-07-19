@@ -159,6 +159,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.8"
+      # Currently one Minecraft version (1.20.1, the gradle.properties defaults). The jars are
+      # version-tagged (archivesName in the loader build.gradle files) so this is ready to become a
+      # per-version matrix the moment real coordinates for a second version are available - see
+      # mod/PORTING.md, and the "Attempt log" there for why a first 1.20.4 attempt was reverted.
       - name: Build Fabric jar
         working-directory: mod
         run: gradle :fabric:build --no-daemon --stacktrace
