@@ -4,7 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ChildProcess } from "node:child_process";
 import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLogEvent, Loader, ModrinthUpdate, ModTag } from "../shared/types";
-import type { CosmeticType } from "../shared/cosmetics";
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as modrinth from "./modrinth";
@@ -210,8 +209,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle("licensing:redeem", (_e, key: string) => licensing.redeemLicenseKey(key));
   ipcMain.handle("licensing:listOwned", () => licensing.getOwnedCosmetics());
-  ipcMain.handle("licensing:getActiveSlots", () => licensing.getActiveSlots());
-  ipcMain.handle("licensing:setActiveSlot", (_e, slot: CosmeticType, cosmeticId: string) => licensing.setActiveSlot(slot, cosmeticId));
+  ipcMain.handle("licensing:getActive", () => licensing.getActiveCosmetic());
+  ipcMain.handle("licensing:equip", (_e, cosmeticId: string) => licensing.equipOwnedCosmetic(cosmeticId));
 
   ipcMain.handle("install:listVersions", () => listInstallableVersions());
 

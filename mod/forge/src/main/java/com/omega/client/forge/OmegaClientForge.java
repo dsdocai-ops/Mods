@@ -10,8 +10,8 @@ import com.omega.client.features.HudSettings;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.forge.features.BlockHighlightFeature;
-import com.omega.client.forge.features.CosmeticRenderer;
 import com.omega.client.forge.network.PresenceNetworking;
+import com.omega.client.forge.render.CosmeticRenderLayer;
 import com.omega.client.forge.schematic.SchematicRenderFeature;
 import com.omega.client.forge.schematic.SchematicSelection;
 import com.omega.client.schematic.SchematicStorage;
@@ -20,9 +20,11 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -58,7 +60,6 @@ public class OmegaClientForge {
     private final FovZoomFeature fovZoom = new FovZoomFeature();
     private final ToggleSprintFeature toggleSprint = new ToggleSprintFeature();
     private final BlockHighlightFeature blockHighlight = new BlockHighlightFeature();
-    private final CosmeticRenderer cosmeticRenderer = new CosmeticRenderer();
     private final InfoHudFeature infoHud = new InfoHudFeature();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
@@ -81,6 +82,7 @@ public class OmegaClientForge {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onRegisterKeyMappings);
         modEventBus.addListener(this::onRegisterGuiOverlays);
+        modEventBus.addListener(this::onAddLayers);
         MinecraftForge.EVENT_BUS.register(this);
         PresenceNetworking.register(config);
     }
@@ -101,6 +103,21 @@ public class OmegaClientForge {
 
     private void onRegisterGuiOverlays(RegisterGuiOverlaysEvent event) {
         event.registerAboveAll("omega_hud", (gui, guiGraphics, partialTick, width, height) -> renderHud(guiGraphics));
+    }
+
+    // Gear cosmetics (hat/cape/wings) on players the presence channel knows - fires once per player
+    // skin variant ("default" and "slim"). addLayer is vanilla-protected but opened public by
+    // Forge's own access transformer (that's what AddLayers exists for). getSkin's generic bound is
+    // Player-typed while PlayerRenderer is AbstractClientPlayer-typed, so go through Object and
+    // pattern-match rather than fight the invariance. Same moderate-confidence Forge-event caveat
+    // as the rest of this class's wiring - see the class javadoc and mod/README.md.
+    private void onAddLayers(EntityRenderersEvent.AddLayers event) {
+        for (String skinName : event.getSkins()) {
+            Object renderer = event.getSkin(skinName);
+            if (renderer instanceof PlayerRenderer playerRenderer) {
+                playerRenderer.addLayer(new CosmeticRenderLayer(playerRenderer));
+            }
+        }
     }
 
     @SubscribeEvent
@@ -149,7 +166,6 @@ public class OmegaClientForge {
 
         blockHighlight.render(event.getPoseStack(), buffers, camPos, config);
         schematicRender.render(event.getPoseStack(), buffers, camPos, config);
-        cosmeticRenderer.render(event.getPoseStack(), buffers, camPos, event.getPartialTick(), config);
     }
 
     private void setSelectionFromCrosshair(Minecraft client, boolean isPos1) {

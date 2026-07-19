@@ -11,9 +11,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
- * Forge-side twin of the Fabric CosmeticsScreen - see that class for what/why. Same renames as
- * every other Forge screen here vs. Yarn: Text -> Component, ButtonWidget -> Button, DrawContext ->
- * GuiGraphics, addDrawableChild -> addRenderableWidget, .dimensions(...) -> .bounds(...).
+ * Forge-side twin of the Fabric CosmeticsScreen - see that class for what/why (visibility toggles
+ * only, gated through OmegaHooks.shouldRenderCosmetic - not equipping, not the nametag badge). Same
+ * renames as every other Forge screen here vs. Yarn: Text -> Component, ButtonWidget -> Button,
+ * DrawContext -> GuiGraphics, addDrawableChild -> addRenderableWidget, .dimensions(...) -> .bounds(...).
  */
 public class CosmeticsScreen extends Screen {
     private static final int ROW_HEIGHT = 22;

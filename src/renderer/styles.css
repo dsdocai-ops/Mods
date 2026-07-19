@@ -970,6 +970,12 @@ input[type="checkbox"] {
   color: var(--text-faint);
 }
 
+/** A BADGE cosmetic has no gear silhouette to draw (it only recolors the Ω nametag prefix) - a plain colored dot instead of a glyph. */
+.cosmetic-swatch-badge {
+  display: inline-block;
+  border-radius: 50%;
+}
+
 .cosmetic-name {
   font-size: 13px;
   font-weight: 600;

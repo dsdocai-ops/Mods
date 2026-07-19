@@ -2,7 +2,6 @@
 package com.omega.client;
 
 import com.google.gson.Gson;
-import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.util.OmegaGson;
 
 import java.io.IOException;
@@ -78,20 +77,16 @@ public class ModConfig {
 
     /** Show an Omega badge next to the nametag of players known to be on Omega Client. */
     public boolean showOmegaUsersEnabled = true;
-    /**
-     * The active cosmetic per slot ("" = nothing worn there). A player can wear one of each at once.
-     * Set by the launcher's Cosmetics screen / redeem flow; broadcast by PresenceNetworking and drawn
-     * by CosmeticRenderer. See CosmeticCatalog for the id->color/slot maps.
-     */
-    public String activeHatId = "";
-    public String activeCapeId = "";
-    public String activeWingsId = "";
+    /** Empty = no cosmetic owned/selected. Set by the launcher's Cosmetics redeem flow; see CosmeticCatalog. */
+    public String ownedCosmeticId = "";
 
     /**
-     * Cosmetic *visibility* toggles - separate from the Ω badge (showOmegaUsersEnabled above) and
-     * from which cosmetic is equipped (active*Id above). These only decide what CosmeticRenderer
-     * draws for whoever's already broadcasting a cosmetic; same master+per-category shape as the
-     * particle toggles below. Both self and others start enabled so this is purely opt-out.
+     * Cosmetic *visibility* toggles - separate from the Ω badge (showOmegaUsersEnabled above, which
+     * only gates the nametag prefix and your own presence broadcast) and from which cosmetic is
+     * equipped (ownedCosmeticId above). These only decide what CosmeticFeatureRenderer/
+     * CosmeticRenderLayer draw for whoever's already broadcasting a cosmetic; same master+per-
+     * category shape as the particle toggles below. Both self and others start enabled so this is
+     * purely opt-out.
      */
     public boolean cosmeticsMasterEnabled = true;
     /** Whether your own worn cosmetic renders (e.g. visible to yourself in third-person). */
@@ -101,12 +96,6 @@ public class ModConfig {
     public boolean hatCosmeticsEnabled = true;
     public boolean capeCosmeticsEnabled = true;
     public boolean wingsCosmeticsEnabled = true;
-    /**
-     * Deprecated single-cosmetic field from before cosmetics had slots. Kept so old launcher writes
-     * and old configs still load; migrated into the per-slot fields on load (see loadFromDisk) and
-     * otherwise unused for rendering. Mirrors the current "primary" (badge) cosmetic on save.
-     */
-    public String ownedCosmeticId = "";
 
     public boolean particlesMasterEnabled = true;
     public boolean blockParticlesEnabled = true;
@@ -151,18 +140,6 @@ public class ModConfig {
             if (loaded.particleBlacklist == null) loaded.particleBlacklist = new ArrayList<>();
             if (loaded.highlightColorArgb == null) loaded.highlightColorArgb = "#803B9CFF";
             if (loaded.ownedCosmeticId == null) loaded.ownedCosmeticId = "";
-            if (loaded.activeHatId == null) loaded.activeHatId = "";
-            if (loaded.activeCapeId == null) loaded.activeCapeId = "";
-            if (loaded.activeWingsId == null) loaded.activeWingsId = "";
-            // Migrate a config written before cosmetics had slots: drop the old single id into the
-            // slot its type maps to, so an upgrade doesn't blank someone's cosmetic.
-            if (loaded.activeHatId.isEmpty() && loaded.activeCapeId.isEmpty() && loaded.activeWingsId.isEmpty()
-                    && !loaded.ownedCosmeticId.isEmpty()) {
-                CosmeticCatalog.Slot slot = CosmeticCatalog.typeOf(loaded.ownedCosmeticId);
-                if (slot == CosmeticCatalog.Slot.HAT) loaded.activeHatId = loaded.ownedCosmeticId;
-                else if (slot == CosmeticCatalog.Slot.CAPE) loaded.activeCapeId = loaded.ownedCosmeticId;
-                else if (slot == CosmeticCatalog.Slot.WINGS) loaded.activeWingsId = loaded.ownedCosmeticId;
-            }
             // A value outside the slider's intended 0.0-1.0 range (e.g. hand-edited, or typed into
             // the launcher's generic number input which has no range constraint) makes the density
             // check in ParticleFilter.shouldSpawn silently drop every particle regardless of the

@@ -4,11 +4,11 @@ package com.omega.client;
 import com.omega.client.features.BlockHighlightFeature;
 import com.omega.client.features.FovZoomFeature;
 import com.omega.client.features.FullbrightFeature;
-import com.omega.client.features.CosmeticRenderer;
 import com.omega.client.features.HudSettings;
 import com.omega.client.features.InfoHudFeature;
 import com.omega.client.features.ToggleSprintFeature;
 import com.omega.client.network.PresenceNetworking;
+import com.omega.client.render.CosmeticFeatureRenderer;
 import com.omega.client.schematic.SchematicRenderFeature;
 import com.omega.client.schematic.SchematicSelection;
 import com.omega.client.schematic.SchematicStorage;
@@ -18,8 +18,10 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.entity.PlayerEntityRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -44,7 +46,6 @@ public class OmegaClient implements ClientModInitializer {
     private final ToggleSprintFeature toggleSprint = new ToggleSprintFeature();
     private final BlockHighlightFeature blockHighlight = new BlockHighlightFeature();
     private final InfoHudFeature infoHud = new InfoHudFeature();
-    private final CosmeticRenderer cosmeticRenderer = new CosmeticRenderer();
     private final SchematicSelection schematicSelection = new SchematicSelection();
     private final SchematicRenderFeature schematicRender = new SchematicRenderFeature();
     private final SessionInfo session = SessionInfoLoader.load(FabricLoader.getInstance().getGameDir());
@@ -105,8 +106,14 @@ public class OmegaClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> blockHighlight.render(context, config));
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> schematicRender.render(context, config));
-        WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> cosmeticRenderer.render(context, config));
         HudRenderCallback.EVENT.register((drawContext, tickDelta) -> renderHud(drawContext));
+        // Gear cosmetics (hat/cape/wings) on players the presence channel knows - the callback
+        // fires once per player renderer ("default" and "slim" models) at registration time.
+        LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, registrationHelper, context) -> {
+            if (entityRenderer instanceof PlayerEntityRenderer playerRenderer) {
+                registrationHelper.register(new CosmeticFeatureRenderer(playerRenderer));
+            }
+        });
     }
 
     /** Opens the same menu the "key.omega-client.menu" keybind does - shared with GameMenuScreenMixin's Esc-menu Ω button. */

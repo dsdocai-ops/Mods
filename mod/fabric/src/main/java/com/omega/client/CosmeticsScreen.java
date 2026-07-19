@@ -11,10 +11,11 @@ import java.util.function.Consumer;
 
 /**
  * Cosmetic *visibility* toggles - a master switch, a self/others split, and one toggle per cosmetic
- * slot (hat/cape/wings). This is deliberately separate from the Ω name badge toggle on the main
+ * kind (hat/cape/wings). This is deliberately separate from the Ω name badge toggle on the main
  * menu (showOmegaUsersEnabled) and from equipping a cosmetic (done in the launcher's Cosmetics
- * page) - it only controls what CosmeticRenderer draws. Same master+per-category shape and
- * on/off-button-per-ModConfig-field pattern as ParticleScreen.
+ * page) - it only controls whether CosmeticFeatureRenderer draws a worn cosmetic at all (see
+ * OmegaHooks.shouldRenderCosmetic). Same master+per-category shape and on/off-button-per-
+ * ModConfig-field pattern as ParticleScreen.
  */
 public class CosmeticsScreen extends Screen {
     private static final int ROW_HEIGHT = 22;

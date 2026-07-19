@@ -18,7 +18,6 @@ import type {
   RedeemLicenseResult,
   ShaderPackInfo,
 } from "../shared/types";
-import type { ActiveSlots, CosmeticType } from "../shared/cosmetics";
 
 const api = {
   instances: {
@@ -83,9 +82,8 @@ const api = {
   licensing: {
     redeem: (key: string): Promise<RedeemLicenseResult> => ipcRenderer.invoke("licensing:redeem", key),
     listOwned: (): Promise<string[]> => ipcRenderer.invoke("licensing:listOwned"),
-    getActiveSlots: (): Promise<ActiveSlots> => ipcRenderer.invoke("licensing:getActiveSlots"),
-    setActiveSlot: (slot: CosmeticType, cosmeticId: string): Promise<ActiveSlots> =>
-      ipcRenderer.invoke("licensing:setActiveSlot", slot, cosmeticId),
+    getActive: (): Promise<string> => ipcRenderer.invoke("licensing:getActive"),
+    equip: (cosmeticId: string): Promise<void> => ipcRenderer.invoke("licensing:equip", cosmeticId),
   },
   install: {
     listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),

@@ -86,6 +86,25 @@ public final class OmegaHooks {
     public static int nametagBadgeColor(UUID playerUuid) {
         if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return NO_BADGE;
         if (!OmegaPresence.isOmegaUser(playerUuid)) return NO_BADGE;
-        return CosmeticCatalog.colorFor(OmegaPresence.cosmeticsOf(playerUuid).primary());
+        return CosmeticCatalog.colorFor(OmegaPresence.cosmeticOf(playerUuid));
+    }
+
+    /**
+     * Whether a worn cosmetic of the given kind should be drawn for this wearer - the master switch,
+     * self/others split, and per-kind toggles (set via the in-game Cosmetics... screen), all opt-out
+     * and all default on. Deliberately independent of {@link #nametagBadgeColor}/showOmegaUsersEnabled:
+     * that toggle only gates the nametag Ω prefix (and, in PresenceNetworking, whether you broadcast
+     * your own presence at all) - once someone IS visible as an Omega user, whether their gear
+     * actually renders is this separate opt-out group's call.
+     */
+    public static boolean shouldRenderCosmetic(boolean isSelf, CosmeticCatalog.Kind kind) {
+        if (!ModConfig.ACTIVE.cosmeticsMasterEnabled) return false;
+        if (isSelf ? !ModConfig.ACTIVE.showOwnCosmeticsEnabled : !ModConfig.ACTIVE.showOthersCosmeticsEnabled) return false;
+        return switch (kind) {
+            case HAT -> ModConfig.ACTIVE.hatCosmeticsEnabled;
+            case CAPE -> ModConfig.ACTIVE.capeCosmeticsEnabled;
+            case WINGS -> ModConfig.ACTIVE.wingsCosmeticsEnabled;
+            case BADGE -> true; // no visibility toggle for the badge itself - see nametagBadgeColor
+        };
     }
 }

@@ -43,25 +43,21 @@ public final class PresenceNetworking {
             FriendlyByteBuf payload = event.getPayload();
             if (payload != null && payload.readableBytes() >= 16) {
                 UUID uuid = payload.readUUID();
-                // The three per-slot cosmetic ids ride alongside the UUID - both ends of this channel
-                // are always the same mod version by construction (Omega only ever talks to Omega), so
-                // no wire-compat concern. Still guarded (readableBytes checks) rather than assumed present.
-                String hat = payload.readableBytes() > 0 ? payload.readUtf() : "";
-                String cape = payload.readableBytes() > 0 ? payload.readUtf() : "";
-                String wings = payload.readableBytes() > 0 ? payload.readUtf() : "";
-                Minecraft.getInstance().execute(() -> OmegaPresence.add(uuid, new OmegaPresence.CosmeticSet(hat, cape, wings)));
+                // Cosmetic id rides alongside the UUID - both ends of this channel are always the
+                // same mod version by construction (Omega only ever talks to Omega), so no wire-
+                // compat concern. Still guarded (readableBytes check) rather than assumed present.
+                String cosmeticId = payload.readableBytes() > 0 ? payload.readUtf() : "";
+                Minecraft.getInstance().execute(() -> OmegaPresence.add(uuid, cosmeticId));
             }
             event.getSource().get().setPacketHandled(true);
         });
 
         MinecraftForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> {
             if (!config.showOmegaUsersEnabled || event.getPlayer() == null) return;
-            OmegaPresence.add(event.getPlayer().getUUID(), new OmegaPresence.CosmeticSet(config.activeHatId, config.activeCapeId, config.activeWingsId));
+            OmegaPresence.add(event.getPlayer().getUUID(), config.ownedCosmeticId);
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
             buf.writeUUID(event.getPlayer().getUUID());
-            buf.writeUtf(config.activeHatId);
-            buf.writeUtf(config.activeCapeId);
-            buf.writeUtf(config.activeWingsId);
+            buf.writeUtf(config.ownedCosmeticId);
             event.getConnection().send(new ServerboundCustomPayloadPacket(CHANNEL, buf));
         });
 

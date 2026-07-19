@@ -1,5 +1,4 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
-import type { ActiveSlots, CosmeticType } from "@shared/cosmetics";
 import type {
   AppSettings,
   ConfigFormat,
@@ -72,8 +71,8 @@ export interface LauncherApi {
   licensing: {
     redeem(key: string): Promise<RedeemLicenseResult>;
     listOwned(): Promise<string[]>;
-    getActiveSlots(): Promise<ActiveSlots>;
-    setActiveSlot(slot: CosmeticType, cosmeticId: string): Promise<ActiveSlots>;
+    getActive(): Promise<string>;
+    equip(cosmeticId: string): Promise<void>;
   };
   install: {
     listVersions(): Promise<InstallableVersion[]>;
