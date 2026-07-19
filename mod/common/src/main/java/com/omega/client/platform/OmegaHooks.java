@@ -17,7 +17,7 @@ import java.util.UUID;
  * <ul>
  *   <li><b>Core</b> ({@code common/}) - feature logic that never touches version-volatile Minecraft
  *       internals. Compiles once against official mappings, remapped per loader by Loom.
- *   <li><b>Injection points</b> ({@code fabric/*/mixin}, {@code forge/*/mixin}) - the thin,
+ *   <li><b>Injection points</b> - the Mixins in the Fabric and Forge {@code mixin} packages: the thin,
  *       inherently version- and loader-specific glue that catches a game event and forwards it here.
  *       These are the only files that must be re-authored (or overlaid) for a new Minecraft version,
  *       because they name obfuscated methods/classes the mappings rename between versions.
