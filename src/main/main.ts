@@ -297,6 +297,8 @@ app.whenReady().then(() => {
     return accounts.addMicrosoftAccount(clientId, win);
   });
   ipcMain.handle("accounts:remove", (_e, id: string) => accounts.removeAccount(id));
+  // TEMPORARY (testing only): offline account that bypasses sign-in - see accountStore.addOfflineAccount.
+  ipcMain.handle("accounts:addOffline", (_e, username: string) => accounts.addOfflineAccount(username));
 
   ipcMain.handle("launch:start", async (_e, instance: Instance) => {
     if (runningProcesses.has(instance.id) || pendingLaunches.has(instance.id) || stoppingInstances.has(instance.id)) {

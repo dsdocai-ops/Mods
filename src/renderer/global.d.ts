@@ -91,6 +91,8 @@ export interface LauncherApi {
   accounts: {
     list(): Promise<PublicAccount[]>;
     addMicrosoft(): Promise<PublicAccount>;
+    /** TEMPORARY (testing only): offline account that bypasses Microsoft sign-in. */
+    addOffline(username: string): Promise<PublicAccount>;
     remove(id: string): Promise<void>;
   };
   launch: {

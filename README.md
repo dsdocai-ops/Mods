@@ -77,9 +77,11 @@ Each target should run on (or, for the simpler ones, be cross-compiled for) its 
 
 ## Microsoft sign-in
 
-Signing in is required - the launcher shows a full-screen "Sign in with Microsoft" prompt on first run and blocks everything else until you do. This works immediately, no setup needed: the launcher ships its own Azure AD app registration (a *public* client id, not a secret - safe to embed, see below), the same shared-client-id model MultiMC/Lunar/Feather-style launchers use.
+Signing in is required - the launcher shows a full-screen "Sign in with Microsoft" prompt on first run and blocks everything else until you do. The launcher ships a default Azure AD app registration (a *public* client id, not a secret - safe to embed, see below), the same shared-client-id model MultiMC/Lunar/Feather-style launchers use.
 
-Using your own Azure app registration instead (optional - e.g. if you're distributing your own fork and don't want to share sign-in quota with the upstream build):
+**Important - Mojang API approval:** passing Microsoft/Xbox OAuth is not enough. Mojang gates the final step of sign-in (`api.minecraftservices.com/authentication/login_with_xbox`) on a manual allow-list of Azure client IDs. An app that isn't on that list gets a **403** at exactly that step, even though the Microsoft login window itself worked fine. Every third-party launcher (Prism, MultiMC, ...) had to submit their client ID for review; to use your own, submit it at **https://aka.ms/mce-reviewappid** after registering it below, and wait for Mojang's approval email (this is manual and can take days to weeks). Until the client ID in use is approved, sign-in cannot complete - there is no code-side workaround.
+
+Registering your own Azure app (needed if the shipped default is rejected with a 403, or if you're distributing your own fork):
 
 1. Go to **portal.azure.com** → **App registrations** → **New registration**.
 2. Name it anything.
@@ -87,7 +89,8 @@ Using your own Azure app registration instead (optional - e.g. if you're distrib
 4. **Authentication** → **Add a platform** → **Mobile and desktop applications** → check `https://login.microsoftonline.com/common/oauth2/nativeclient` → Save.
 5. Still on **Authentication**: set **"Allow public client flows"** to **Yes** → Save. (No client secret needed - a secret shipped in desktop app code isn't actually secret, so this app is registered as a public/native client using PKCE instead.)
 6. Copy the **Application (client) ID** from the **Overview** page.
-7. In the launcher: **Settings** → paste it into **"Microsoft sign-in client ID"**, replacing the shipped default → **Save**.
+7. Submit that client ID for Minecraft API approval at **https://aka.ms/mce-reviewappid** and wait for the approval email.
+8. In the launcher: **Settings** → paste it into **"Microsoft sign-in client ID"**, replacing the shipped default → **Save**. (Before first sign-in, the same field is under **Advanced** on the sign-in screen.)
 
 Once signed in, every instance uses the signed-in account automatically - there's no offline mode to opt out into. If you've linked more than one account, the account switcher next to the **Play** button (or the **Account** dropdown in an instance's **Instance Settings** tab) picks which one an instance uses.
 

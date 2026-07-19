@@ -111,6 +111,8 @@ const api = {
   accounts: {
     list: (): Promise<PublicAccount[]> => ipcRenderer.invoke("accounts:list"),
     addMicrosoft: (): Promise<PublicAccount> => ipcRenderer.invoke("accounts:addMicrosoft"),
+    // TEMPORARY (testing only): bypasses sign-in with an offline account - remove with the sign-in screen's offline button.
+    addOffline: (username: string): Promise<PublicAccount> => ipcRenderer.invoke("accounts:addOffline", username),
     remove: (id: string): Promise<void> => ipcRenderer.invoke("accounts:remove", id),
   },
   launch: {

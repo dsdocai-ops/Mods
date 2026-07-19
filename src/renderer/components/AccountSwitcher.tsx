@@ -71,7 +71,8 @@ export default function AccountSwitcher({ instance, accounts, onAccountChange, o
               className={`account-switcher-item ${instance.accountId === account.id ? "active" : ""}`}
               onClick={() => selectAccount(account.id)}
             >
-              {account.username} <span className="account-switcher-badge">Microsoft</span>
+              {account.username}{" "}
+              <span className="account-switcher-badge">{account.type === "offline" ? "Offline (testing)" : "Microsoft"}</span>
             </button>
           ))}
           <div className="account-switcher-divider" />
