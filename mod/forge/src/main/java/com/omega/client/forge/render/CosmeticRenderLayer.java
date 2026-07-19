@@ -3,7 +3,7 @@ package com.omega.client.forge.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.omega.client.ModConfig;
+import com.omega.client.platform.OmegaHooks;
 import com.omega.client.presence.CosmeticAnimation;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.CosmeticGeometry;
@@ -55,10 +55,11 @@ public class CosmeticRenderLayer extends RenderLayer<AbstractClientPlayer, Playe
     @Override
     public void render(PoseStack poseStack, MultiBufferSource buffers, int packedLight, AbstractClientPlayer player,
                        float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-        if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return;
         if (player.isInvisible() || player.isSpectator()) return;
         CosmeticCatalog.Cosmetic cosmetic = CosmeticCatalog.get(OmegaPresence.cosmeticOf(player.getUUID()));
         if (cosmetic == null) return;
+        boolean isSelf = player == Minecraft.getInstance().player;
+        if (!OmegaHooks.shouldRenderCosmetic(isSelf, cosmetic.kind())) return;
 
         if (cosmetic.textureId() != null) {
             renderTextured(poseStack, buffers, packedLight, cosmetic, ageInTicks, limbSwingAmount);

@@ -1,9 +1,11 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ConfigFormat, Instance, ModInfo, ModTag, PublicAccount } from "@shared/types";
+import type { ConfigFormat, Instance, ModInfo, ModrinthUpdate, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
+import DiscoverMods from "../components/DiscoverMods";
+import { ArrowRightIcon, PlayIcon, PlusIcon, RefreshIcon } from "../components/Icons";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
 import ShadersPanel from "../components/ShadersPanel";
@@ -25,11 +27,15 @@ interface Props {
   onInstanceChanged: () => void;
   onDeleted: () => void;
   onOpenGlobalSettings: () => void;
+  /** Returns to the Play screen (the instances hub this detail view is opened from). */
+  onBack: () => void;
+  /** Which tab to open on first render - the sidebar's Mods item deep-links straight to "mods". */
+  initialTab?: Tab;
   /** Bumped when the game signals a switch-account request for this instance - see AccountSwitcher. */
   accountSwitchOpenSignal: number;
 }
 
-type Tab = "mods" | "shaders" | "console" | "settings";
+export type Tab = "mods" | "shaders" | "console" | "settings";
 
 export default function InstanceDetail({
   instance,
@@ -40,11 +46,17 @@ export default function InstanceDetail({
   onInstanceChanged,
   onDeleted,
   onOpenGlobalSettings,
+  onBack,
+  initialTab = "mods",
   accountSwitchOpenSignal,
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState<Tab>("mods");
+  const [modsView, setModsView] = useState<"installed" | "discover">("installed");
+  const [updates, setUpdates] = useState<ModrinthUpdate[]>([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
@@ -55,9 +67,27 @@ export default function InstanceDetail({
     data: Record<string, unknown>;
   } | null>(null);
 
+  // Best-effort update check against Modrinth (hash-lookup). An automatic check (on load) stays
+  // silent on failure so an offline machine or a Modrinth outage simply shows no update prompts; a
+  // manual check (the "Check for updates" button) surfaces the result - an error toast, or an
+  // "up to date" note when nothing's found - so the click visibly did something.
+  const checkUpdates = async (manual = false) => {
+    setCheckingUpdates(true);
+    try {
+      const found = await window.api.modrinth.checkUpdates(instance.modsDir, instance.loader, instance.versionId);
+      setUpdates(found);
+      if (manual && found.length === 0) toast("All mods are up to date", "success");
+    } catch (err) {
+      if (manual) toast(`Couldn't check for updates: ${err instanceof Error ? err.message : String(err)}`, "error");
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
   const loadMods = async () => {
     const list = await window.api.mods.list(instance.modsDir);
     setMods(list);
+    checkUpdates();
   };
 
   const loadAccounts = () => window.api.accounts.list().then(setAccounts);
@@ -171,6 +201,53 @@ export default function InstanceDetail({
     [instance.modsDir]
   );
 
+  // Kept current so the useCallback-stable per-row updateOne (needed to preserve ModRow's memo)
+  // can read the latest updates/busy state without changing identity every render.
+  const updatesRef = useRef<ModrinthUpdate[]>(updates);
+  updatesRef.current = updates;
+  const bulkUpdatingRef = useRef(bulkUpdating);
+  bulkUpdatingRef.current = bulkUpdating;
+
+  const updateByFile = useMemo(() => new Map(updates.map((u) => [u.fileName, u] as const)), [updates]);
+
+  const updateAll = async () => {
+    if (updates.length === 0 || bulkUpdating) return;
+    setBulkUpdating(true);
+    try {
+      const result = await window.api.modrinth.applyUpdates(instance.modsDir, updates, instance.loader, instance.versionId);
+      const newDeps = result.installedFiles.length - updates.length;
+      toast(
+        `Updated ${updates.length} mod${updates.length === 1 ? "" : "s"}${newDeps > 0 ? ` (+${newDeps} new dependenc${newDeps === 1 ? "y" : "ies"})` : ""}`,
+        "success"
+      );
+      setUpdates([]);
+      await loadMods();
+    } catch (err) {
+      toast(`Couldn't update mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const updateOne = useCallback(
+    async (mod: ModInfo) => {
+      const target = updatesRef.current.find((u) => u.fileName === mod.fileName);
+      if (!target || bulkUpdatingRef.current) return;
+      try {
+        const result = await window.api.modrinth.applyUpdates(instance.modsDir, [target], instance.loader, instance.versionId);
+        const newDeps = result.installedFiles.length - 1;
+        toast(`Updated ${mod.name} to v${target.newVersion}${newDeps > 0 ? ` (+${newDeps} new dependenc${newDeps === 1 ? "y" : "ies"})` : ""}`, "success");
+        setUpdates((prev) => prev.filter((u) => u.fileName !== mod.fileName));
+        await loadMods();
+      } catch (err) {
+        toast(`Couldn't update ${mod.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
+      }
+    },
+    // instance is stable for this component's life (App keys InstanceDetail by instance.id), so this
+    // is effectively a constant identity - exactly what ModRow's memo needs.
+    [instance.modsDir] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const applyPreset = async (tags: ModTag[]) => {
     const requestId = ++modsRequestRef.current;
     try {
@@ -227,6 +304,12 @@ export default function InstanceDetail({
 
   return (
     <div className="instance-detail">
+      <button className="back-link" onClick={onBack}>
+        <span className="back-arrow">
+          <ArrowRightIcon size={14} />
+        </span>
+        Back to Play
+      </button>
       <header className="instance-header">
         <div>
           <h1>{instance.name}</h1>
@@ -249,7 +332,7 @@ export default function InstanceDetail({
             </button>
           ) : (
             <button className="btn btn-primary btn-play" onClick={onLaunch}>
-              ▶ Play
+              <PlayIcon size={14} /> Play
             </button>
           )}
         </div>
@@ -272,48 +355,103 @@ export default function InstanceDetail({
 
       {tab === "mods" && (
         <div className="mods-panel">
-          <div className="mods-toolbar">
-            <input
-              className="input"
-              placeholder="Search mods or tags (e.g. pvp, performance)"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+          <div className="mods-segmented">
+            <button
+              className={modsView === "installed" ? "seg active" : "seg"}
+              onClick={() => setModsView("installed")}
+            >
+              Installed ({mods.length})
+            </button>
+            <button
+              className={modsView === "discover" ? "seg active" : "seg"}
+              onClick={() => setModsView("discover")}
+            >
+              Discover
+            </button>
+          </div>
+
+          {modsView === "installed" ? (
+            <>
+              {updates.length > 0 && (
+                <div className="update-bar">
+                  <span className="update-bar-label">
+                    <RefreshIcon size={15} /> {updates.length} update{updates.length === 1 ? "" : "s"} available from Modrinth
+                  </span>
+                  <button className="btn btn-primary btn-sm" disabled={bulkUpdating} onClick={updateAll}>
+                    {bulkUpdating ? "Updating..." : "Update all"}
+                  </button>
+                </div>
+              )}
+
+              <div className="mods-toolbar">
+                <input
+                  className="input"
+                  placeholder="Search mods or tags (e.g. pvp, performance)"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                <button
+                  className="btn btn-secondary"
+                  disabled={checkingUpdates || bulkUpdating}
+                  title="Check Modrinth for newer versions of your installed mods"
+                  onClick={() => checkUpdates(true)}
+                >
+                  <span className={checkingUpdates ? "spin" : undefined}>
+                    <RefreshIcon size={14} />
+                  </span>
+                  {checkingUpdates ? "Checking…" : "Check for updates"}
+                </button>
+                <button className="btn btn-secondary" onClick={handleImport}>
+                  <PlusIcon size={14} /> Import your mods
+                </button>
+              </div>
+
+              <div className="preset-bar">
+                <span className="preset-label">Presets:</span>
+                {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
+                  <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
+                    {preset.label}
+                  </button>
+                ))}
+                <button className="btn btn-chip" onClick={enableAll}>
+                  Enable all
+                </button>
+                <button className="btn btn-chip" onClick={disableAll}>
+                  Disable all
+                </button>
+              </div>
+
+              <div className="mod-list">
+                {filteredMods.length === 0 && (
+                  <p className="empty-hint">
+                    No mods yet. Click "Discover" to browse and install mods from Modrinth, or "Import your mods" to add
+                    .jar files from your existing mods folder - either way they show up here as toggles.
+                  </p>
+                )}
+                {filteredMods.map((mod) => (
+                  <ModRow
+                    key={mod.id}
+                    mod={mod}
+                    onToggle={handleToggle}
+                    onRemove={handleRemove}
+                    onConfigure={openConfig}
+                    updateVersion={updateByFile.get(mod.fileName)?.newVersion}
+                    onUpdate={bulkUpdating ? undefined : updateOne}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <DiscoverMods
+              instance={instance}
+              installedFileNames={new Set(mods.map((m) => m.id))}
+              onInstalled={loadMods}
             />
-            <button className="btn btn-secondary" onClick={handleImport}>
-              + Import your mods
-            </button>
-          </div>
-
-          <div className="preset-bar">
-            <span className="preset-label">Presets:</span>
-            {Object.entries(MOD_TAG_PRESETS).map(([key, preset]) => (
-              <button key={key} className="btn btn-chip" title={preset.description} onClick={() => applyPreset(preset.tags)}>
-                {preset.label}
-              </button>
-            ))}
-            <button className="btn btn-chip" onClick={enableAll}>
-              Enable all
-            </button>
-            <button className="btn btn-chip" onClick={disableAll}>
-              Disable all
-            </button>
-          </div>
-
-          <div className="mod-list">
-            {filteredMods.length === 0 && (
-              <p className="empty-hint">
-                No mods yet. Click "Import your mods" to add the .jar files from your existing mods folder - they'll
-                show up here as toggles.
-              </p>
-            )}
-            {filteredMods.map((mod) => (
-              <ModRow key={mod.id} mod={mod} onToggle={handleToggle} onRemove={handleRemove} onConfigure={openConfig} />
-            ))}
-          </div>
+          )}
         </div>
       )}
 
-      {tab === "shaders" && <ShadersPanel modsDir={instance.modsDir} />}
+      {tab === "shaders" && <ShadersPanel instance={instance} />}
 
       {tab === "console" && <ConsoleLog lines={logLines} />}
 
@@ -369,13 +507,18 @@ export default function InstanceDetail({
             />
           </label>
 
+          <p className="instance-subtitle field-note">
+            Smooth PvP (low-latency GC tuning) is now toggled in-game in the Omega menu (Right Shift) - like every
+            other feature. It applies on the next launch, since JVM tuning can't change mid-game.
+          </p>
+
           <label className="field-checkbox">
             <input
               type="checkbox"
-              checked={draft.jvm.useSmoothPvpFlags}
-              onChange={(e) => setDraft({ ...draft, jvm: { ...draft.jvm, useSmoothPvpFlags: e.target.checked } })}
+              checked={!!draft.autoUpdateMods}
+              onChange={(e) => setDraft({ ...draft, autoUpdateMods: e.target.checked })}
             />
-            <span>Use smooth-PvP GC tuning (reduces stutter/frame hitches during fights)</span>
+            <span>Automatically update mods from Modrinth before launching this instance</span>
           </label>
 
           <label className="field">

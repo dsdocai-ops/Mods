@@ -1,7 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 package com.omega.client.render;
 
-import com.omega.client.ModConfig;
+import com.omega.client.platform.OmegaHooks;
 import com.omega.client.presence.CosmeticAnimation;
 import com.omega.client.presence.CosmeticCatalog;
 import com.omega.client.presence.CosmeticGeometry;
@@ -29,7 +29,9 @@ import org.joml.Vector3f;
 
 /**
  * Draws gear cosmetics (hat/cape/wings - see CosmeticCatalog.Kind) on players known to be running
- * Omega Client, one of two ways depending on the cosmetic (see CosmeticCatalog.Cosmetic's doc):
+ * Omega Client, gated per-kind and per-self/others by OmegaHooks.shouldRenderCosmetic (the in-game
+ * Cosmetics... screen's toggles - deliberately independent of the nametag Ω badge), one of two ways
+ * depending on the cosmetic (see CosmeticCatalog.Cosmetic's doc):
  *
  * PROCEDURAL (renderProcedural, cosmetic.art() != null) - pixel art extruded by CosmeticGeometry
  * into per-pixel colored quads the way vanilla extrudes item textures, drawn with
@@ -75,10 +77,11 @@ public class CosmeticFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
     @Override
     public void render(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, AbstractClientPlayerEntity player,
                        float limbAngle, float limbDistance, float tickDelta, float animationProgress, float headYaw, float headPitch) {
-        if (!ModConfig.ACTIVE.showOmegaUsersEnabled) return;
         if (player.isInvisible() || player.isSpectator()) return;
         CosmeticCatalog.Cosmetic cosmetic = CosmeticCatalog.get(OmegaPresence.cosmeticOf(player.getUuid()));
         if (cosmetic == null) return;
+        boolean isSelf = player == MinecraftClient.getInstance().player;
+        if (!OmegaHooks.shouldRenderCosmetic(isSelf, cosmetic.kind())) return;
 
         if (cosmetic.textureId() != null) {
             renderTextured(matrices, vertexConsumers, light, cosmetic, animationProgress, limbDistance);

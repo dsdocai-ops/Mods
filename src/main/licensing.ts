@@ -12,6 +12,13 @@ const LICENSES_FILE = "licenses.json";
 
 interface StoredLicenses {
   ownedCosmetics: string[];
+  /**
+   * The one cosmetic currently worn ("" = none) - tracked explicitly, NOT inferred from
+   * ownedCosmetics' order: re-equipping an already-owned id doesn't move it within that array (it's
+   * an append-only unlock history), so "last owned" and "currently equipped" are genuinely
+   * different questions and need separate storage.
+   */
+  activeCosmetic: string;
 }
 
 // Plain JSON, not encrypted like accountStore.ts's tokens - there's no secret here to protect
@@ -24,13 +31,16 @@ function licensesFilePath(): string {
 
 function readLicenses(): StoredLicenses {
   const file = licensesFilePath();
-  if (!fs.existsSync(file)) return { ownedCosmetics: [] };
+  if (!fs.existsSync(file)) return { ownedCosmetics: [], activeCosmetic: "" };
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf-8"));
-    const ownedCosmetics = (parsed as Partial<StoredLicenses>)?.ownedCosmetics;
-    return { ownedCosmetics: Array.isArray(ownedCosmetics) ? ownedCosmetics : [] };
+    const partial = parsed as Partial<StoredLicenses>;
+    return {
+      ownedCosmetics: Array.isArray(partial?.ownedCosmetics) ? partial.ownedCosmetics : [],
+      activeCosmetic: typeof partial?.activeCosmetic === "string" ? partial.activeCosmetic : "",
+    };
   } catch {
-    return { ownedCosmetics: [] };
+    return { ownedCosmetics: [], activeCosmetic: "" };
   }
 }
 
@@ -44,18 +54,28 @@ export function getOwnedCosmetics(): string[] {
   return readLicenses().ownedCosmetics;
 }
 
+/** "" if nothing is currently equipped. */
+export function getActiveCosmetic(): string {
+  return readLicenses().activeCosmetic;
+}
+
 /**
  * Records a cosmetic as owned and writes it into every instance's mod config (ownedCosmeticId, read
  * by the mod at launch and broadcast over the presence channel - see CosmeticCatalog.java for known
- * ids). Real and independently callable/testable today, even though redeemLicenseKey() below can't
- * reach it yet - this is what a real payment-provider integration will call once one exists.
+ * ids). A player wears at most one cosmetic overall, so equipping one replaces whatever was worn
+ * before - the thing you just unlocked (by redeeming a key, or re-equipping something you already
+ * own) is presumably what you want showing. Real and independently callable/testable today, even
+ * though redeemLicenseKey() below is the only current caller - this is what a real payment-provider
+ * integration will call once one exists, and what the launcher's Cosmetics page calls to switch
+ * which owned cosmetic is worn.
  */
 export function unlockCosmetic(cosmeticId: string): void {
   const licenses = readLicenses();
   if (!licenses.ownedCosmetics.includes(cosmeticId)) {
     licenses.ownedCosmetics.push(cosmeticId);
-    writeLicenses(licenses);
   }
+  licenses.activeCosmetic = cosmeticId;
+  writeLicenses(licenses);
 
   for (const instance of listInstances()) {
     // One instance's config being unreadable/unwritable (corrupt JSON, permissions, disk full)
@@ -66,11 +86,25 @@ export function unlockCosmetic(cosmeticId: string): void {
       const configFile = readModConfigFile(configPath);
       writeModConfigFile(configPath, configFile.format, { ...configFile.data, ownedCosmeticId: cosmeticId });
     } catch {
-      // Best-effort: licenses.json (source of truth for the Settings UI) is already updated above,
+      // Best-effort: licenses.json (source of truth for the launcher UI) is already updated above,
       // and the mod re-derives ownedCosmeticId from this same write path the next time any config
       // change touches this instance.
     }
   }
+}
+
+/**
+ * Re-equips an already-owned cosmetic (the launcher Cosmetics page's "switch back to something you
+ * already own" action, as opposed to unlockCosmetic's "just redeemed/paid for this"). Throws if the
+ * id isn't owned - a renderer bug or a tampered IPC call shouldn't be able to equip something that
+ * was never actually unlocked, even though the underlying config write is itself just a soft,
+ * self-reported gate (see the LICENSE_SECRET comment below).
+ */
+export function equipOwnedCosmetic(cosmeticId: string): void {
+  if (!readLicenses().ownedCosmetics.includes(cosmeticId)) {
+    throw new Error("You don't own that cosmetic.");
+  }
+  unlockCosmetic(cosmeticId);
 }
 
 // Replace with your own secret before shipping - keys are generated with the matching formula in

@@ -48,6 +48,15 @@ public class ModConfig {
 
     public boolean toggleSprintEnabled = false;
 
+    /**
+     * Whether the launcher applies its low-latency G1GC ("smooth PvP") JVM tuning when starting this
+     * instance. Toggled from the in-game Omega menu like every other setting, but unlike the rest it
+     * takes effect on the *next* launch, not live: JVM garbage-collector flags are fixed when the JVM
+     * starts and can't change while the game is running. The launcher reads this field from
+     * config/omega-client.json before spawning Java - see launch.ts's readSmoothPvpPreference.
+     */
+    public boolean smoothPvpEnabled = true;
+
     public boolean hudEnabled = true;
     public boolean hudShowCoords = true;
     public boolean hudShowFps = true;
@@ -70,6 +79,23 @@ public class ModConfig {
     public boolean showOmegaUsersEnabled = true;
     /** Empty = no cosmetic owned/selected. Set by the launcher's Cosmetics redeem flow; see CosmeticCatalog. */
     public String ownedCosmeticId = "";
+
+    /**
+     * Cosmetic *visibility* toggles - separate from the Ω badge (showOmegaUsersEnabled above, which
+     * only gates the nametag prefix and your own presence broadcast) and from which cosmetic is
+     * equipped (ownedCosmeticId above). These only decide what CosmeticFeatureRenderer/
+     * CosmeticRenderLayer draw for whoever's already broadcasting a cosmetic; same master+per-
+     * category shape as the particle toggles below. Both self and others start enabled so this is
+     * purely opt-out.
+     */
+    public boolean cosmeticsMasterEnabled = true;
+    /** Whether your own worn cosmetic renders (e.g. visible to yourself in third-person). */
+    public boolean showOwnCosmeticsEnabled = true;
+    /** Whether other players' worn cosmetics render on your screen. */
+    public boolean showOthersCosmeticsEnabled = true;
+    public boolean hatCosmeticsEnabled = true;
+    public boolean capeCosmeticsEnabled = true;
+    public boolean wingsCosmeticsEnabled = true;
 
     public boolean particlesMasterEnabled = true;
     public boolean blockParticlesEnabled = true;
