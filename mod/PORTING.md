@@ -80,3 +80,13 @@ Emit **version-tagged jars** (`omega-client-fabric-<mc>.jar`) so versions don't 
 ## Step 5 — Verify
 
 There is no local compile in the authoring sandbox; CI is the verification. Land Step 2 (overlay, 1.20.1 only) green first, then the 1.21.11 overlay + coordinates, then the matrix. Expect several CI rounds on Step 3's mapping names — that iteration is inherent to porting blind and is exactly why the mixin bodies were reduced to `OmegaHooks` calls first, so each round only ever adjusts a target coordinate, never logic.
+
+## Attempt log — 1.20.4 as a proof-of-pipeline (reverted)
+
+A first attempt to add **1.20.4** (as an easy same-family second version, to prove the whole pipeline end to end) got as far as CI and was reverted. Two findings worth not rediscovering:
+
+1. **Version-tagged jars work.** Baking `minecraft_version` into `archivesName` (done, on `main`) builds green and lets multiple versions' jars coexist; the launcher's `findBundledJar`/`omegaJarFor` already select by the `<loader>-<mc>-` prefix. This half is proven.
+
+2. **Passing coordinates as `gradle -P` overrides is not reliable for the Loom mapping.** Running `gradle :fabric:build -Pminecraft_version=1.20.4 -Pyarn_mappings=1.20.4+build.3 ...` in the same job *after* a default (1.20.1) build: `-Pminecraft_version` took effect (Loom used the `fabric-loom/1.20.4/` cache), but the Minecraft **remap still used the default yarn `1.20.1+build.10`**, producing tinyremapper "Unfixable conflicts". The `-P` flag reached Gradle (confirmed in the echoed command) — Loom just didn't recompute the yarn mapping for the changed MC version within the same Gradle user home. **Prefer writing each version's coordinates into `gradle.properties` directly (a per-version overlay/props file, or `sed` in CI) over `-P`, and build each version from a clean Gradle state.**
+
+3. **The blocker that actually stopped it: real coordinates.** The authoring sandbox can't reach the Fabric/Mojang/Maven metadata hosts, so the exact `yarn_mappings` / `fabric_version` / `forge_version` build numbers for a new MC version can't be looked up, and a wrong guess only yields "cannot resolve"/remap-conflict errors that don't reveal the right value. **This step must be done where that metadata is reachable** (fill the table in Step 1 from the source-of-truth URLs). Everything else here is ready for it.
