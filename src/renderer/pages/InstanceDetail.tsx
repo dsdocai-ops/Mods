@@ -282,6 +282,13 @@ export default function InstanceDetail({
 
   const handleDelete = async () => {
     if (deleting) return;
+    if (isRunning) {
+      toast(`Stop ${instance.name} before deleting it`, "error");
+      return;
+    }
+    if (!window.confirm(`Delete "${instance.name}"? This removes it from Omega Client - its mods, worlds, and settings on disk are untouched.`)) {
+      return;
+    }
     setDeleting(true);
     try {
       await onDeleted();
@@ -564,7 +571,12 @@ export default function InstanceDetail({
             <button className="btn btn-primary" onClick={saveDraft}>
               Save
             </button>
-            <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+            <button
+              className="btn btn-danger"
+              disabled={deleting || isRunning}
+              title={isRunning ? "Stop the instance before deleting it" : undefined}
+              onClick={handleDelete}
+            >
               {deleting ? "Deleting..." : "Delete instance"}
             </button>
           </div>
