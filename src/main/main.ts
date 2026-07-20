@@ -11,7 +11,8 @@ import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
 import { launchInstance, sweepStaleNativesDirs, SWITCH_ACCOUNT_MARKER_NAME } from "./launch";
-import { installFabric, installForge, installVanilla, listInstallableVersions } from "./installer";
+import { installFabric, installForge, installVanilla } from "./installer";
+import { getVersionCatalog } from "./versionsCatalog";
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
@@ -218,7 +219,9 @@ app.whenReady().then(() => {
   ipcMain.handle("licensing:getActive", () => licensing.getActiveCosmetic());
   ipcMain.handle("licensing:equip", (_e, cosmeticId: string) => licensing.equipOwnedCosmetic(cosmeticId));
 
-  ipcMain.handle("install:listVersions", () => listInstallableVersions());
+  // Same channel/shape as before (InstallableVersion[]), now enriched with each release's Omega
+  // support tier/loaders via the versions catalog - the version picker uses it to badge ports.
+  ipcMain.handle("install:listVersions", () => getVersionCatalog());
 
   // One install at a time: two concurrent installs into the same gameDir would race on the same
   // files, and the single progress channel couldn't tell them apart anyway.

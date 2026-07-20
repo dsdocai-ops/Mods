@@ -172,6 +172,9 @@ jobs:
         if: always()
         working-directory: mod
         run: gradle :forge:build --no-daemon --stacktrace
+      # The repo-root omega-versions.json is the launcher's support manifest (which MC versions/tiers
+      # the Omega mod ships): the release job publishes it alongside these jars in lockstep, so an
+      # entry is only ever visible to clients once its matching jar actually exists on the release.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -245,6 +248,13 @@ jobs:
         with:
           merge-multiple: true
           path: dist
+      # omega-versions.json lives in the repo, not in a build artifact - check the repo out to repo/
+      # (path: repo so it doesn't clobber the downloaded artifacts in dist/) and copy the manifest
+      # into dist/ below, so it's both seen by the purge loop (an expected asset, not deleted) and
+      # picked up by the upload glob. Published in lockstep with the mod jars, same run.
+      - uses: actions/checkout@v4
+        with:
+          path: repo
       - name: Create/update latest-build release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -254,6 +264,8 @@ jobs:
           # because this particular run didn't produce it.
           ALL_PLATFORMS_OK: ${{ needs.launcher-windows.result == 'success' && needs.launcher-mac.result == 'success' && needs.launcher-linux.result == 'success' && needs.mod-jars.result == 'success' }}
         run: |
+          # The support manifest ships as a release asset next to the jars (see checkout step above).
+          cp repo/omega-versions.json dist/
           NOTES="Rolling release updated by CI on every successful build. Launcher: OmegaClient-Portable.exe / OmegaClient-Setup.exe (Windows), OmegaClient-*.dmg / .zip (macOS, unsigned - right-click > Open past Gatekeeper), OmegaClient-*.AppImage (Linux, unsigned - chmod +x it). Mod: the -fabric / -forge jars (skip -sources). latest*.yml/.blockmap are auto-update metadata - ignore them."
           gh release create latest-build --repo "$GITHUB_REPOSITORY" \
             --title "Omega Client - latest CI build" \
@@ -270,7 +282,7 @@ jobs:
               fi
             done
           fi
-          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \))
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.yml' -o -name '*.blockmap' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.json' \))
           # gh release upload --clobber deletes-then-reuploads any same-name asset internally (same
           # as the purge loop above) - GitHub's backend occasionally hasn't finished committing that
           # deletion by the time the following upload POST lands, which surfaces as a transient
@@ -305,10 +317,17 @@ jobs:
         with:
           merge-multiple: true
           path: dist
+      # Same as the release job: omega-versions.json is a repo file, not a build artifact - check it
+      # out to repo/ (path: repo so it doesn't clobber dist/) and copy it into dist/ below so the
+      # preview release carries the support manifest too.
+      - uses: actions/checkout@v4
+        with:
+          path: repo
       - name: Create/update dev-preview prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cp repo/omega-versions.json dist/
           NOTES="Latest dev-branch build (branch: ${GITHUB_REF_NAME}, commit: ${GITHUB_SHA::7}) - updated by CI on every push to a claude/** branch. This is WORK IN PROGRESS for testing, NOT the stable release, and installed clients never auto-update from here. Windows: OmegaClient-Portable.exe / OmegaClient-Setup.exe. macOS: OmegaClient-*.dmg / .zip (unsigned - right-click > Open past Gatekeeper). Linux: OmegaClient-*.AppImage (chmod +x it). Mod: the -fabric / -forge jars (skip -sources)."
           gh release create dev-preview --repo "$GITHUB_REPOSITORY" \
             --title "Omega Client - dev preview (branch build)" \
@@ -316,7 +335,7 @@ jobs:
             --prerelease || true
           gh release edit dev-preview --repo "$GITHUB_REPOSITORY" --title "Omega Client - dev preview (branch build)" --notes "$NOTES" --prerelease
           # Manual-download installers only - no auto-update yml/.blockmap (see the job comment).
-          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \))
+          mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.jar' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.json' \))
           for attempt in 1 2 3 4 5; do
             if gh release upload dev-preview --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"; then
               exit 0

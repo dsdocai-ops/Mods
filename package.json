@@ -54,6 +54,13 @@
         "filter": [
           "*.jar"
         ]
+      },
+      {
+        "from": ".",
+        "to": "bundled",
+        "filter": [
+          "omega-versions.json"
+        ]
       }
     ],
     "directories": {

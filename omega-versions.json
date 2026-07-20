@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "versions": [
+    { "minecraft": "1.20.1", "tier": "main", "loaders": ["fabric", "forge"], "modVersion": "0.1.0" }
+  ]
+}

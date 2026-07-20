@@ -3,7 +3,7 @@
 
 Worked example: **Minecraft 1.21.11** (the first target beyond 1.20.1). Follow the same steps for any later version.
 
-This is the executable checklist for the "injection points" half of the multi-version architecture described in `README.md` → "Multi-version architecture". The core (`common/`) and the `OmegaHooks` seam do **not** change per version; only the thin, mapping-specific injection points do. The launcher side is already version-aware (`src/main/bundledMods.ts`'s `OMEGA_MOD_MINECRAFT_VERSIONS` — add the new version there once a jar for it actually ships).
+This is the executable checklist for the "injection points" half of the multi-version architecture described in `README.md` → "Multi-version architecture". The core (`common/`) and the `OmegaHooks` seam do **not** change per version; only the thin, mapping-specific injection points do. The launcher side is already version-aware (via `omega-versions.json` at repo root, read by `src/main/versionsCatalog.ts` — add the new version there once a jar for it actually ships).
 
 > **Why this is a checklist and not a finished commit:** the dev sandbox that authored this cannot reach the Fabric/Mojang/Maven hosts (the proxy 403-denies them — same reason the mod only ever builds in CI) and cannot compile the mod, so the two things this port turns on — the exact version coordinates, and whether each obfuscated mixin target still resolves — can only be obtained/verified in an environment with network + Gradle. Everything below is written so that environment can execute it directly.
 
@@ -75,7 +75,7 @@ steps:
   - run: ./gradlew :fabric:build :forge:build -Pminecraft_version=${{ matrix.mc }} -Pyarn_mappings=... (etc.)
 ```
 
-Emit **version-tagged jars** (`omega-client-fabric-<mc>.jar`) so versions don't collide, and update the three consumers in lockstep: the artifact upload globs, the launcher's `findBundledJar` (match `omega-client-<loader>-<mc>`), and `omegaJarFor` (fetch/select by the instance's resolved MC version). Add `1.21.11` to `OMEGA_MOD_MINECRAFT_VERSIONS` **only after** its jar is actually published, or a matching instance gets handed a nonexistent jar.
+Emit **version-tagged jars** (`omega-client-fabric-<mc>.jar`) so versions don't collide, and update the three consumers in lockstep: the artifact upload globs, the launcher's `findBundledJar` (match `omega-client-<loader>-<mc>`), and `omegaJarFor` (fetch/select by the instance's resolved MC version). Add a new entry to `omega-versions.json` with tier **"bridge"** (or promote to **"main"** deliberately), same lockstep rule: **only after** the jar is actually published.
 
 ## Step 5 — Verify
 

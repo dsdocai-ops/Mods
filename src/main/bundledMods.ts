@@ -5,6 +5,7 @@ import { app } from "electron";
 import type { Instance } from "../shared/types";
 import { fetchWithRetry } from "./installer";
 import { resolveVersion } from "./versionResolver";
+import { omegaSupportFor } from "./versionsCatalog";
 
 /**
  * Lunar-style "the client IS the mods": the Omega companion mod ships inside the launcher and is
@@ -37,25 +38,13 @@ export const MODRINTH_HEADERS: Record<string, string> = {
   "User-Agent": "dsdocai-ops/Mods (Omega Client launcher)",
 };
 
-/**
- * The Minecraft versions the Omega mod actually ships a build for. Placing an Omega jar built for a
- * version the instance isn't running isn't a soft failure: Fabric/Forge refuse to load a mod whose
- * declared "minecraft" dependency doesn't match and abort the whole launch over it, so an instance on
- * an unsupported version must be skipped *before* any jar is copied in, not left to surface at launch.
- *
- * This is the launcher-side half of the multi-version architecture (see mod/README.md's "Multi-version
- * architecture" section). Adding a version here is a one-line change - but only once the mod build
- * actually produces (and the release actually publishes) a jar built against that version's mappings;
- * this list must never get ahead of what `omegaJarFor` can really fetch, or a matching instance would
- * be handed a jar that doesn't exist. Today the mod builds for exactly one version, so this has one
- * entry that matches mod/gradle.properties' `minecraft_version`.
- */
-const OMEGA_MOD_MINECRAFT_VERSIONS: readonly string[] = ["1.20.1"];
-
-/** Whether the Omega mod ships a build compatible with the given Minecraft version. */
-export function omegaModSupportsVersion(minecraftVersion: string): boolean {
-  return OMEGA_MOD_MINECRAFT_VERSIONS.includes(minecraftVersion);
-}
+// Which Minecraft versions the Omega mod actually ships a build for is no longer hardcoded here -
+// it comes from the remotely-updateable versions catalog (see versionsCatalog.ts). Placing an Omega
+// jar built for a version the instance isn't running isn't a soft failure: Fabric/Forge refuse to
+// load a mod whose declared "minecraft" dependency doesn't match and abort the whole launch over it,
+// so an instance on an unsupported version (or a supported version whose entry doesn't cover this
+// instance's loader) must be skipped *before* any jar is copied in - which ensureOmegaMods does by
+// consulting omegaSupportFor first.
 
 type OmegaLoader = "fabric" | "forge";
 
@@ -98,15 +87,17 @@ export async function downloadToCache(url: string, fileName: string): Promise<st
   return dest;
 }
 
-/** The mod's own version (mod/gradle.properties' mod_version), which trails the MC version in every jar name. */
-const OMEGA_MOD_VERSION = "0.1.0";
-
-/** Bundled jar for this MC version if present, else the rolling release (dev fallback), cached. */
-async function omegaJarFor(loader: OmegaLoader, minecraftVersion: string): Promise<string> {
+/**
+ * Bundled jar for this MC version if present, else the rolling release (dev fallback), cached. The
+ * mod version (which trails the MC version in every jar name) comes from the catalog entry rather
+ * than a hardcoded constant, so a re-published port with a bumped mod_version resolves to the right
+ * release jar name without a launcher change.
+ */
+async function omegaJarFor(loader: OmegaLoader, minecraftVersion: string, modVersion: string): Promise<string> {
   const bundled = findBundledJar(loader, minecraftVersion);
   if (bundled) return bundled;
   // Matches the mod build's archivesName: omega-client-<loader>-<mcVersion>-<modVersion>.jar.
-  const releaseName = `omega-client-${loader}-${minecraftVersion}-${OMEGA_MOD_VERSION}.jar`;
+  const releaseName = `omega-client-${loader}-${minecraftVersion}-${modVersion}.jar`;
   return downloadToCache(`${RELEASE_JAR_BASE}/${releaseName}`, releaseName);
 }
 
@@ -238,15 +229,20 @@ export async function ensureOmegaMods(instance: Instance, log: (line: string) =>
     return;
   }
 
-  if (!omegaModSupportsVersion(minecraftVersion)) {
+  const support = await omegaSupportFor(minecraftVersion);
+  if (!support) {
+    log(`[launcher] Omega ${loader} mod skipped - no Omega build published for Minecraft ${minecraftVersion} yet`);
+    return;
+  }
+  if (!support.loaders.includes(loader)) {
     log(
-      `[launcher] Omega ${loader} mod skipped - this instance is Minecraft ${minecraftVersion}, and the mod is only built for ${OMEGA_MOD_MINECRAFT_VERSIONS.join(", ")} so far`
+      `[launcher] Omega ${loader} mod skipped - the Minecraft ${minecraftVersion} port ships for ${support.loaders.join(", ")}, not ${loader}`
     );
     return;
   }
 
   try {
-    const jar = await omegaJarFor(loader, minecraftVersion);
+    const jar = await omegaJarFor(loader, minecraftVersion, support.modVersion);
     placeJar(jar, instance.modsDir, `omega-client-${loader}.jar`);
     log(`[launcher] Omega ${loader} mod installed/updated in mods folder`);
   } catch (err) {

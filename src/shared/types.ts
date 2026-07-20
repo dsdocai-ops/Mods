@@ -122,11 +122,18 @@ export interface DetectedVersion {
   jsonPath: string;
 }
 
-/** A Minecraft release the installer can download, from Mojang's version manifest. */
+/**
+ * A Minecraft release the installer can download, from Mojang's version manifest, optionally
+ * annotated with the Omega mod's support for it (see main/versionsCatalog.ts). The tier mythology:
+ * exactly one "main" flagship version carries the full Omega feature set; "bridge" versions are thin
+ * ports with the core features only; every other release has no `omega` field and is vanilla-playable
+ * with the Omega companion mod simply skipped.
+ */
 export interface InstallableVersion {
   id: string;
   type: string;
   releaseTime: string;
+  omega?: { tier: "main" | "bridge"; loaders: ("fabric" | "forge")[]; modVersion: string };
 }
 
 /** Progress events streamed while the installer downloads a version - see main/installer.ts. */
