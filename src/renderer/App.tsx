@@ -12,6 +12,7 @@ import About from "./pages/About";
 import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import LaunchOverlay, { type LaunchPhase } from "./components/LaunchOverlay";
+import SessionEndedOverlay from "./components/SessionEndedOverlay";
 import { toast } from "./toast";
 
 // "Ignition" overlay timing. The min-display gate keeps the overlay up this long before the success
@@ -20,6 +21,10 @@ const OVERLAY_MIN_DISPLAY_MS = 1600;
 const OVERLAY_SUCCESS_HOLD_MS = 900;
 const OVERLAY_CLOSE_MS = 450; // matches the .launch-overlay-closing fade-out
 const OVERLAY_CLOSE_FAST_MS = 250; // matches .launch-overlay-fast (failure path)
+
+// "Afterglow" session-ended beat: fixed 0.3s fade-in + 1.6s hold + 0.5s fade-out. The whole timeline
+// is one .session-ended opacity keyframe, so this single timeout just unmounts the beat when it ends.
+const SESSION_ENDED_TOTAL_MS = 2400;
 
 // One view per sidebar nav item, plus the instance-detail view (reached from Home/Play). Instance
 // detail carries which tab to open and which nav item to highlight while it's showing (Play, unless
@@ -68,6 +73,21 @@ export default function App() {
   // its instance is the one launching.
   const overlayInstanceRef = useRef<string | null>(null);
   overlayInstanceRef.current = launchOverlay?.instanceId ?? null;
+  // Whether the Ignition overlay is mounted (any phase). Read from the once-registered onLog handler to
+  // suppress the Afterglow beat during an instant-exit race (Ignition's close + the crash toast own that).
+  const launchOverlayMountedRef = useRef(false);
+  launchOverlayMountedRef.current = launchOverlay !== null;
+
+  // "Afterglow" session-ended beat - additive presentation over the exit handling below. null = unmounted.
+  const [sessionEnded, setSessionEnded] = useState<{ instanceId: string; name: string; durationMs: number | null } | null>(
+    null
+  );
+  // Session start times, keyed by instance id: set in handleLaunch (before start() resolves), consumed and
+  // deleted when that instance's exit event arrives, to compute the "Played for …" duration. Renderer-
+  // lifetime only - a launcher restart mid-session loses the entry, and the duration line is then omitted.
+  const sessionStartTimesRef = useRef<Map<string, number>>(new Map());
+  // The single unmount timer for the beat; cleared on replace (a newer exit) and on unmount.
+  const sessionEndedTimerRef = useRef<number | null>(null);
 
   // Kept current every render so the stable `navigate`/`openInstance` callbacks (which must not
   // change identity, or the memoized Sidebar re-renders on every log flush) can read the latest
@@ -158,6 +178,28 @@ export default function App() {
           next.delete(event.instanceId);
           return next;
         });
+
+        // "Afterglow" beat - purely additive, doesn't touch the runningIds/crash logic above. Consume the
+        // start time on every exit (even suppressed/dirty ones) so the map never leaks stale entries.
+        const startedAt = sessionStartTimesRef.current.get(event.instanceId);
+        sessionStartTimesRef.current.delete(event.instanceId);
+        // Clean exit only: code 0/null/undefined. main.ts emits String(code ?? "unknown"), the driver a
+        // raw number - so a definite non-zero numeric code is the only "dirty" case (error territory, the
+        // crash toast owns it). Skip the beat entirely while the Ignition overlay is up (instant-exit race).
+        const raw = event.data as unknown;
+        const codeNum = raw === null || raw === undefined ? 0 : Number(raw);
+        const cleanExit = !Number.isFinite(codeNum) || codeNum === 0;
+        if (cleanExit && !launchOverlayMountedRef.current) {
+          const name = instancesRef.current.find((i) => i.id === event.instanceId)?.name ?? "Game";
+          const durationMs = startedAt != null ? Date.now() - startedAt : null;
+          // Replace-and-reset: a second exit while a beat is showing supersedes it (reset the timer).
+          if (sessionEndedTimerRef.current !== null) window.clearTimeout(sessionEndedTimerRef.current);
+          setSessionEnded({ instanceId: event.instanceId, name, durationMs });
+          sessionEndedTimerRef.current = window.setTimeout(() => {
+            sessionEndedTimerRef.current = null;
+            setSessionEnded(null);
+          }, SESSION_ENDED_TOTAL_MS);
+        }
       }
 
       // Without this, a fast crash-on-boot (wrong Java version, a graphics driver failure, a
@@ -178,6 +220,7 @@ export default function App() {
     return () => {
       unsubscribe();
       unsubscribeSwitchAccount();
+      if (sessionEndedTimerRef.current !== null) window.clearTimeout(sessionEndedTimerRef.current);
     };
   }, []);
 
@@ -217,6 +260,9 @@ export default function App() {
     clearOverlayTimers();
     const token = ++overlayTokenRef.current;
     const shownAt = Date.now();
+    // Record the session start now (before start() resolves) so the Afterglow beat can report how long
+    // the session ran; the exit handler consumes and clears this entry.
+    sessionStartTimesRef.current.set(instance.id, shownAt);
     setLaunchStatus("Preparing…");
     setLaunchOverlay({ instanceId: instance.id, name: instance.name, phase: "igniting", fast: false });
 
@@ -328,6 +374,7 @@ export default function App() {
           onDismiss={dismissOverlay}
         />
       )}
+      {sessionEnded && <SessionEndedOverlay name={sessionEnded.name} durationMs={sessionEnded.durationMs} />}
       {updateVersion && (
         <div className="update-banner">
           <span>

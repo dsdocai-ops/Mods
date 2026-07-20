@@ -2875,6 +2875,130 @@ input[type="checkbox"] {
   }
 }
 
+/* "Afterglow" session-ended beat. The quiet counterpart to Ignition: shown for a moment when a clean
+   game session ends. Fully non-blocking - pointer-events:none on the whole layer, so clicks/keys pass
+   straight through (no hit target, no dismiss). z-index 85: below Ignition (90) and toasts (100), and
+   unmounted entirely when idle. The full timeline (0.3s fade in, 1.6s hold, 0.5s fade out) is one
+   opacity keyframe on the container, so reduced-motion degrades to exactly this plain fade. */
+.session-ended {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  /* lighter scrim than Ignition + a faint COOL vignette instead of the warm gold glow */
+  background: radial-gradient(circle at 50% 44%, rgba(150, 170, 205, 0.08), transparent 55%), rgba(4, 4, 5, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: session-ended-fade 2.4s var(--ease) forwards;
+}
+
+.session-ended-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.session-ended-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.session-ended-omega {
+  font-family: var(--font-display);
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+  /* dimmed, desaturated warm-grey - the energy has settled out of the gold */
+  background: linear-gradient(135deg, #d8d4c8 0%, #b8b09c 45%, #9a927e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* soft glow at ~30% of Ignition's resting drop-shadow */
+  filter: drop-shadow(0 0 22px rgba(216, 212, 200, 0.14));
+  /* settling: a gentle scale-down + fade, once */
+  animation: session-ended-omega-settle 0.4s var(--ease);
+}
+
+/* One ring contracting inward (reverse of Ignition's expanding rings), runs once. */
+.session-ended-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border: 1px solid rgba(200, 206, 216, 0.4);
+  border-radius: 50%;
+  opacity: 0;
+  animation: session-ended-ring-contract 1.2s var(--ease);
+}
+
+.session-ended-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  color: #fff;
+}
+
+/* Neutral kicker - the moment is neither the green "running" state nor the gold accent. */
+.session-ended-kicker {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.session-ended-duration {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+@keyframes session-ended-fade {
+  0% {
+    opacity: 0;
+  }
+  12.5% {
+    opacity: 1;
+  }
+  79% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes session-ended-omega-settle {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes session-ended-ring-contract {
+  from {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
 /* Accessibility: disable every ambient/looping motion introduced in v2 (Ken Burns, the hero aurora,
    the wordmark sheen and the periodic PLAY sheen) plus the banner hover zoom for users who ask for
    reduced motion. Static end-states are left in place. */
@@ -2903,6 +3027,15 @@ input[type="checkbox"] {
     animation: none;
   }
   .launch-ring {
+    display: none;
+  }
+
+  /* Afterglow: keep only the container's plain opacity fade - no ring, no settle-scale. The
+     session-ended-fade keyframe is opacity-only, so it stays and the ~2.4s timing still lines up. */
+  .session-ended-omega {
+    animation: none;
+  }
+  .session-ended-ring {
     display: none;
   }
 }
