@@ -1,6 +1,42 @@
 /* "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13). */
+/* Omega "Alpha Gold" v2 - structural escalation over round 1's recolor:
+   (1) TYPE: a vendored display face (Space Grotesk, weights 400/500/700, bundled woff2 - no runtime
+       font fetch) drives every headline, kicker, tab, button and card name; the top of the ramp is
+       scaled up so titles carry weight. Body copy stays the system stack.
+   (2) ATMOSPHERE: the flat-black voids gain a layered background - a soft top-left gold glow, a cool
+       bottom-right counter-glow, a fixed feTurbulence noise wash so black reads as texture, and a
+       giant watermark Omega behind content on every page but the flush home.
+   (3) BANNERS: instance cards become image-led cover-art cards - a hero.jpg banner strip (one of four
+       hue-shifted variants per instance, hashed from its id) with the loader chip overlapping its
+       edge - and the hero/home gain motion (Ken Burns, a gold aurora, a wordmark sheen). Sidebar
+       turns to brand-glowing glass. Every new animation is disabled under prefers-reduced-motion. */
 * {
   box-sizing: border-box;
+}
+
+/* Vendored display face - bundled woff2 files (Vite fingerprints these via the relative url()); the
+   app never fetches fonts at runtime. Space Grotesk ships as a variable latin file, so the three
+   weights reference the same asset and pin their weight here. */
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/fonts/space-grotesk-400.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(./assets/fonts/space-grotesk-500.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(./assets/fonts/space-grotesk-700.woff2) format("woff2");
 }
 
 :root {
@@ -30,6 +66,7 @@
   --white-cta: #ffffff;
   --accent-hover: #e6e6ea; /* white-CTA hover (secondary tier) */
   --accent-2: #adaba4; /* warm light-grey for quiet links / quiet borders */
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif; /* vendored display face for headlines/labels/type accents */
   --danger: #e5484d;
   --success: #46c069;
   --panel-grad: linear-gradient(180deg, #16161a 0%, #101013 100%);
@@ -52,6 +89,32 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
+}
+
+/* Display face across every headline, kicker, tab, button and card/nav name (body copy keeps the
+   system stack above). */
+.brand-name,
+.hero-omega,
+.home-title,
+.welcome h1,
+.page-title,
+.welcome-kicker,
+.section-label,
+.sidebar-section-label,
+.tab,
+.btn,
+.instance-name,
+.instance-card-name,
+.profile-card-name,
+.modal h2 {
+  font-family: var(--font-display);
+}
+
+/* Keyboard-navigation focus ring: a gold outline for every focusable control (mouse clicks don't
+   trigger :focus-visible, so it stays invisible during normal pointer use). */
+:focus-visible {
+  outline: 2px solid rgba(246, 196, 83, 0.7);
+  outline-offset: 2px;
 }
 
 /* Native checkboxes pick up the OS accent (blue) otherwise - tint them Omega gold to match. */
@@ -91,7 +154,7 @@ input[type="checkbox"] {
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: var(--bg);
+  background: linear-gradient(180deg, #0b0b0d 0%, #060607 100%);
   border-right: 1px solid #1c1c1c;
   display: flex;
   flex-direction: column;
@@ -99,6 +162,20 @@ input[type="checkbox"] {
 
 .sidebar-header {
   padding: 26px 16px 20px;
+  position: relative;
+}
+
+/* Soft gold glow blooming behind the brand lockup. */
+.sidebar-header::before {
+  content: "";
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(246, 196, 83, 0.06) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 /* Centered Omega lockup: big thin Ω glyph over a letterspaced OMEGA wordmark, both rendered in the
@@ -198,7 +275,7 @@ input[type="checkbox"] {
 }
 
 .social-btn:hover {
-  color: var(--text);
+  color: var(--accent);
   background: var(--bg-hover);
 }
 
@@ -220,12 +297,12 @@ input[type="checkbox"] {
 }
 
 .instance-item:hover {
-  background: var(--bg-hover);
+  background: rgba(246, 196, 83, 0.05);
   color: var(--text);
 }
 
 .instance-item.active {
-  background: var(--bg-panel-alt);
+  background: linear-gradient(90deg, rgba(246, 196, 83, 0.16), rgba(246, 196, 83, 0.03) 70%);
   color: var(--text);
 }
 
@@ -318,6 +395,8 @@ input[type="checkbox"] {
   gap: 8px;
 }
 
+/* Footer action buttons (e.g. a New Instance CTA) read as gold-outline ghosts: transparent fill,
+   gold hairline + gold text, filling to the soft-gold tint on hover. */
 .sidebar-footer .btn {
   padding: 13px 16px;
   font-size: 14.5px;
@@ -325,13 +404,59 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  background: transparent;
+  border-color: rgba(246, 196, 83, 0.45);
+  color: var(--accent);
 }
 
-/* Main area */
+.sidebar-footer .btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
+/* Main area - layered atmosphere over the pure-black base so it reads as textured depth, not a flat
+   void: a soft top-left gold glow, a cool bottom-right counter-glow, and (via ::before) a fixed
+   feTurbulence noise wash. isolation:isolate makes this a stacking context so the noise/watermark
+   pseudo-elements (z-index:-1) sit above the background but behind content. */
 .main-area {
   flex: 1;
   overflow-y: auto;
   padding: 28px 36px;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(900px 480px at 18% -10%, rgba(246, 196, 83, 0.07), transparent 60%),
+    radial-gradient(760px 460px at 108% 116%, rgba(140, 150, 255, 0.04), transparent 60%),
+    var(--bg);
+}
+
+/* Fixed feTurbulence noise wash - keeps black surfaces from reading as empty voids. Static, no
+   animation. */
+.main-area::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Giant watermark Omega - brand texture behind content on every page except the flush home layout
+   (home gets its hero instead). */
+.main-area:not(.main-area-flush)::after {
+  content: "\03A9";
+  position: absolute;
+  right: 2%;
+  bottom: -4%;
+  z-index: -1;
+  pointer-events: none;
+  font-size: 420px;
+  line-height: 1;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.025);
+  transform: rotate(-8deg);
 }
 
 .welcome {
@@ -350,8 +475,9 @@ input[type="checkbox"] {
 
 .welcome h1 {
   margin: 0 0 4px 0;
-  font-size: 34px;
-  letter-spacing: 0.01em;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .welcome p.welcome-slogan {
@@ -384,12 +510,29 @@ input[type="checkbox"] {
   flex-shrink: 0;
   padding: 44px 40px;
   overflow-y: auto;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(760px 420px at 12% -12%, rgba(246, 196, 83, 0.07), transparent 60%),
+    radial-gradient(620px 420px at 118% 120%, rgba(140, 150, 255, 0.04), transparent 60%);
+}
+
+/* Same fixed noise wash as the main area, so the home column reads as textured depth too. */
+.home-left::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .home-title {
   margin: 0 0 6px 0;
-  font-size: 40px;
-  letter-spacing: 0.01em;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .home-sub {
@@ -454,6 +597,15 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/* Mini cover-art thumb (same hue variants as the instance banners) in place of the plain grey icon
+   square. The banner-vN class supplies the hue filter. */
+.profile-card-thumb {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: url(./assets/hero.jpg) center / cover no-repeat;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .profile-card-info {
@@ -528,6 +680,34 @@ input[type="checkbox"] {
   flex: 1;
 }
 
+/* The home landing PLAY reads as the app's hero CTA: taller, wider tracking. */
+.home-play.btn-play {
+  height: 56px;
+  letter-spacing: 0.24em;
+}
+
+/* Its gold sheen also auto-fires on a slow cycle (~8s), not only on hover - reuses the same stripe
+   the round-1 hover sheen draws. Disabled under prefers-reduced-motion (see the reduce block). */
+.btn-primary.btn-play.home-play::after {
+  animation: play-sheen-periodic 8s var(--ease) infinite;
+}
+
+@keyframes play-sheen-periodic {
+  0% {
+    left: -60%;
+    opacity: 0.9;
+  }
+  7.5% {
+    left: 130%;
+    opacity: 0;
+  }
+  8%,
+  100% {
+    left: 130%;
+    opacity: 0;
+  }
+}
+
 .btn-icon {
   width: 46px;
   height: 46px;
@@ -579,6 +759,13 @@ input[type="checkbox"] {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
+  transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+/* Hover: a 2px gold inset edge on the left plus a subtle hover fill. */
+.news-row:hover {
+  background: var(--bg-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .news-icon {
@@ -641,19 +828,63 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   border-left: 1px solid #161616;
-  background: url(./assets/hero.jpg) center / cover no-repeat, #050505;
+  background: #050505;
   position: relative;
   overflow: hidden;
+}
+
+/* Dedicated Ken Burns layer: the image slowly scales on its own so the overlay/wordmark above it
+   stay still. */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url(./assets/hero.jpg) center / cover no-repeat, #050505;
+  transform-origin: center;
+  animation: ken-burns 36s linear infinite alternate;
+}
+
+/* Gold aurora blob drifting through the hero's lower third, under the darkening overlay. */
+.hero-aurora {
+  position: absolute;
+  z-index: 1;
+  left: 18%;
+  bottom: 6%;
+  width: 460px;
+  height: 460px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(246, 196, 83, 0.1) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: aurora-drift 24s ease-in-out infinite alternate;
 }
 
 .home-hero::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 2;
   background:
     linear-gradient(90deg, #060607 0%, rgba(6, 6, 7, 0.55) 22%, rgba(6, 6, 7, 0.25) 50%, rgba(6, 6, 7, 0.4) 100%),
     /* warm the bottom edge slightly toward gold */
     linear-gradient(180deg, rgba(6, 6, 7, 0.35) 0%, transparent 30%, transparent 62%, rgba(28, 20, 6, 0.55) 100%);
+}
+
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
+}
+
+@keyframes aurora-drift {
+  from {
+    transform: translate(-40px, 24px);
+  }
+  to {
+    transform: translate(70px, -24px);
+  }
 }
 
 .hero-wordmark {
@@ -664,7 +895,7 @@ input[type="checkbox"] {
   text-align: center;
   padding: 24px;
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 /* Warm ambient glow blooming behind the wordmark. */
@@ -683,17 +914,32 @@ input[type="checkbox"] {
 
 .hero-omega {
   font-size: clamp(44px, 7vw, 84px);
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.32em;
   margin-left: 0.32em; /* recenters letterspaced text */
-  /* white settling into gold */
-  background: linear-gradient(180deg, #ffffff 0%, #ffedbe 55%, #f6c453 100%);
+  /* Two clipped layers: a moving bright band (sheen) over the base white->gold vertical gradient.
+     Only the sheen layer's position animates; the base gradient stays pinned at 0. */
+  background:
+    linear-gradient(105deg, transparent 34%, rgba(255, 255, 255, 0.85) 46%, transparent 58%) 200% 0 / 220% 100% no-repeat,
+    linear-gradient(180deg, #ffffff 0%, #ffedbe 55%, #f6c453 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 2px 20px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 26px rgba(246, 196, 83, 0.25));
+  animation: wordmark-sheen 7s ease-in-out infinite;
+}
+
+/* A single sheen band sweeps across roughly every 7s (long hold, quick pass). */
+@keyframes wordmark-sheen {
+  0%,
+  58% {
+    background-position: 200% 0, 0 0;
+  }
+  100% {
+    background-position: -80% 0, 0 0;
+  }
 }
 
 .hero-tagline {
@@ -709,8 +955,9 @@ input[type="checkbox"] {
 /* Shared page scaffolding (Play / Cosmetics / About headers). */
 .page-title {
   margin: 0 0 6px 0;
-  font-size: 30px;
-  letter-spacing: 0.01em;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .page-header {
@@ -732,59 +979,128 @@ input[type="checkbox"] {
 
 .instance-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 14px;
 }
 
+/* Cover-art banner cards: a hero.jpg strip across the top (one of four hashed hue variants), the
+   loader chip overlapping its lower edge, then name/meta and the Play/gear action row. Padding lives
+   on the inner rows so the banner can bleed full-width; the card itself clips (overflow:hidden) so
+   the banner zoom on hover stays inside the rounded corners. */
 .instance-card {
   display: flex;
   flex-direction: column;
   background: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px;
-  gap: 14px;
+  padding: 0;
+  gap: 0;
+  min-height: 214px;
+  overflow: hidden;
   box-shadow: var(--panel-edge);
   transition: border-color 0.18s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .instance-card:hover {
-  border-color: #4a4a55;
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 22px rgba(0, 0, 0, 0.5);
+  border-color: rgba(246, 196, 83, 0.45);
+  transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 10px 26px rgba(0, 0, 0, 0.5),
+    0 6px 22px rgba(246, 196, 83, 0.14);
 }
 
 .instance-card.running {
   border-color: #2f4a30;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(70, 192, 105, 0.3),
+    0 0 18px rgba(70, 192, 105, 0.18);
+}
+
+/* Banner strip - clips its own image layer so the hover zoom is masked. */
+.instance-card-banner {
+  position: relative;
+  height: 104px;
+  overflow: hidden;
+  background: #0c0c0e;
+}
+
+/* The image layer itself (zoomed on hover, hue-shifted per variant). */
+.instance-card-banner-img {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+  transition: transform 0.35s ease;
+}
+
+.instance-card:hover .instance-card-banner-img {
+  transform: scale(1.06);
+}
+
+/* Bottom fade into the panel colour + a soft inner vignette so the banner melts into the card. */
+.instance-card-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 40%, rgba(18, 18, 20, 0.65) 82%, #121214 100%),
+    radial-gradient(120% 90% at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
 }
 
 .instance-card-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   background: none;
   border: none;
   color: var(--text);
   cursor: pointer;
   text-align: left;
-  padding: 0;
+  padding: 14px 16px 0;
 }
 
+/* Loader chip overlapping the banner's bottom edge. */
 .instance-card-icon {
+  position: relative;
+  z-index: 1;
   width: 44px;
   height: 44px;
+  margin-top: -36px;
   border-radius: var(--radius-sm);
-  background: var(--bg-panel-alt);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   color: var(--text-dim);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: color 0.15s var(--ease);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
 }
 
 .instance-card:hover .instance-card-icon {
   color: var(--accent);
+  border-color: rgba(246, 196, 83, 0.4);
+}
+
+/* Shared banner fill + the four per-instance hue variants (hashed from the instance id). Also reused
+   for the home profile-card thumb. Placed here so it overrides the plain icon background. */
+.banner-fill {
+  background: url(./assets/hero.jpg) center / cover no-repeat;
+}
+
+.banner-v0 {
+  filter: none;
+}
+
+.banner-v1 {
+  filter: hue-rotate(150deg) saturate(1.1);
+}
+
+.banner-v2 {
+  filter: hue-rotate(-70deg);
+}
+
+.banner-v3 {
+  filter: sepia(0.4) saturate(1.4);
 }
 
 .instance-card-info {
@@ -797,8 +1113,8 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -812,6 +1128,8 @@ input[type="checkbox"] {
 .instance-card-actions {
   display: flex;
   gap: 8px;
+  margin-top: auto;
+  padding: 12px 16px 16px;
 }
 
 .instance-card-actions .btn-sm {
@@ -840,8 +1158,9 @@ input[type="checkbox"] {
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  min-height: 132px;
-  gap: 6px;
+  min-height: 214px;
+  padding: 16px;
+  gap: 10px;
 }
 
 .instance-card-new:hover {
@@ -850,14 +1169,21 @@ input[type="checkbox"] {
 }
 
 .instance-card-new-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--bg-panel-alt);
   color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+/* Plus-circle warms to gold when the New Instance tile is hovered. */
+.instance-card-new:hover .instance-card-new-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .instance-card-new-label {
@@ -1260,6 +1586,8 @@ input[type="checkbox"] {
   bottom: -1px;
   height: 2px;
   background: var(--accent);
+  /* 6px gold blur glow under the active underline. */
+  box-shadow: 0 0 6px rgba(246, 196, 83, 0.7);
   transform: scaleX(0);
   transform-origin: center;
   transition: transform 0.2s var(--ease);
@@ -2001,7 +2329,7 @@ input[type="checkbox"] {
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: scale(0.98);
 }
 
 .btn:disabled {
@@ -2355,4 +2683,26 @@ input[type="checkbox"] {
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   font-size: 13px;
+}
+
+/* Accessibility: disable every ambient/looping motion introduced in v2 (Ken Burns, the hero aurora,
+   the wordmark sheen and the periodic PLAY sheen) plus the banner hover zoom for users who ask for
+   reduced motion. Static end-states are left in place. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg,
+  .hero-aurora,
+  .hero-omega,
+  .btn-primary.btn-play.home-play::after {
+    animation: none;
+  }
+
+  .hero-bg {
+    transform: none;
+  }
+
+  .instance-card-banner-img,
+  .instance-card:hover .instance-card-banner-img {
+    transition: none;
+    transform: none;
+  }
 }

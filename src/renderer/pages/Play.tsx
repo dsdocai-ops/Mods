@@ -13,6 +13,16 @@ interface Props {
 }
 
 /**
+ * Picks one of four cover-art banner variants from a stable hash of the instance id (sum of char
+ * codes mod 4), so each instance gets a consistent hue without needing per-instance artwork.
+ */
+function bannerVariant(id: string): number {
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  return sum % 4;
+}
+
+/**
  * The Play screen - this launcher's instances hub, reached from the sidebar's Play item. It lists
  * every instance as a card (select to open its detail, launch inline) and is the primary place to
  * create new instances via the "New Instance" card.
@@ -36,6 +46,9 @@ export default function Play({ instances, runningIds, onNewInstance, onOpenInsta
           const running = runningIds.has(instance.id);
           return (
             <div key={instance.id} className={`instance-card ${running ? "running" : ""}`}>
+              <div className="instance-card-banner">
+                <div className={`instance-card-banner-img banner-fill banner-v${bannerVariant(instance.id)}`} />
+              </div>
               <button className="instance-card-main" onClick={() => onOpenInstance(instance.id)}>
                 <span className="instance-card-icon">
                   <CubeIcon size={22} />
