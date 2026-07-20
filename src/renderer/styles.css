@@ -95,6 +95,7 @@ body {
    system stack above). */
 .brand-name,
 .hero-omega,
+h1, /* every h1 in the app is headline-tier (Launcher Settings, instance detail, error screen) */
 .home-title,
 .welcome h1,
 .page-title,
