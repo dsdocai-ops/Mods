@@ -77,6 +77,13 @@ export interface Instance {
    * saved before this field existed read as "off". See main.ts's launch:start handler.
    */
   autoUpdateMods?: boolean;
+  /**
+   * Chosen banner-art theme id (see shared/banners.ts). Absent = "auto": the id hash picks one of the
+   * four historical hero.jpg variants, so instances saved before this field existed look unchanged
+   * until the user picks a theme in the Instance Settings tab. Optional and free-form so an unknown
+   * value simply falls back to auto rather than failing to load.
+   */
+  banner?: string;
   jvm: JvmSettings;
   window: WindowSettings;
   createdAt: number;

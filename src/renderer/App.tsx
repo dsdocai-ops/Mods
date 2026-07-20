@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent, PublicAccount } from "@shared/types";
+import { resolveBannerTheme } from "@shared/banners";
 import Sidebar, { type NavKey } from "./components/Sidebar";
 import InstanceDetail, { type Tab } from "./pages/InstanceDetail";
 import SettingsPage from "./pages/Settings";
@@ -61,6 +62,8 @@ export default function App() {
     name: string;
     phase: LaunchPhase;
     fast: boolean;
+    // Resolved banner theme's CSS filter, for the overlay's blurred art backdrop layer.
+    bannerFilter: string;
   } | null>(null);
   // The one-line status is set ONLY on stream === "status" events (stdout floods ~30/s - never per line).
   const [launchStatus, setLaunchStatus] = useState("Preparing…");
@@ -79,9 +82,13 @@ export default function App() {
   launchOverlayMountedRef.current = launchOverlay !== null;
 
   // "Afterglow" session-ended beat - additive presentation over the exit handling below. null = unmounted.
-  const [sessionEnded, setSessionEnded] = useState<{ instanceId: string; name: string; durationMs: number | null } | null>(
-    null
-  );
+  const [sessionEnded, setSessionEnded] = useState<{
+    instanceId: string;
+    name: string;
+    durationMs: number | null;
+    // Resolved banner theme's CSS filter, for the Afterglow's blurred art backdrop layer.
+    bannerFilter: string;
+  } | null>(null);
   // Session start times, keyed by instance id: set in handleLaunch (before start() resolves), consumed and
   // deleted when that instance's exit event arrives, to compute the "Played for …" duration. Renderer-
   // lifetime only - a launcher restart mid-session loses the entry, and the duration line is then omitted.
@@ -190,11 +197,13 @@ export default function App() {
         const codeNum = raw === null || raw === undefined ? 0 : Number(raw);
         const cleanExit = !Number.isFinite(codeNum) || codeNum === 0;
         if (cleanExit && !launchOverlayMountedRef.current) {
-          const name = instancesRef.current.find((i) => i.id === event.instanceId)?.name ?? "Game";
+          const endedInstance = instancesRef.current.find((i) => i.id === event.instanceId);
+          const name = endedInstance?.name ?? "Game";
+          const bannerFilter = resolveBannerTheme(event.instanceId, endedInstance?.banner).filter;
           const durationMs = startedAt != null ? Date.now() - startedAt : null;
           // Replace-and-reset: a second exit while a beat is showing supersedes it (reset the timer).
           if (sessionEndedTimerRef.current !== null) window.clearTimeout(sessionEndedTimerRef.current);
-          setSessionEnded({ instanceId: event.instanceId, name, durationMs });
+          setSessionEnded({ instanceId: event.instanceId, name, durationMs, bannerFilter });
           sessionEndedTimerRef.current = window.setTimeout(() => {
             sessionEndedTimerRef.current = null;
             setSessionEnded(null);
@@ -264,7 +273,13 @@ export default function App() {
     // the session ran; the exit handler consumes and clears this entry.
     sessionStartTimesRef.current.set(instance.id, shownAt);
     setLaunchStatus("Preparing…");
-    setLaunchOverlay({ instanceId: instance.id, name: instance.name, phase: "igniting", fast: false });
+    setLaunchOverlay({
+      instanceId: instance.id,
+      name: instance.name,
+      phase: "igniting",
+      fast: false,
+      bannerFilter: resolveBannerTheme(instance.id, instance.banner).filter,
+    });
 
     setRunningIds((prev) => new Set(prev).add(instance.id));
     try {
@@ -371,10 +386,17 @@ export default function App() {
           phase={launchOverlay.phase}
           status={launchStatus}
           fast={launchOverlay.fast}
+          bannerFilter={launchOverlay.bannerFilter}
           onDismiss={dismissOverlay}
         />
       )}
-      {sessionEnded && <SessionEndedOverlay name={sessionEnded.name} durationMs={sessionEnded.durationMs} />}
+      {sessionEnded && (
+        <SessionEndedOverlay
+          name={sessionEnded.name}
+          durationMs={sessionEnded.durationMs}
+          bannerFilter={sessionEnded.bannerFilter}
+        />
+      )}
       {updateVersion && (
         <div className="update-banner">
           <span>

@@ -1,5 +1,6 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import type { Instance } from "@shared/types";
+import { resolveBannerTheme } from "@shared/banners";
 import { CubeIcon, GearIcon, PlayIcon, PlusIcon } from "../components/Icons";
 
 interface Props {
@@ -10,16 +11,6 @@ interface Props {
   onOpenInstance: (id: string) => void;
   onLaunch: (instance: Instance) => void;
   onStop: (instance: Instance) => void;
-}
-
-/**
- * Picks one of four cover-art banner variants from a stable hash of the instance id (sum of char
- * codes mod 4), so each instance gets a consistent hue without needing per-instance artwork.
- */
-function bannerVariant(id: string): number {
-  let sum = 0;
-  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
-  return sum % 4;
 }
 
 /**
@@ -44,10 +35,11 @@ export default function Play({ instances, runningIds, onNewInstance, onOpenInsta
       <div className="instance-grid">
         {instances.map((instance) => {
           const running = runningIds.has(instance.id);
+          const bannerTheme = resolveBannerTheme(instance.id, instance.banner);
           return (
             <div key={instance.id} className={`instance-card ${running ? "running" : ""}`}>
               <div className="instance-card-banner">
-                <div className={`instance-card-banner-img banner-fill banner-v${bannerVariant(instance.id)}`} />
+                <div className="instance-card-banner-img banner-fill" style={{ filter: bannerTheme.filter }} />
               </div>
               <button className="instance-card-main" onClick={() => onOpenInstance(instance.id)}>
                 <span className="instance-card-icon">

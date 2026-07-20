@@ -1,5 +1,6 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
+import { composeBannerFilter } from "@shared/banners";
 
 export type LaunchPhase = "igniting" | "success" | "closing";
 
@@ -10,6 +11,8 @@ interface Props {
   status: string;
   // Whether this close is the fast failure path (0.25s) vs the normal beat fade-out (0.45s).
   fast: boolean;
+  // Resolved banner theme's CSS filter, graded over the blurred hero.jpg backdrop layer.
+  bannerFilter: string;
   onDismiss: () => void;
 }
 
@@ -17,7 +20,7 @@ interface Props {
 // the first instant would defeat the whole "deliberate moment" the min-display gate creates.
 const DISMISS_ARM_MS = 1000;
 
-export default function LaunchOverlay({ name, phase, status, fast, onDismiss }: Props) {
+export default function LaunchOverlay({ name, phase, status, fast, bannerFilter, onDismiss }: Props) {
   const [armed, setArmed] = useState(false);
 
   useEffect(() => {
@@ -38,6 +41,13 @@ export default function LaunchOverlay({ name, phase, status, fast, onDismiss }: 
 
   return (
     <div className={cls}>
+      {/* Launching instance's banner art, blurred and dimmed behind the scrim's content so the gold
+          mark stays the focus. Purely decorative; sits under the hit target and content. */}
+      <div
+        className="launch-overlay-art"
+        aria-hidden="true"
+        style={{ filter: composeBannerFilter(bannerFilter, "blur(24px) saturate(1.2)") }}
+      />
       {/* The affordance is the whole overlay being clickable - automation matches visible labels, so no
           dismiss text is added. The hit layer sits under the content (which is pointer-events:none) so
           clicks anywhere reach it. */}

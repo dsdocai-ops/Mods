@@ -3,11 +3,16 @@
 // non-blocking - the whole overlay is pointer-events:none, so it handles no clicks, keys, or focus.
 // All timing lives in App.tsx (one timeout drives mount/unmount); this component just renders the beat.
 
+import { composeBannerFilter } from "@shared/banners";
+
 interface Props {
   name: string;
   // Session length in ms, or null when no start time is known (e.g. launcher restarted mid-session) -
   // in which case the duration line is omitted entirely.
   durationMs: number | null;
+  // Resolved banner theme's CSS filter for the blurred backdrop layer - dimmer and desaturated here
+  // than Ignition to match the settled mood.
+  bannerFilter: string;
 }
 
 // "Played for 1h 23m" / "Played for 12m 30s" / "Played for 47s": largest two units at most, with any
@@ -24,9 +29,14 @@ function formatDuration(ms: number): string {
   return `Played for ${parts.slice(0, 2).join(" ")}`;
 }
 
-export default function SessionEndedOverlay({ name, durationMs }: Props) {
+export default function SessionEndedOverlay({ name, durationMs, bannerFilter }: Props) {
   return (
     <div className="session-ended" aria-hidden="true">
+      <div
+        className="session-ended-art"
+        aria-hidden="true"
+        style={{ filter: composeBannerFilter(bannerFilter, "blur(24px) saturate(0.6)") }}
+      />
       <div className="session-ended-content">
         <div className="session-ended-stage">
           <span className="session-ended-ring" />

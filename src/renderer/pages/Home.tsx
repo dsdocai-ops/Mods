@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, PublicAccount } from "@shared/types";
+import { resolveBannerTheme } from "@shared/banners";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
 import { RELEASES_URL } from "@shared/links";
 import SponsorCard from "../components/SponsorCard";
@@ -26,16 +27,6 @@ const NEWS = [
     date: "May 18, 2024",
   },
 ];
-
-/**
- * Stable cover-art banner variant (0-3) from a hash of the instance id - the mini profile thumb
- * uses the same four hue variants as the Play page's banner cards.
- */
-function bannerVariant(id: string): number {
-  let sum = 0;
-  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
-  return sum % 4;
-}
 
 /**
  * The launcher's landing screen, recreated from the Omega home mockup: welcome header, a
@@ -90,7 +81,8 @@ export default function Home({ instances, accounts, runningIds, onNewInstance, o
             <div className="profile-select" ref={menuRef}>
               <button className="profile-card" onClick={() => setMenuOpen((v) => !v)}>
                 <span
-                  className={`profile-card-icon profile-card-thumb banner-v${bannerVariant(selected?.id ?? "")}`}
+                  className="profile-card-icon profile-card-thumb"
+                  style={{ filter: resolveBannerTheme(selected?.id ?? "", selected?.banner).filter }}
                   aria-hidden="true"
                 />
                 <span className="profile-card-info">

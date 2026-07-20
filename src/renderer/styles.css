@@ -6,9 +6,11 @@
    (2) ATMOSPHERE: the flat-black voids gain a layered background - a soft top-left gold glow, a cool
        bottom-right counter-glow, a fixed feTurbulence noise wash so black reads as texture, and a
        giant watermark Omega behind content on every page but the flush home.
-   (3) BANNERS: instance cards become image-led cover-art cards - a hero.jpg banner strip (one of four
-       hue-shifted variants per instance, hashed from its id) with the loader chip overlapping its
-       edge - and the hero/home gain motion (Ken Burns, a gold aurora, a wordmark sheen). Sidebar
+   (3) BANNERS: instance cards become image-led cover-art cards - a hero.jpg banner strip graded by a
+       user-selectable per-instance banner theme (shared/banners.ts; absent = an id-hash auto pick)
+       with the loader chip overlapping its edge, carried through the profile thumb, the instance
+       detail header strip and both launch overlays - and the hero/home gain motion (Ken Burns, a gold
+       aurora, a wordmark sheen). Sidebar
        turns to brand-glowing glass. Every new animation is disabled under prefers-reduced-motion. */
 * {
   box-sizing: border-box;
@@ -600,8 +602,8 @@ input[type="checkbox"] {
   flex-shrink: 0;
 }
 
-/* Mini cover-art thumb (same hue variants as the instance banners) in place of the plain grey icon
-   square. The banner-vN class supplies the hue filter. */
+/* Mini cover-art thumb (same banner theme as the instance's cards) in place of the plain grey icon
+   square. The theme's CSS filter is set inline (shared/banners.ts). */
 .profile-card-thumb {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -1082,26 +1084,12 @@ input[type="checkbox"] {
   border-color: rgba(246, 196, 83, 0.4);
 }
 
-/* Shared banner fill + the four per-instance hue variants (hashed from the instance id). Also reused
-   for the home profile-card thumb. Placed here so it overrides the plain icon background. */
+/* Shared hero.jpg fill for every banner surface (Play cards, detail header strip, picker swatches).
+   The per-instance grading is a CSS `filter` set inline from the chosen banner theme (shared/
+   banners.ts) - the old fixed banner-v0..3 hue classes are gone, folded into that theme data. Placed
+   here so it overrides the plain icon background where reused (the home profile-card thumb). */
 .banner-fill {
   background: url(./assets/hero.jpg) center / cover no-repeat;
-}
-
-.banner-v0 {
-  filter: none;
-}
-
-.banner-v1 {
-  filter: hue-rotate(150deg) saturate(1.1);
-}
-
-.banner-v2 {
-  filter: hue-rotate(-70deg);
-}
-
-.banner-v3 {
-  filter: sepia(0.4) saturate(1.4);
 }
 
 .instance-card-info {
@@ -1450,6 +1438,42 @@ input[type="checkbox"] {
 
 .instance-detail {
   max-width: 900px;
+  position: relative;
+}
+
+/* Full-width banner strip behind the back-link + header block: the instance's banner art, faded
+   hard into --bg at the bottom so title/meta/PLAY stay on black. Absolutely positioned so it never
+   shifts the header or the tabs below it. */
+.instance-detail-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+}
+
+.instance-detail-banner-img {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+}
+
+.instance-detail-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(6, 6, 7, 0.2) 0%, rgba(6, 6, 7, 0.55) 52%, var(--bg) 100%);
+}
+
+/* Back-link and header sit above the banner strip. */
+.instance-detail > .back-link,
+.instance-detail > .instance-header {
+  position: relative;
+  z-index: 1;
 }
 
 .instance-header {
@@ -2224,6 +2248,77 @@ input[type="checkbox"] {
   font-size: 13px;
 }
 
+/* Banner theme picker (Instance Settings tab): a wrap row of hero.jpg thumbnails, each graded by its
+   theme's CSS filter (set inline). "Auto" leads, then the eight themes. Selection lives in the tab's
+   draft state and persists through the shared Save button - clicking a swatch doesn't auto-save. */
+.banner-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.banner-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.banner-swatch-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 44px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.banner-swatch:hover .banner-swatch-thumb {
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+}
+
+/* Selected swatch mirrors .cosmetic-card-active's language: gold border + soft gold glow. */
+.banner-swatch-active .banner-swatch-thumb {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(246, 196, 83, 0.35), var(--accent-glow);
+}
+
+/* "AUTO" micro-glyph over the hash-resolved art, so the computed default reads as deliberate. */
+.banner-swatches .banner-swatch-auto {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: #fff;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(4, 4, 5, 0.62);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.banner-swatches .banner-swatch-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-dim);
+}
+
+.banner-swatch-active .banner-swatch-label {
+  color: var(--accent);
+}
+
 .input {
   background: #101010;
   border: 1px solid var(--border);
@@ -2712,6 +2807,18 @@ input[type="checkbox"] {
   animation-duration: 0.25s;
 }
 
+/* Launching instance's banner art, heavily blurred and dimmed, layered over the scrim beneath the
+   gold glow + content. The theme grading + blur/saturate is composed inline (shared/banners.ts).
+   Sits below the hit target and content in DOM order, so clicks still dismiss. */
+.launch-overlay-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background: url(./assets/hero.jpg) center / cover no-repeat;
+}
+
 /* Full-bleed hit target under the (pointer-events:none) content, so a click anywhere dismisses. */
 .launch-overlay-hit {
   position: absolute;
@@ -2895,7 +3002,20 @@ input[type="checkbox"] {
   animation: session-ended-fade 2.4s var(--ease) forwards;
 }
 
+/* Same banner-art backdrop as Ignition, but dimmer and desaturated (composed inline) to match the
+   settled Afterglow mood. Non-interactive like the rest of this overlay. */
+.session-ended-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  background: url(./assets/hero.jpg) center / cover no-repeat;
+}
+
 .session-ended-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
