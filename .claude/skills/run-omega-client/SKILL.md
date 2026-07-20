@@ -89,10 +89,11 @@ Screenshots land in `/tmp/shots/` (override with `SCREENSHOT_DIR`).
 | `calls` | print everything the app called on the mocked `window.api` (`launch`, `update`, `write` arrays) - use this to confirm a click invoked the right IPC method with the right payload |
 | `quit` | close the browser, stop the static server, exit |
 
-Every screen you can reach this way: the default Mods tab, Shaders,
-Console, Instance Settings (all four instance tabs), the global Settings
-page (`click-text Settings`), and the New Instance modal
-(`click-text "+ New Instance"`).
+Every screen you can reach this way: the sidebar's fixed nav (Home, Play,
+Mods, Cosmetics, Settings, About - `click-text <label>`), the Mods/
+Shaders/Console/Instance Settings tabs once on the Mods page, and the New
+Instance modal (reachable via the profile picker's "+ New Instance" row on
+Home/Play, `click-text "+ New Instance"`).
 
 ## Direct invocation (real main-process code, no mock)
 

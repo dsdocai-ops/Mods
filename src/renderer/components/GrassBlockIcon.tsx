@@ -8,8 +8,9 @@
  * art in the same blocky style reads as "Minecraft" just as well without either problem - the same
  * approach every other third-party launcher's branding takes.
  *
- * Shared between the Welcome hero and the instance header - one drawing, reused at different
- * sizes, rather than every screen inventing its own "Minecraft-ish" imagery.
+ * Shared across the About page, the Play page's profile card, and the instance header - one
+ * drawing, reused at different sizes, rather than every screen inventing its own "Minecraft-ish"
+ * imagery.
  */
 export default function GrassBlockIcon({ size = 112, className }: { size?: number; className?: string }) {
   return (

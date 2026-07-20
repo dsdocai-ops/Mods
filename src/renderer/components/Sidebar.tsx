@@ -1,59 +1,47 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { memo } from "react";
-import type { Instance } from "@shared/types";
+import { HomeIcon, PlayIcon, ModsIcon, CosmeticsIcon, SettingsIcon, AboutIcon, GitHubIcon } from "./Icons";
+
+export type NavKey = "home" | "play" | "mods" | "cosmetics" | "settings" | "about";
+
+const NAV_ITEMS: { key: NavKey; label: string; Icon: typeof HomeIcon }[] = [
+  { key: "home", label: "Home", Icon: HomeIcon },
+  { key: "play", label: "Play", Icon: PlayIcon },
+  { key: "mods", label: "Mods", Icon: ModsIcon },
+  { key: "cosmetics", label: "Cosmetics", Icon: CosmeticsIcon },
+  { key: "settings", label: "Settings", Icon: SettingsIcon },
+  { key: "about", label: "About", Icon: AboutIcon },
+];
 
 interface Props {
-  instances: Instance[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onNewInstance: () => void;
-  onSettings: () => void;
-  runningIds: Set<string>;
+  active: NavKey;
+  onNavigate: (key: NavKey) => void;
 }
 
-// Memoized: App re-renders on every batched log flush while a game is running, but none of the
-// sidebar's props change then (App passes useCallback-stable handlers to keep this effective).
-function Sidebar({ instances, selectedId, onSelect, onNewInstance, onSettings, runningIds }: Props) {
+// Memoized: App re-renders on every batched log flush while a game is running, but the sidebar's
+// own props (active nav + a stable onNavigate callback) don't change then.
+function Sidebar({ active, onNavigate }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="brand">
           <span className="brand-mark">Ω</span>
-          <span className="brand-text">
-            <span className="brand-name">Omega Client</span>
-            <span className="brand-slogan">The last client you will ever need.</span>
-          </span>
+          <span className="brand-wordmark">OMEGA</span>
         </div>
       </div>
 
-      <div className="instance-list">
-        {instances.map((instance) => (
-          <button
-            key={instance.id}
-            className={`instance-item ${selectedId === instance.id ? "active" : ""}`}
-            onClick={() => onSelect(instance.id)}
-          >
-            <span className="instance-icon" style={{ background: instance.iconColor }}>
-              {instance.name.slice(0, 2).toUpperCase()}
-            </span>
-            <span className="instance-info">
-              <span className="instance-name">{instance.name}</span>
-              <span className="instance-meta">
-                {instance.versionId} &middot; {instance.loader}
-              </span>
-            </span>
-            {runningIds.has(instance.id) && <span className="running-dot" title="Running" />}
+      <nav className="sidebar-nav">
+        {NAV_ITEMS.map(({ key, label, Icon }) => (
+          <button key={key} className={`sidebar-nav-item ${active === key ? "active" : ""}`} onClick={() => onNavigate(key)}>
+            <Icon />
+            {label}
           </button>
         ))}
-        {instances.length === 0 && <p className="empty-hint">No instances yet.</p>}
-      </div>
+      </nav>
 
       <div className="sidebar-footer">
-        <button className="btn btn-secondary" onClick={onNewInstance}>
-          + New Instance
-        </button>
-        <button className="btn btn-ghost" onClick={onSettings}>
-          Settings
+        <button className="sidebar-social" title="GitHub" onClick={() => window.api.external.open("https://github.com/dsdocai-ops/Mods")}>
+          <GitHubIcon />
         </button>
       </div>
     </aside>

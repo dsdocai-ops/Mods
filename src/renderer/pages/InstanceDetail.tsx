@@ -65,6 +65,10 @@ interface Props {
   onOpenGlobalSettings: () => void;
   /** Bumped when the game signals a switch-account request for this instance - see AccountSwitcher. */
   accountSwitchOpenSignal: number;
+  /** Set (with a fresh token) when another page wants this screen to land on a specific tab, e.g.
+      the Home/Play pages' "Instance settings" quick actions - a plain prop wouldn't re-trigger the
+      jump on a second click to the same tab, so it's paired with a token like accountSwitchOpenSignal. */
+  tabRequest?: { tab: Tab; token: number } | null;
 }
 
 type Tab = "mods" | "shaders" | "console" | "settings";
@@ -79,10 +83,16 @@ export default function InstanceDetail({
   onDeleted,
   onOpenGlobalSettings,
   accountSwitchOpenSignal,
+  tabRequest,
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("mods");
+
+  useEffect(() => {
+    if (tabRequest) setTab(tabRequest.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabRequest?.token]);
   const [deleting, setDeleting] = useState(false);
   const [draft, setDraft] = useState<Instance>(instance);
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);

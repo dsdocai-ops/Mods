@@ -1,20 +1,24 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, LaunchLogEvent, PublicAccount } from "@shared/types";
-import Sidebar from "./components/Sidebar";
+import Sidebar, { type NavKey } from "./components/Sidebar";
+import Home from "./pages/Home";
+import Play from "./pages/Play";
 import InstanceDetail from "./pages/InstanceDetail";
+import CosmeticsPage from "./pages/Cosmetics";
 import SettingsPage from "./pages/Settings";
+import AboutPage from "./pages/About";
 import NewInstanceDialog from "./pages/NewInstanceDialog";
-import Welcome from "./pages/Welcome";
 import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import { toast } from "./toast";
 
-type View = { kind: "instance"; id: string } | { kind: "settings" } | { kind: "welcome" };
-
 export default function App() {
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [view, setView] = useState<View>({ kind: "welcome" });
+  const [nav, setNav] = useState<NavKey>("home");
+  // Persists independently of nav - switching between Home/Play/Mods keeps the same instance in
+  // context, matching the reference design's "one selected profile, several pages act on it" model.
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [showNewInstance, setShowNewInstance] = useState(false);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
@@ -22,6 +26,7 @@ export default function App() {
     instanceId: "",
     token: 0,
   });
+  const [tabRequest, setTabRequest] = useState<{ tab: "mods" | "shaders" | "console" | "settings"; token: number } | null>(null);
   // Set when the auto-updater has finished downloading a new build in the background (packaged
   // installer builds only - dev runs and the portable exe never emit this event).
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -60,7 +65,7 @@ export default function App() {
 
   useEffect(() => {
     refreshInstances().then((list) => {
-      if (list.length > 0) setView({ kind: "instance", id: list[0].id });
+      if (list.length > 0) setSelectedInstanceId(list[0].id);
     });
 
     const flushLogBuffer = () => {
@@ -101,7 +106,8 @@ export default function App() {
 
     const unsubscribeSwitchAccount = window.api.launch.onSwitchAccountRequested((instanceId: string) => {
       setSwitchAccountRequest({ instanceId, token: Date.now() });
-      setView({ kind: "instance", id: instanceId });
+      setSelectedInstanceId(instanceId);
+      setNav("mods");
     });
 
     return () => {
@@ -110,10 +116,7 @@ export default function App() {
     };
   }, []);
 
-  const selectedInstance = useMemo(() => {
-    if (view.kind !== "instance") return null;
-    return instances.find((i) => i.id === view.id) ?? null;
-  }, [view, instances]);
+  const selectedInstance = useMemo(() => instances.find((i) => i.id === selectedInstanceId) ?? null, [selectedInstanceId, instances]);
 
   const handleLaunch = async (instance: Instance) => {
     setRunningIds((prev) => new Set(prev).add(instance.id));
@@ -131,7 +134,7 @@ export default function App() {
         return next;
       });
       // Also surface it as a toast - the full error already lands in the Console tab, but that's
-      // invisible if you hit Play from the Mods tab and nothing appears to happen.
+      // invisible if you hit Play from Home/Play without switching to Mods first.
       toast(`Launch failed: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
     refreshInstances();
@@ -160,11 +163,15 @@ export default function App() {
     }
   };
 
-  // Stable references so the memoized Sidebar doesn't re-render on every log flush (App re-renders
-  // ~30x/s while a game streams output; the sidebar's props don't actually change then).
-  const handleSelect = useCallback((id: string) => setView({ kind: "instance", id }), []);
   const handleNewInstance = useCallback(() => setShowNewInstance(true), []);
-  const handleOpenSettings = useCallback(() => setView({ kind: "settings" }), []);
+  const openInstanceSettings = useCallback(() => {
+    setNav("mods");
+    setTabRequest({ tab: "settings", token: Date.now() });
+  }, []);
+  const openMods = useCallback(() => {
+    setNav("mods");
+    setTabRequest({ tab: "mods", token: Date.now() });
+  }, []);
 
   // Gates literally everything else in the app - sidebar, instances, settings - behind a linked
   // Microsoft account. Rendered instead of the app shell, not layered over it.
@@ -187,19 +194,38 @@ export default function App() {
           </button>
         </div>
       )}
-      <Sidebar
-        instances={instances}
-        selectedId={view.kind === "instance" ? view.id : null}
-        onSelect={handleSelect}
-        onNewInstance={handleNewInstance}
-        onSettings={handleOpenSettings}
-        runningIds={runningIds}
-      />
+      <Sidebar active={nav} onNavigate={setNav} />
 
       <main className="main-area">
-        {view.kind === "welcome" && <Welcome onNewInstance={handleNewInstance} />}
-        {view.kind === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
-        {view.kind === "instance" && selectedInstance && (
+        {nav === "home" && (
+          <Home
+            instances={instances}
+            selectedInstanceId={selectedInstanceId}
+            onSelectInstance={setSelectedInstanceId}
+            onNewInstance={handleNewInstance}
+            accounts={accounts}
+            isRunning={selectedInstance ? runningIds.has(selectedInstance.id) : false}
+            onLaunch={() => selectedInstance && handleLaunch(selectedInstance)}
+            onStop={() => selectedInstance && handleStop(selectedInstance)}
+            onOpenInstanceSettings={openInstanceSettings}
+          />
+        )}
+
+        {nav === "play" && (
+          <Play
+            instances={instances}
+            selectedInstanceId={selectedInstanceId}
+            onSelectInstance={setSelectedInstanceId}
+            onNewInstance={handleNewInstance}
+            isRunning={selectedInstance ? runningIds.has(selectedInstance.id) : false}
+            onLaunch={() => selectedInstance && handleLaunch(selectedInstance)}
+            onStop={() => selectedInstance && handleStop(selectedInstance)}
+            onOpenMods={openMods}
+            onOpenInstanceSettings={openInstanceSettings}
+          />
+        )}
+
+        {nav === "mods" && selectedInstance && (
           <InstanceDetail
             key={selectedInstance.id}
             instance={selectedInstance}
@@ -208,19 +234,31 @@ export default function App() {
             onLaunch={() => handleLaunch(selectedInstance)}
             onStop={() => handleStop(selectedInstance)}
             onInstanceChanged={refreshInstances}
-            onOpenGlobalSettings={handleOpenSettings}
+            onOpenGlobalSettings={() => setNav("settings")}
             accountSwitchOpenSignal={switchAccountRequest.instanceId === selectedInstance.id ? switchAccountRequest.token : 0}
+            tabRequest={tabRequest}
             onDeleted={async () => {
               try {
                 await window.api.instances.delete(selectedInstance.id);
                 const list = await refreshInstances();
-                setView(list.length > 0 ? { kind: "instance", id: list[0].id } : { kind: "welcome" });
+                setSelectedInstanceId(list.length > 0 ? list[0].id : null);
+                setNav("home");
               } catch (err) {
                 toast(`Couldn't delete ${selectedInstance.name}: ${err instanceof Error ? err.message : String(err)}`, "error");
               }
             }}
           />
         )}
+        {nav === "mods" && !selectedInstance && (
+          <div className="welcome">
+            <h1>No instance selected</h1>
+            <p>Create an instance from the Play page to get started.</p>
+          </div>
+        )}
+
+        {nav === "cosmetics" && <CosmeticsPage />}
+        {nav === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
+        {nav === "about" && <AboutPage />}
       </main>
 
       {showNewInstance && (
@@ -234,7 +272,8 @@ export default function App() {
               await window.api.instances.update({ ...instance, accountId: accounts[0].id });
             }
             await refreshInstances();
-            setView({ kind: "instance", id: instance.id });
+            setSelectedInstanceId(instance.id);
+            setNav("mods");
           }}
         />
       )}

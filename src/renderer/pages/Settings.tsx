@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import type { AppSettings, PublicAccount } from "@shared/types";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
-import { STRIPE_COSMETIC_PAYMENT_LINK_URL } from "@shared/cosmetics";
 import SponsorCard from "../components/SponsorCard";
 import { toast } from "../toast";
 
@@ -18,22 +17,17 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
   const [accounts, setAccounts] = useState<PublicAccount[]>([]);
   const [signingIn, setSigningIn] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
-  const [licenseKey, setLicenseKey] = useState("");
-  const [redeeming, setRedeeming] = useState(false);
 
   const loadAccounts = () =>
     window.api.accounts.list().then((list) => {
       setAccounts(list);
       onAccountsChanged?.();
     });
-  const loadOwnedCosmetics = () => window.api.licensing.listOwned().then(setOwnedCosmetics);
 
   useEffect(() => {
     window.api.settings.get().then(setSettings);
     window.api.java.detect().then(setJavaCandidates);
     loadAccounts();
-    loadOwnedCosmetics();
   }, []);
 
   if (!settings) return <div className="settings-panel">Loading&hellip;</div>;
@@ -73,23 +67,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
       loadAccounts();
     } catch (err) {
       toast(`Couldn't remove ${account.username}: ${err instanceof Error ? err.message : String(err)}`, "error");
-    }
-  };
-
-  const redeemLicenseKey = async () => {
-    if (!licenseKey.trim()) return;
-    setRedeeming(true);
-    try {
-      const result = await window.api.licensing.redeem(licenseKey.trim());
-      toast(result.message, result.ok ? "success" : "info");
-      if (result.ok) {
-        setLicenseKey("");
-        loadOwnedCosmetics();
-      }
-    } catch (err) {
-      toast(err instanceof Error ? err.message : String(err), "error");
-    } finally {
-      setRedeeming(false);
     }
   };
 
@@ -234,45 +211,6 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
           Save
         </button>
         {saved && <span className="saved-hint">Saved</span>}
-      </div>
-
-      <h3 className="settings-subheading">Cosmetics</h3>
-      <p className="instance-subtitle">
-        A cosmetic badge other Omega Client players see next to your name in-game (same mechanism as the free Ω
-        badge - needs a server/proxy relaying the presence channel). Buy one, then redeem the license key you're
-        given below.
-      </p>
-
-      <div className="settings-actions">
-        <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)}>
-          Buy a cosmetic
-        </button>
-      </div>
-
-      <div className="account-list">
-        {ownedCosmetics.length === 0 && <p className="empty-hint">No cosmetics owned yet.</p>}
-        {ownedCosmetics.map((cosmeticId) => (
-          <div key={cosmeticId} className="account-row">
-            <span className="account-name">{cosmeticId}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="field-row">
-        <label className="field">
-          <span>License key</span>
-          <input
-            className="input"
-            placeholder="paste the license key you were given"
-            value={licenseKey}
-            onChange={(e) => setLicenseKey(e.target.value)}
-          />
-        </label>
-        <div className="settings-actions">
-          <button className="btn btn-secondary" disabled={redeeming || !licenseKey.trim()} onClick={redeemLicenseKey}>
-            {redeeming ? "Redeeming..." : "Redeem"}
-          </button>
-        </div>
       </div>
 
       <h3 className="settings-subheading">Recommended</h3>
