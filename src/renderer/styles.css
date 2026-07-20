@@ -4,24 +4,36 @@
 }
 
 :root {
-  /* Omega design sheet: pure-black shell (#050505), near-black bordered panels, white as the one
-     interactive accent, monochrome line icons. Values sampled from the mockup assets - page bg
-     ~#020202-#060606, panels ~#0d0d0d-#141414, active sidebar pill ~#161616 with white text,
-     inactive nav gray ~#626268. Red/green survive only where they carry real meaning
-     (destructive actions, the "instance running" dot) - not decoration. */
-  --bg: #050505;
-  --bg-panel: #0d0d0d;
-  --bg-panel-alt: #161616;
-  --bg-hover: #101010;
-  --border: #262626;
-  --border-strong: #3a3a3a;
-  --text: #f5f5f5;
-  --text-dim: #8f8f94;
-  --text-faint: #626268;
-  --accent: #ffffff;
-  --accent-hover: #d4d4d8;
-  --accent-2: #a8a8b0;
-  --danger: #d64545;
+  /* Omega "Alpha Gold" design sheet: the shell stays pure black (#060607) - that IS Omega - but the
+     surface reads as polished black glass catching light, not flat charcoal. Two additions lift it:
+     (1) GOLD is the signature accent (the Alpha-and-Omega gold Ω motif), used as a luminous gradient
+     but sparingly and confidently - brand mark, PLAY, active states, focus, progress, checked toggles.
+     (2) MORE WHITE / MORE LIGHT: a brighter text ramp, white-tinted panel gradients with a 1px
+     top-edge highlight, brighter hairline borders, soft glows. White stays the *secondary* CTA tier
+     (Save / Create) sitting under gold PLAY. Red is destructive-only; green is "running"/success only;
+     category chips carry subtle per-hue tints (the user asked for a bit of color). */
+  --bg: #060607;
+  --bg-panel: #121214; /* plain color token; panels get their gradient/edge-light per-selector */
+  --bg-panel-alt: #1b1b1f;
+  --bg-hover: #141416;
+  --border: #2a2a30; /* brighter hairlines */
+  --border-strong: #45454e;
+  --text: #ffffff; /* full-white headlines */
+  --text-dim: #b8b8c2; /* much whiter body text */
+  --text-faint: #7e7e8a;
+  --accent: #f6c453; /* Omega gold */
+  --accent-bright: #ffdf8e;
+  --accent-deep: #dd9a2b;
+  --accent-grad: linear-gradient(135deg, #ffe9b0 0%, #f6c453 45%, #e0a234 100%);
+  --accent-glow: 0 0 24px rgba(246, 196, 83, 0.28);
+  --accent-soft: rgba(246, 196, 83, 0.14); /* tinted chip / hover backgrounds */
+  --white-cta: #ffffff;
+  --accent-hover: #e6e6ea; /* white-CTA hover (secondary tier) */
+  --accent-2: #a8a8b0; /* neutral light-grey for quiet links / quiet borders */
+  --danger: #e5484d;
+  --success: #46c069;
+  --panel-grad: linear-gradient(180deg, #16161a 0%, #101013 100%);
+  --panel-edge: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 12px rgba(0, 0, 0, 0.4);
   --radius: 10px;
   --radius-sm: 8px;
   --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.35);
@@ -42,7 +54,7 @@ body {
   color: var(--text);
 }
 
-/* Native checkboxes pick up the OS accent (blue) otherwise - keep them monochrome. */
+/* Native checkboxes pick up the OS accent (blue) otherwise - tint them Omega gold to match. */
 input[type="checkbox"] {
   accent-color: var(--accent);
 }
@@ -64,7 +76,7 @@ input[type="checkbox"] {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a41;
+  background: #5a5347; /* warm grey on hover - a hint of gold, not full gold */
   background-clip: padding-box;
 }
 
@@ -89,7 +101,8 @@ input[type="checkbox"] {
   padding: 26px 16px 20px;
 }
 
-/* Centered Omega lockup: big thin Ω glyph over a letterspaced OMEGA wordmark. */
+/* Centered Omega lockup: big thin Ω glyph over a letterspaced OMEGA wordmark, both rendered in the
+   signature gold gradient with a soft warm glow behind the Ω. */
 .brand {
   display: flex;
   flex-direction: column;
@@ -98,10 +111,14 @@ input[type="checkbox"] {
 }
 
 .brand-mark {
-  color: var(--text);
   font-size: 44px;
   font-weight: 300;
   line-height: 1;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 12px rgba(246, 196, 83, 0.4)); /* drop-shadow (not text-shadow) glows the clipped gradient */
 }
 
 .brand-text {
@@ -112,11 +129,15 @@ input[type="checkbox"] {
 }
 
 .brand-name {
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.42em;
   margin-left: 0.42em; /* recenters letterspaced text (trailing tracking on the last glyph) */
   font-size: 13px;
   text-transform: uppercase;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .brand-slogan {
@@ -181,8 +202,8 @@ input[type="checkbox"] {
   background: var(--bg-hover);
 }
 
-/* Sidebar rows: inactive = gray text/icon on nothing, hover = faint pill, active = #161616
-   pill with white text (per the asset sheet's ACTIVE/HOVER/INACTIVE column). */
+/* Sidebar rows: inactive = brighter grey text/icon on nothing, hover = faint pill + white text,
+   active = lifted pill with white text and a 2px gold left edge, its icon tinted gold. */
 .instance-item {
   display: flex;
   align-items: center;
@@ -191,7 +212,7 @@ input[type="checkbox"] {
   border-radius: var(--radius);
   background: transparent;
   border: none;
-  color: var(--text-faint);
+  color: #9a9aa6;
   cursor: pointer;
   text-align: left;
   position: relative;
@@ -200,12 +221,28 @@ input[type="checkbox"] {
 
 .instance-item:hover {
   background: var(--bg-hover);
-  color: var(--text-dim);
+  color: var(--text);
 }
 
 .instance-item.active {
   background: var(--bg-panel-alt);
   color: var(--text);
+}
+
+/* Gold left-edge bar for the active nav pill. */
+.instance-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent-grad);
+}
+
+.instance-item.active .instance-icon {
+  color: var(--accent);
 }
 
 .instance-item .instance-icon svg {
@@ -386,18 +423,21 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--bg-panel);
-  border: 1px solid #232323;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 14px;
   color: var(--text);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s var(--ease);
+  box-shadow: var(--panel-edge);
+  transition: border-color 0.15s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .profile-card:hover {
-  border-color: var(--border-strong);
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 .profile-card > svg {
@@ -497,10 +537,11 @@ input[type="checkbox"] {
 
 /* RECENT NEWS panel */
 .news-panel {
-  background: var(--bg-panel);
-  border: 1px solid #232323;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
   border-radius: 12px;
   margin-bottom: 24px;
+  box-shadow: var(--panel-edge);
 }
 
 .news-header {
@@ -550,6 +591,13 @@ input[type="checkbox"] {
   justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+/* Subtle gold tint on the news Ω badge when its row is hovered. */
+.news-row:hover .news-icon {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .news-info {
@@ -583,8 +631,9 @@ input[type="checkbox"] {
 }
 
 /* Hero panel - the Minecraft landscape fills the whole right side (full-bleed cover), with the
-   OMEGA wordmark centered on top. A dark overlay keeps the white wordmark legible and blends the
-   image's left edge into the content column, matching the mockup's dimmed hero. */
+   OMEGA wordmark centered on top in a white->gold gradient over a warm ambient glow. A dark overlay
+   keeps the wordmark legible and blends the image's left edge into the content column; the overlay
+   warms slightly toward gold at the bottom edge. */
 .home-hero {
   flex: 1;
   min-width: 0;
@@ -602,8 +651,9 @@ input[type="checkbox"] {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, #050505 0%, rgba(5, 5, 5, 0.55) 22%, rgba(5, 5, 5, 0.25) 50%, rgba(5, 5, 5, 0.4) 100%),
-    linear-gradient(180deg, rgba(5, 5, 5, 0.35) 0%, transparent 30%, transparent 65%, rgba(5, 5, 5, 0.5) 100%);
+    linear-gradient(90deg, #060607 0%, rgba(6, 6, 7, 0.55) 22%, rgba(6, 6, 7, 0.25) 50%, rgba(6, 6, 7, 0.4) 100%),
+    /* warm the bottom edge slightly toward gold */
+    linear-gradient(180deg, rgba(6, 6, 7, 0.35) 0%, transparent 30%, transparent 62%, rgba(28, 20, 6, 0.55) 100%);
 }
 
 .hero-wordmark {
@@ -615,16 +665,35 @@ input[type="checkbox"] {
   padding: 24px;
   position: relative;
   z-index: 1;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.9);
+}
+
+/* Warm ambient glow blooming behind the wordmark. */
+.hero-wordmark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460px;
+  height: 460px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(246, 196, 83, 0.1) 0%, transparent 68%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .hero-omega {
   font-size: clamp(44px, 7vw, 84px);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.32em;
   margin-left: 0.32em; /* recenters letterspaced text */
+  /* white settling into gold */
+  background: linear-gradient(180deg, #ffffff 0%, #ffedbe 55%, #f6c453 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 20px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 26px rgba(246, 196, 83, 0.25));
 }
 
 .hero-tagline {
@@ -634,6 +703,7 @@ input[type="checkbox"] {
   letter-spacing: 0.3em;
   margin-left: 0.3em;
   color: var(--text-dim);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
 }
 
 /* Shared page scaffolding (Play / Cosmetics / About headers). */
@@ -669,16 +739,19 @@ input[type="checkbox"] {
 .instance-card {
   display: flex;
   flex-direction: column;
-  background: #111111;
-  border: 1px solid #232323;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   gap: 14px;
-  transition: border-color 0.15s var(--ease);
+  box-shadow: var(--panel-edge);
+  transition: border-color 0.18s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .instance-card:hover {
-  border-color: var(--border-strong);
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 22px rgba(0, 0, 0, 0.5);
 }
 
 .instance-card.running {
@@ -707,6 +780,11 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: color 0.15s var(--ease);
+}
+
+.instance-card:hover .instance-card-icon {
+  color: var(--accent);
 }
 
 .instance-card-info {
@@ -833,6 +911,11 @@ input[type="checkbox"] {
   font-size: 52px;
   font-weight: 300;
   line-height: 1;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(246, 196, 83, 0.35));
 }
 
 .about-slogan {
@@ -885,9 +968,10 @@ input[type="checkbox"] {
   gap: 14px;
   padding: 14px 18px;
   margin: 8px 0 20px 0;
-  background: var(--bg-panel);
+  background: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: 14px;
+  box-shadow: var(--panel-edge);
 }
 
 .cosmetic-preview-hat {
@@ -938,21 +1022,25 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
   padding: 16px 12px 12px;
-  background: var(--bg-panel);
+  background: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: 12px;
   cursor: pointer;
   color: var(--text);
-  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+  box-shadow: var(--panel-edge);
+  transition: border-color 0.18s var(--ease), background 0.15s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 
 .cosmetic-card:hover {
-  border-color: var(--border-strong);
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 .cosmetic-card-active {
   border-color: var(--accent);
   background: var(--bg-panel-alt);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(246, 196, 83, 0.35), var(--accent-glow);
 }
 
 .cosmetic-card-locked {
@@ -998,9 +1086,10 @@ input[type="checkbox"] {
 .sponsored-card {
   margin-top: 28px;
   padding: 16px 18px;
-  background: var(--bg-panel);
+  background: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--panel-edge);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1222,8 +1311,9 @@ input[type="checkbox"] {
 }
 
 .mods-segmented .seg.active {
-  background: var(--accent);
-  color: #000;
+  background: var(--accent-grad);
+  color: #1a1206;
+  box-shadow: 0 1px 6px rgba(246, 196, 83, 0.3);
 }
 
 /* Search box with a leading icon, used by the Discover browser. */
@@ -1315,15 +1405,18 @@ input[type="checkbox"] {
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  background: #111111;
-  border: 1px solid #232323;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  transition: border-color 0.15s var(--ease);
+  box-shadow: var(--panel-edge);
+  transition: border-color 0.18s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
   animation: row-in 0.2s var(--ease);
 }
 
 .discover-card:hover {
-  border-color: var(--border-strong);
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 .discover-icon {
@@ -1411,15 +1504,18 @@ input[type="checkbox"] {
   align-items: flex-start;
   gap: 14px;
   padding: 13px 16px;
-  background: #111111;
-  border: 1px solid #232323;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  transition: border-color 0.15s var(--ease), opacity 0.15s var(--ease);
+  box-shadow: var(--panel-edge);
+  transition: border-color 0.18s var(--ease), opacity 0.15s var(--ease), transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
   animation: row-in 0.2s var(--ease);
 }
 
 .mod-row:hover {
-  border-color: var(--border-strong);
+  border-color: #4a4a55;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 .mod-row-disabled {
@@ -1448,15 +1544,20 @@ input[type="checkbox"] {
   color: var(--text);
 }
 
-/* Per-row "Update -> vX" indicator next to the mod version. */
+/* The update-bar's leading icon picks up a gold tint. */
+.update-bar-label svg {
+  color: var(--accent);
+}
+
+/* Per-row "Update -> vX" indicator next to the mod version - gold tint on a soft gold chip. */
 .mod-update-badge {
   font-size: 10.5px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 100px;
-  color: var(--text);
-  background: var(--bg-panel-alt);
-  border: 1px solid var(--border-strong);
+  color: var(--accent-bright);
+  background: var(--accent-soft);
+  border: 1px solid rgba(246, 196, 83, 0.38);
 }
 
 .btn-update {
@@ -1648,21 +1749,46 @@ input[type="checkbox"] {
   color: var(--text-dim);
 }
 
-/* Monochrome: category tags used to be a different hue each (red/teal/purple/orange/pink/green) -
-   that reads as busy and dated next to a black-and-white shell, so every category now shares the
-   same neutral chip and differs only by label text, not color. */
-.tag-pvp,
-.tag-performance,
-.tag-cpvp,
-.tag-uhc,
-.tag-bedwars,
-.tag-survival {
-  color: var(--text);
-  border-color: #3a3a40;
+/* Category tags carry a subtle per-hue tint (14% alpha fill, ~38% alpha border, light tinted text) -
+   just enough color to read the category at a glance against the black shell, without shouting. */
+.tag-pvp {
+  background: rgba(255, 107, 107, 0.13);
+  border-color: rgba(255, 107, 107, 0.38);
+  color: #ff9d9d;
 }
 
-/* Switch - design sheet pill toggle: OFF is a dark gray track with a light gray knob,
-   ON flips to a white track with a near-black knob. No glow. */
+.tag-cpvp {
+  background: rgba(167, 139, 250, 0.13);
+  border-color: rgba(167, 139, 250, 0.38);
+  color: #c4b5fd;
+}
+
+.tag-performance {
+  background: rgba(45, 212, 191, 0.13);
+  border-color: rgba(45, 212, 191, 0.38);
+  color: #5eead4;
+}
+
+.tag-uhc {
+  background: rgba(251, 146, 60, 0.13);
+  border-color: rgba(251, 146, 60, 0.38);
+  color: #fdba74;
+}
+
+.tag-bedwars {
+  background: rgba(244, 114, 182, 0.13);
+  border-color: rgba(244, 114, 182, 0.38);
+  color: #f9a8d4;
+}
+
+.tag-survival {
+  background: rgba(74, 222, 128, 0.13);
+  border-color: rgba(74, 222, 128, 0.38);
+  color: #86efac;
+}
+
+/* Switch - pill toggle: OFF is a dark gray track with a light gray knob, ON flips to a
+   gold gradient track with a near-black knob and a soft gold glow. */
 .switch {
   position: relative;
   display: inline-block;
@@ -1700,11 +1826,12 @@ input[type="checkbox"] {
 }
 
 .switch input:checked + .slider {
-  background: var(--text);
+  background: var(--accent-grad);
+  box-shadow: 0 0 10px rgba(246, 196, 83, 0.35);
 }
 
 .switch input:checked + .slider::before {
-  background: #0a0a0a;
+  background: #1a1206;
   transform: translateX(20px);
 }
 
@@ -1784,7 +1911,7 @@ input[type="checkbox"] {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(242, 242, 244, 0.15);
+  box-shadow: 0 0 0 3px rgba(246, 196, 83, 0.22);
 }
 
 .settings-panel {
@@ -1849,8 +1976,9 @@ input[type="checkbox"] {
   font-family: "Cascadia Code", "Consolas", monospace;
 }
 
-/* Buttons - design sheet: dark bordered rectangles with white text; the primary action
-   (PLAY, Save, Create) is the inverse, a white fill with near-black text. */
+/* Buttons - three tiers: dark bordered rectangles with white text (default/secondary), a WHITE fill
+   with near-black text for the primary action (Save / Create / New Instance), and the gold-gradient
+   PLAY button that sits above both as the signature call to action. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1886,9 +2014,10 @@ input[type="checkbox"] {
   flex-shrink: 0;
 }
 
+/* Secondary tier: white fill, near-black text (Save / Create / New Instance). */
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--white-cta);
+  border-color: var(--white-cta);
   color: #0a0a0a;
 }
 
@@ -1903,6 +2032,63 @@ input[type="checkbox"] {
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.22em;
+}
+
+/* Signature gold PLAY: gold gradient fill, near-black text, soft gold glow. Applies to the primary
+   PLAY buttons (Home / instance detail / empty-state CTA) and the instance-card Play action. The
+   Stop button (.btn-danger) keeps its red and is unaffected. */
+.btn-primary.btn-play,
+.instance-card-actions .btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-grad);
+  border-color: var(--accent-deep);
+  color: #1a1206;
+  box-shadow: 0 2px 14px rgba(246, 196, 83, 0.28);
+}
+
+.btn-primary.btn-play:hover,
+.instance-card-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #fff2cf 0%, #ffd577 45%, #eaad3e 100%);
+  border-color: var(--accent);
+  color: #1a1206;
+  box-shadow: 0 3px 20px rgba(246, 196, 83, 0.42);
+}
+
+.btn-primary.btn-play:disabled,
+.instance-card-actions .btn-primary:disabled {
+  box-shadow: none;
+}
+
+/* Sheen sweep on hover - a single soft light stripe crossing the button, no perpetual motion. */
+.btn-primary.btn-play::after,
+.instance-card-actions .btn-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
+  transform: skewX(-18deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-primary.btn-play:hover::after,
+.instance-card-actions .btn-primary:hover::after {
+  animation: play-sheen 0.6s var(--ease);
+}
+
+@keyframes play-sheen {
+  from {
+    left: -60%;
+    opacity: 0.9;
+  }
+  to {
+    left: 130%;
+    opacity: 0;
+  }
 }
 
 .btn-secondary {
@@ -1942,9 +2128,9 @@ input[type="checkbox"] {
 }
 
 .btn-chip.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0a0a0a;
+  background: var(--accent-grad);
+  border-color: var(--accent-deep);
+  color: #1a1206;
 }
 
 .install-progress {
@@ -1961,8 +2147,9 @@ input[type="checkbox"] {
 
 .progress-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-grad);
   border-radius: 100px;
+  box-shadow: 0 0 10px rgba(246, 196, 83, 0.4);
   transition: width 0.25s var(--ease);
 }
 
@@ -2000,8 +2187,8 @@ input[type="checkbox"] {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2010,7 +2197,7 @@ input[type="checkbox"] {
 }
 
 .modal {
-  background: var(--bg-panel);
+  background: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
@@ -2018,7 +2205,7 @@ input[type="checkbox"] {
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-lift);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), var(--shadow-lift);
   animation: modal-in 0.18s var(--ease);
 }
 
@@ -2090,7 +2277,7 @@ input[type="checkbox"] {
 }
 
 .toast-info {
-  border-left-color: var(--accent-2);
+  border-left-color: var(--accent);
 }
 
 @keyframes toast-in {
