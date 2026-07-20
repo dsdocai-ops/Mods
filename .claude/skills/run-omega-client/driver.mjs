@@ -56,11 +56,11 @@ const MOCK_ACCOUNT = { id: 'acc-1', type: 'microsoft', username: 'Steve', uuid: 
 // ipcMain.handle(...) calls before changing any shape here.
 function installMockApi() {
   window.__calls = { launch: [], update: [], write: [] };
-  // Cosmetics demo state: owns a hat + a cape (equipped in their slots) so the per-slot grid shows
-  // owned/active/locked across types; wings + azure hat stay locked ("Buy") until "redeemed".
+  // Cosmetics demo state: owns a gold badge (equipped) + crimson cape (owned but not equipped)
+  // so the grid shows owned/active/locked states; wings + azure hat stay locked ("Buy") until "redeemed".
   window.__owned = ['gold_badge', 'crimson_cape'];
-  window.__slots = { hat: 'gold_badge', cape: 'crimson_cape', wings: '' };
-  // Catalog id -> slot (mirrors shared/cosmetics.ts), used by the mock redeem + setActiveSlot.
+  window.__activeCosmetic = 'gold_badge';
+  // Catalog id -> type (mirrors shared/cosmetics.ts), used by the mock redeem to validate.
   window.__catalogTypes = { gold_badge: 'hat', azure_badge: 'hat', crimson_cape: 'cape', emerald_cape: 'cape', phantom_wings: 'wings' };
   // A couple of extra instances so the Play screen's instance grid has something to show beyond
   // the single MOCK_INSTANCE (which the rest of the app keys off).
@@ -183,21 +183,27 @@ function installMockApi() {
     },
     licensing: {
       // Owns the gold badge by default (active), so the Cosmetics grid shows owned/active/locked
-      // states and the picker is exercisable offline. azure stays locked ("Buy") until "redeemed".
+      // states and the picker is exercisable offline. azure/phantom_wings stay locked ("Buy") until "redeemed".
       redeem: async (key) => {
         window.__calls.write.push({ licensingRedeem: key });
-        // A key shaped "<catalogId>-<suffix>" unlocks that cosmetic + equips it in its slot.
+        // A key shaped "<catalogId>-<suffix>" unlocks that cosmetic + equips it.
         const id = typeof key === 'string' ? Object.keys(window.__catalogTypes).find((c) => key.startsWith(c + '-')) : null;
         if (id) {
           if (!window.__owned.includes(id)) window.__owned.push(id);
-          window.__slots[window.__catalogTypes[id]] = id;
+          window.__activeCosmetic = id;
           return { ok: true, cosmeticId: id, message: 'Unlocked: ' + id };
         }
         return { ok: false, message: "That license key isn't valid." };
       },
       listOwned: async () => ([...window.__owned]),
-      getActiveSlots: async () => ({ ...window.__slots }),
-      setActiveSlot: async (slot, id) => { window.__slots[slot] = id; window.__calls.write.push({ setActiveSlot: [slot, id] }); return { ...window.__slots }; },
+      getActive: async () => window.__activeCosmetic,
+      equip: async (cosmeticId) => {
+        window.__calls.write.push({ equipCosmetic: cosmeticId });
+        if (!window.__owned.includes(cosmeticId)) {
+          throw new Error("You don't own that cosmetic.");
+        }
+        window.__activeCosmetic = cosmeticId;
+      },
     },
     install: {
       listVersions: async () => ([{ id: '1.20.1', type: 'release', url: '' }]),
