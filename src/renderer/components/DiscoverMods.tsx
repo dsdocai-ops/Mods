@@ -6,8 +6,8 @@ import { toast } from "../toast";
 
 interface Props {
   instance: Instance;
-  /** Base file names already present in the instance's modsDir - lets a result show "Installed" instead of an install button. */
-  installedFileNames: Set<string>;
+  /** Lowercased file ids and mod ids already present in the instance's modsDir - lets a result show "Installed" instead of an install button. */
+  installedIds: Set<string>;
   /** Called after a successful install so the parent can reload the installed-mods list. */
   onInstalled: () => void;
 }
@@ -18,7 +18,7 @@ interface Props {
  * into modsDir. Vanilla instances have no loader, so there's nothing to browse - the parent gates
  * this on that, but we double-check and show a hint.
  */
-export default function DiscoverMods({ instance, installedFileNames, onInstalled }: Props) {
+export default function DiscoverMods({ instance, installedIds, onInstalled }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ModrinthSearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -34,7 +34,7 @@ export default function DiscoverMods({ instance, installedFileNames, onInstalled
 
   useEffect(() => window.api.modrinth.onProgress(setProgress), []);
   useEffect(() => {
-    window.api.settings.get().then((s) => setShowWarning(s.showModDownloadWarning));
+    window.api.settings.get().then((s) => setShowWarning(s.showModDownloadWarning)).catch(() => setShowWarning(false));
   }, []);
 
   // Persisted "Don't show again": flip the setting off so the disclaimer never returns until it's
@@ -153,9 +153,7 @@ export default function DiscoverMods({ instance, installedFileNames, onInstalled
       <div className="discover-list">
         {(results ?? []).map((hit) => {
           const isInstalling = installingId === hit.projectId;
-          const alreadyHave =
-            installedFileNames.has(hit.slug) ||
-            [...installedFileNames].some((f) => f.toLowerCase().startsWith(hit.slug.toLowerCase()));
+          const alreadyHave = installedIds.has(hit.slug.toLowerCase());
           return (
             <div key={hit.projectId} className="discover-card">
               {hit.iconUrl ? (

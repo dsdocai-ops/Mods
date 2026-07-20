@@ -19,14 +19,16 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
   const [signingIn, setSigningIn] = useState(false);
 
   const loadAccounts = () =>
-    window.api.accounts.list().then((list) => {
-      setAccounts(list);
-      onAccountsChanged?.();
-    });
+    window.api.accounts.list()
+      .then((list) => {
+        setAccounts(list);
+        onAccountsChanged?.();
+      })
+      .catch(() => {});
 
   useEffect(() => {
-    window.api.settings.get().then(setSettings);
-    window.api.java.detect().then(setJavaCandidates);
+    window.api.settings.get().then(setSettings).catch(() => {});
+    window.api.java.detect().then(setJavaCandidates).catch(() => setJavaCandidates([]));
     loadAccounts();
   }, []);
 

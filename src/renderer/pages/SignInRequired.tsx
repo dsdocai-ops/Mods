@@ -28,7 +28,7 @@ export default function SignInRequired({ onSignedIn }: Props) {
   const [offlineName, setOfflineName] = useState("Player");
 
   useEffect(() => {
-    window.api.settings.get().then((s) => setClientId(s.msaClientId));
+    window.api.settings.get().then((s) => setClientId(s.msaClientId)).catch(() => {});
   }, []);
 
   const signIn = async () => {

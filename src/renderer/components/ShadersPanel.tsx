@@ -32,10 +32,10 @@ export default function ShadersPanel({ instance }: Props) {
   // request is allowed to win. Same pattern as InstanceDetail's modsRequestRef, for the same reason.
   const requestRef = useRef(0);
 
-  const load = () => window.api.shaders.list(modsDir).then(setPacks);
+  const load = () => window.api.shaders.list(modsDir).then(setPacks).catch(() => setPacks([]));
   const refreshLoader = () => {
     if (!loaderSupported) return;
-    window.api.shaders.hasLoader(instance).then(setHasLoader);
+    window.api.shaders.hasLoader(instance).then(setHasLoader).catch(() => setHasLoader(false));
   };
 
   useEffect(() => {

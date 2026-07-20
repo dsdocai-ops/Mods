@@ -21,12 +21,8 @@ public final class WireBoxRenderer {
                 pos.getX() + 1.002, pos.getY() + 1.002, pos.getZ() + 1.002, r, g, b, a);
     }
 
-    /**
-     * Draws a wireframe box between two arbitrary corners (used by the hat cosmetic, which needs
-     * fractional, sub-block-sized boxes at a player's head - BlockPos-aligned drawBoxOutline can't).
-     * Same layer/matrix expectations as drawBoxOutline.
-     */
-    public static void drawBox(PoseStack matrices, VertexConsumer buffer,
+    /** Draws a wireframe box between two arbitrary corners - the shared edge-drawing behind drawBoxOutline. */
+    private static void drawBox(PoseStack matrices, VertexConsumer buffer,
                                double x1, double y1, double z1, double x2, double y2, double z2,
                                float r, float g, float b, float a) {
         double[][] edges = {
