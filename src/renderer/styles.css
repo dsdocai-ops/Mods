@@ -19,8 +19,8 @@
   --border: #2a2a30; /* brighter hairlines */
   --border-strong: #45454e;
   --text: #ffffff; /* full-white headlines */
-  --text-dim: #b8b8c2; /* much whiter body text */
-  --text-faint: #7e7e8a;
+  --text-dim: #c2c0b8; /* much whiter body text, warmed to sit with the gold */
+  --text-faint: #8c8a82;
   --accent: #f6c453; /* Omega gold */
   --accent-bright: #ffdf8e;
   --accent-deep: #dd9a2b;
@@ -29,7 +29,7 @@
   --accent-soft: rgba(246, 196, 83, 0.14); /* tinted chip / hover backgrounds */
   --white-cta: #ffffff;
   --accent-hover: #e6e6ea; /* white-CTA hover (secondary tier) */
-  --accent-2: #a8a8b0; /* neutral light-grey for quiet links / quiet borders */
+  --accent-2: #adaba4; /* warm light-grey for quiet links / quiet borders */
   --danger: #e5484d;
   --success: #46c069;
   --panel-grad: linear-gradient(180deg, #16161a 0%, #101013 100%);
@@ -212,7 +212,7 @@ input[type="checkbox"] {
   border-radius: var(--radius);
   background: transparent;
   border: none;
-  color: #9a9aa6;
+  color: #a2a099;
   cursor: pointer;
   text-align: left;
   position: relative;
