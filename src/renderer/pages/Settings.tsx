@@ -9,9 +9,11 @@ import { toast } from "../toast";
 interface Props {
   /** Called whenever the linked-account list changes (add/remove) - lets App.tsx's sign-in gate react immediately if the last account gets removed. */
   onAccountsChanged?: () => void;
+  /** Called after settings are successfully saved - lets App.tsx refresh its launchAnimationsEnabledRef without a stale closure. */
+  onSettingsChanged?: () => void;
 }
 
-export default function SettingsPage({ onAccountsChanged }: Props) {
+export default function SettingsPage({ onAccountsChanged, onSettingsChanged }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [javaCandidates, setJavaCandidates] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
@@ -39,6 +41,7 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
       await window.api.settings.set(settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
+      onSettingsChanged?.();
     } catch (err) {
       toast(`Couldn't save settings: ${err instanceof Error ? err.message : String(err)}`, "error");
     }
@@ -135,6 +138,16 @@ export default function SettingsPage({ onAccountsChanged }: Props) {
           onChange={(e) => setSettings({ ...settings, discordRichPresenceEnabled: e.target.checked })}
         />
         <span>Show Discord Rich Presence while playing</span>
+      </label>
+
+      <h3 className="settings-subheading">Launch Animations</h3>
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.launchAnimationsEnabled}
+          onChange={(e) => setSettings({ ...settings, launchAnimationsEnabled: e.target.checked })}
+        />
+        <span>Show launch and session-end animations</span>
       </label>
 
       <h3 className="settings-subheading">Instance Defaults</h3>

@@ -103,7 +103,23 @@ export default function App() {
   instancesRef.current = instances;
   const activeInstanceIdRef = useRef<string | null>(null);
 
+  // Whether the "Ignition"/"Afterglow" overlays are allowed to show, per the Settings toggle. A ref
+  // (not state) because it's read from handleLaunch and the once-registered onLog subscription, both
+  // of which would otherwise see a stale closure over the setting's value at mount time. Defaults to
+  // true (the setting's own default) until settings.get() resolves, so the very first launch of a
+  // session isn't silently un-animated while that fetch is in flight.
+  const launchAnimationsEnabledRef = useRef(true);
+  const refreshLaunchAnimationsSetting = useCallback(() => {
+    window.api.settings
+      .get()
+      .then((s) => {
+        launchAnimationsEnabledRef.current = s.launchAnimationsEnabled;
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => window.api.updates.onReady(setUpdateVersion), []);
+  useEffect(() => refreshLaunchAnimationsSetting(), [refreshLaunchAnimationsSetting]);
 
   const refreshAccounts = useCallback(async () => {
     try {
@@ -196,7 +212,7 @@ export default function App() {
         const raw = event.data as unknown;
         const codeNum = raw === null || raw === undefined ? 0 : Number(raw);
         const cleanExit = !Number.isFinite(codeNum) || codeNum === 0;
-        if (cleanExit && !launchOverlayMountedRef.current) {
+        if (cleanExit && !launchOverlayMountedRef.current && launchAnimationsEnabledRef.current) {
           const endedInstance = instancesRef.current.find((i) => i.id === event.instanceId);
           const name = endedInstance?.name ?? "Game";
           const bannerFilter = resolveBannerTheme(event.instanceId, endedInstance?.banner).filter;
@@ -273,13 +289,15 @@ export default function App() {
     // the session ran; the exit handler consumes and clears this entry.
     sessionStartTimesRef.current.set(instance.id, shownAt);
     setLaunchStatus("Preparing…");
-    setLaunchOverlay({
-      instanceId: instance.id,
-      name: instance.name,
-      phase: "igniting",
-      fast: false,
-      bannerFilter: resolveBannerTheme(instance.id, instance.banner).filter,
-    });
+    if (launchAnimationsEnabledRef.current) {
+      setLaunchOverlay({
+        instanceId: instance.id,
+        name: instance.name,
+        phase: "igniting",
+        fast: false,
+        bannerFilter: resolveBannerTheme(instance.id, instance.banner).filter,
+      });
+    }
 
     setRunningIds((prev) => new Set(prev).add(instance.id));
     try {
@@ -436,7 +454,9 @@ export default function App() {
         )}
         {view.kind === "cosmetics" && <Cosmetics />}
         {view.kind === "about" && <About />}
-        {view.kind === "settings" && <SettingsPage onAccountsChanged={refreshAccounts} />}
+        {view.kind === "settings" && (
+          <SettingsPage onAccountsChanged={refreshAccounts} onSettingsChanged={refreshLaunchAnimationsSetting} />
+        )}
         {view.kind === "instance" && selectedInstance && (
           <InstanceDetail
             key={selectedInstance.id}

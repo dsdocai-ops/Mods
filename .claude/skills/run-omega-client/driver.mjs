@@ -222,6 +222,7 @@ function installMockApi() {
         msaClientId: '',
         autoUpdateEnabled: true,
         showModDownloadWarning: true,
+        launchAnimationsEnabled: true,
       }),
       set: async () => {},
     },

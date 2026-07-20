@@ -222,6 +222,8 @@ export interface AppSettings {
   showModDownloadWarning: boolean;
   /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
   discordRichPresenceEnabled: boolean;
+  /** Play the "Ignition" launch-transition overlay and "Afterglow" session-end overlay in App.tsx. On by default; for players who want zero friction between click and game, an opt-out. */
+  launchAnimationsEnabled: boolean;
 }
 
 /**
