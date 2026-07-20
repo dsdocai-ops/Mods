@@ -22,7 +22,7 @@ type View =
   | { kind: "cosmetics" }
   | { kind: "settings" }
   | { kind: "about" }
-  | { kind: "instance"; id: string; initialTab: Tab; nav: "play" | "mods" };
+  | { kind: "instance"; id: string; initialTab: Tab | undefined; nav: "play" | "mods" };
 
 export default function App() {
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -199,7 +199,7 @@ export default function App() {
 
   // Stable references so the memoized Sidebar doesn't re-render on every log flush (App re-renders
   // ~30x/s while a game streams output; the sidebar's active-nav prop doesn't actually change then).
-  const openInstance = useCallback((id: string, nav: "play" | "mods" = "play", initialTab: Tab = "mods") => {
+  const openInstance = useCallback((id: string, nav: "play" | "mods" = "play", initialTab?: Tab) => {
     activeInstanceIdRef.current = id;
     setView({ kind: "instance", id, initialTab, nav });
   }, []);

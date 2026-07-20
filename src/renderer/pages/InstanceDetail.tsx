@@ -52,7 +52,7 @@ export default function InstanceDetail({
   onDeleted,
   onOpenGlobalSettings,
   onBack,
-  initialTab = "mods",
+  initialTab,
   accountSwitchOpenSignal,
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
@@ -61,7 +61,7 @@ export default function InstanceDetail({
   const [updates, setUpdates] = useState<ModrinthUpdate[]>([]);
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
-  const [tab, setTabState] = useState<Tab>(lastOpenTab);
+  const [tab, setTabState] = useState<Tab>(initialTab ?? lastOpenTab);
   const setTab = (next: Tab) => {
     lastOpenTab = next;
     setTabState(next);
@@ -94,12 +94,16 @@ export default function InstanceDetail({
   };
 
   const loadMods = async () => {
-    const list = await window.api.mods.list(instance.modsDir);
-    setMods(list);
-    checkUpdates();
+    try {
+      const list = await window.api.mods.list(instance.modsDir);
+      setMods(list);
+      checkUpdates();
+    } catch (err) {
+      toast(`Couldn't load mods: ${err instanceof Error ? err.message : String(err)}`, "error");
+    }
   };
 
-  const loadAccounts = () => window.api.accounts.list().then(setAccounts);
+  const loadAccounts = () => window.api.accounts.list().then(setAccounts).catch(() => {});
 
   useEffect(() => {
     loadMods();
@@ -460,7 +464,7 @@ export default function InstanceDetail({
           ) : (
             <DiscoverMods
               instance={instance}
-              installedFileNames={new Set(mods.map((m) => m.id))}
+              installedIds={new Set(mods.flatMap((m) => [m.id.toLowerCase(), m.modId.toLowerCase()]))}
               onInstalled={loadMods}
             />
           )}

@@ -111,13 +111,6 @@ public class ClickGuiScreen extends Screen {
                 })
                 .dimensions(startX, y, ROW_WIDTH, 20)
                 .build());
-        y += ROW_HEIGHT;
-
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Cosmetics..."), b -> {
-                    if (this.client != null) this.client.setScreen(new CosmeticsScreen(config, this));
-                })
-                .dimensions(startX, y, ROW_WIDTH, 20)
-                .build());
         y += ROW_HEIGHT + 8;
 
         this.addDrawableChild(ButtonWidget.builder(switchAccountText(), b -> {

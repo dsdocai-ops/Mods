@@ -91,7 +91,7 @@ function sha1Of(buffer: Buffer): string {
 }
 
 /** Downloads one file, verifying sha1 when known. Skips work when the file already exists with the right hash/size. */
-export async function downloadFile(url: string, destPath: string, expectedSha1?: string): Promise<void> {
+export async function downloadFile(url: string, destPath: string, expectedSha1?: string, init?: RequestInit): Promise<void> {
   if (fs.existsSync(destPath)) {
     if (!expectedSha1) return;
     const existing = fs.readFileSync(destPath);
@@ -99,7 +99,7 @@ export async function downloadFile(url: string, destPath: string, expectedSha1?:
     // Wrong content on disk (partial download from a previous crash?) - re-fetch below.
   }
 
-  const response = await fetchWithRetry(url);
+  const response = await fetchWithRetry(url, init);
   if (!response.ok) {
     throw new Error(`Download failed (${response.status}) for ${url}`);
   }

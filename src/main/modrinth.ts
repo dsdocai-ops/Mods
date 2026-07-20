@@ -25,6 +25,9 @@ const API_BASE = "https://api.modrinth.com/v2";
 // Modrinth's usage guidelines ask API clients to send a descriptive User-Agent identifying the app
 // and a contact/URL, so a misbehaving client can be reached rather than blanket-rate-limited.
 const USER_AGENT = "OmegaClient/1.0 (+https://github.com/dsdocai-ops/Mods)";
+// Modrinth's CDN (not just the API) rejects UA-less requests outright, so the actual jar
+// downloads below need this too, not just apiJson's metadata calls.
+const DOWNLOAD_INIT: RequestInit = { headers: { "User-Agent": USER_AGENT } };
 // A hard ceiling on how many jars one install can pull in, so a pathological/looping dependency
 // graph can't turn a single click into an unbounded download. The visited-set below already breaks
 // cycles; this is a belt-and-braces cap on breadth.
@@ -237,7 +240,7 @@ export async function installFromModrinth(
     onProgress({ phase: "downloading", name: item.name, done, total, detail: `Downloading ${item.name} (${done + 1}/${total})...` });
     // path.basename guards against a crafted filename with "../" segments escaping modsDir - same
     // guard mods.ts/shaders.ts apply to every file name they write.
-    await downloadFile(item.url, path.join(modsDir, path.basename(item.filename)), item.sha1);
+    await downloadFile(item.url, path.join(modsDir, path.basename(item.filename)), item.sha1, DOWNLOAD_INIT);
     done++;
   }
 
@@ -346,7 +349,7 @@ export async function applyModrinthUpdates(
     // path.basename guards the Modrinth-supplied name against "../" traversal, same as installFromModrinth.
     const targetName = path.basename(update.newFileName) + (update.enabled ? "" : DISABLED_SUFFIX);
     const targetPath = path.join(modsDir, targetName);
-    await downloadFile(update.url, targetPath, update.sha1);
+    await downloadFile(update.url, targetPath, update.sha1, DOWNLOAD_INIT);
 
     const oldPath = path.join(modsDir, path.basename(update.fileName));
     if (path.resolve(oldPath) !== path.resolve(targetPath) && fs.existsSync(oldPath)) {
@@ -375,7 +378,7 @@ export async function applyModrinthUpdates(
     const total = updates.length + depPlan.length;
     for (const item of depPlan) {
       onProgress({ phase: "downloading", name: item.name, done, total, detail: `Installing new dependency ${item.name} (${done + 1}/${total})...` });
-      await downloadFile(item.url, path.join(modsDir, path.basename(item.filename)), item.sha1);
+      await downloadFile(item.url, path.join(modsDir, path.basename(item.filename)), item.sha1, DOWNLOAD_INIT);
       installedFiles.push(path.basename(item.filename));
       done++;
     }

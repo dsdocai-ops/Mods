@@ -28,10 +28,12 @@ export default function Cosmetics() {
   const [redeeming, setRedeeming] = useState(false);
 
   const reload = () =>
-    Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive()]).then(([o, active]) => {
-      setOwned(o);
-      setEquippedId(active);
-    });
+    Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive()])
+      .then(([o, active]) => {
+        setOwned(o);
+        setEquippedId(active);
+      })
+      .catch(() => {});
 
   useEffect(() => {
     reload();
