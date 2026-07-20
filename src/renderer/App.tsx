@@ -11,7 +11,15 @@ import Cosmetics from "./pages/Cosmetics";
 import About from "./pages/About";
 import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
+import LaunchOverlay, { type LaunchPhase } from "./components/LaunchOverlay";
 import { toast } from "./toast";
+
+// "Ignition" overlay timing. The min-display gate keeps the overlay up this long before the success
+// beat can start, so an instant-resolving start() doesn't flash - the moment reads as deliberate.
+const OVERLAY_MIN_DISPLAY_MS = 1600;
+const OVERLAY_SUCCESS_HOLD_MS = 900;
+const OVERLAY_CLOSE_MS = 450; // matches the .launch-overlay-closing fade-out
+const OVERLAY_CLOSE_FAST_MS = 250; // matches .launch-overlay-fast (failure path)
 
 // One view per sidebar nav item, plus the instance-detail view (reached from Home/Play). Instance
 // detail carries which tab to open and which nav item to highlight while it's showing (Play, unless
@@ -40,6 +48,26 @@ export default function App() {
   // null = still loading (don't flash the sign-in gate before we actually know); [] = no account
   // linked yet, gates the whole app - see SignInRequired.
   const [accounts, setAccounts] = useState<PublicAccount[] | null>(null);
+
+  // The launch "Ignition" overlay - purely additive presentation around handleLaunch. null = unmounted
+  // (app stays fully interactive). See handleLaunch for the phase machine; fast = failure fade-out.
+  const [launchOverlay, setLaunchOverlay] = useState<{
+    instanceId: string;
+    name: string;
+    phase: LaunchPhase;
+    fast: boolean;
+  } | null>(null);
+  // The one-line status is set ONLY on stream === "status" events (stdout floods ~30/s - never per line).
+  const [launchStatus, setLaunchStatus] = useState("Preparing…");
+  // Pending phase-advance timeouts, cleared whenever a new launch (or a dismiss) supersedes the overlay.
+  const overlayTimersRef = useRef<number[]>([]);
+  // Bumped on every new launch and on dismiss; async start() resolutions guard on it so a superseded
+  // launch can never drive the current overlay.
+  const overlayTokenRef = useRef(0);
+  // Read inside the onLog subscription (registered once) so status events only update the overlay while
+  // its instance is the one launching.
+  const overlayInstanceRef = useRef<string | null>(null);
+  overlayInstanceRef.current = launchOverlay?.instanceId ?? null;
 
   // Kept current every render so the stable `navigate`/`openInstance` callbacks (which must not
   // change identity, or the memoized Sidebar re-renders on every log flush) can read the latest
@@ -118,6 +146,12 @@ export default function App() {
         setTimeout(flushLogBuffer, 33);
       }
 
+      // Drive the overlay's status line only from status-stream events for the launching instance -
+      // stdout arrives ~30 lines/s, so setState per stdout line would thrash the overlay.
+      if (event.stream === "status" && event.instanceId === overlayInstanceRef.current) {
+        setLaunchStatus(event.data);
+      }
+
       if (event.stream === "exit") {
         setRunningIds((prev) => {
           const next = new Set(prev);
@@ -152,7 +186,40 @@ export default function App() {
     return instances.find((i) => i.id === view.id) ?? null;
   }, [view, instances]);
 
+  // Overlay-only helpers. clearOverlayTimers is called before any new phase is scheduled so a prior
+  // launch's pending success/hold/unmount timers can never fire against the current overlay.
+  const clearOverlayTimers = () => {
+    for (const id of overlayTimersRef.current) window.clearTimeout(id);
+    overlayTimersRef.current = [];
+  };
+  // token guards the async close so a launch that got superseded (new launch, or a dismiss bumping the
+  // token) can't reschedule phases or unmount the overlay that now belongs to someone else.
+  const closeOverlay = (token: number, durationMs: number) => {
+    if (overlayTokenRef.current !== token) return;
+    setLaunchOverlay((o) => (o ? { ...o, phase: "closing", fast: durationMs === OVERLAY_CLOSE_FAST_MS } : o));
+    overlayTimersRef.current.push(
+      window.setTimeout(() => {
+        if (overlayTokenRef.current === token) setLaunchOverlay(null);
+      }, durationMs)
+    );
+  };
+  // Escape hatch: skip straight to fade-out. Bumping the token abandons any in-flight start() resolution
+  // so it can't re-drive the overlay; the launch itself continues in the background untouched.
+  const dismissOverlay = () => {
+    clearOverlayTimers();
+    const token = ++overlayTokenRef.current;
+    closeOverlay(token, OVERLAY_CLOSE_MS);
+  };
+
   const handleLaunch = async (instance: Instance) => {
+    // Additive overlay setup - none of this touches runningIds/toast/refresh below. A second launch
+    // while an overlay is still closing resets cleanly: clear pending timers and take a fresh token.
+    clearOverlayTimers();
+    const token = ++overlayTokenRef.current;
+    const shownAt = Date.now();
+    setLaunchStatus("Preparing…");
+    setLaunchOverlay({ instanceId: instance.id, name: instance.name, phase: "igniting", fast: false });
+
     setRunningIds((prev) => new Set(prev).add(instance.id));
     try {
       await window.api.launch.start(instance);
@@ -161,6 +228,20 @@ export default function App() {
       // have removed this id from runningIds below - re-add it now that the launch is confirmed to
       // have actually succeeded, so the UI reflects reality instead of whatever that race left it in.
       setRunningIds((prev) => new Set(prev).add(instance.id));
+      // Success beat, but only after the min-display gate: enter "success" once start resolved AND the
+      // overlay has been up long enough, hold, then fade out and unmount.
+      if (overlayTokenRef.current === token) {
+        const wait = Math.max(0, OVERLAY_MIN_DISPLAY_MS - (Date.now() - shownAt));
+        overlayTimersRef.current.push(
+          window.setTimeout(() => {
+            if (overlayTokenRef.current !== token) return;
+            setLaunchOverlay((o) => (o ? { ...o, phase: "success" } : o));
+            overlayTimersRef.current.push(
+              window.setTimeout(() => closeOverlay(token, OVERLAY_CLOSE_MS), OVERLAY_SUCCESS_HOLD_MS)
+            );
+          }, wait)
+        );
+      }
     } catch (err) {
       setRunningIds((prev) => {
         const next = new Set(prev);
@@ -170,6 +251,9 @@ export default function App() {
       // Also surface it as a toast - the full error already lands in the Console tab, but that's
       // invisible if you hit Play from the Mods tab and nothing appears to happen.
       toast(`Launch failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+      // The toast already reports the failure - the overlay just gets out of the way fast, no duplicate.
+      clearOverlayTimers();
+      closeOverlay(token, OVERLAY_CLOSE_FAST_MS);
     }
     refreshInstances();
   };
@@ -235,6 +319,15 @@ export default function App() {
   return (
     <div className="app-shell">
       <ToastHost />
+      {launchOverlay && (
+        <LaunchOverlay
+          name={launchOverlay.name}
+          phase={launchOverlay.phase}
+          status={launchStatus}
+          fast={launchOverlay.fast}
+          onDismiss={dismissOverlay}
+        />
+      )}
       {updateVersion && (
         <div className="update-banner">
           <span>

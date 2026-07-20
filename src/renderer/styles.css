@@ -2686,6 +2686,195 @@ input[type="checkbox"] {
   font-size: 13px;
 }
 
+/* "Ignition" launch overlay. Full-screen, dismissible presentation layer over the launch. z-index 90:
+   below toasts (100) so an error toast stays readable above it, above modal backdrops (50). Unmounted
+   entirely when idle (App renders it conditionally) so it never eats clicks while nothing is launching. */
+.launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* dark scrim + a soft gold radial glow behind the mark */
+  background: radial-gradient(circle at 50% 44%, rgba(246, 196, 83, 0.13), transparent 55%), rgba(4, 4, 5, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: launch-overlay-in 0.3s var(--ease);
+}
+
+/* Placed after the base rule so its animation shorthand wins the fade-out; the fast variant only
+   shortens the duration (failure path leaves immediately). */
+.launch-overlay-closing {
+  animation: launch-overlay-out 0.45s var(--ease) forwards;
+}
+.launch-overlay-closing.launch-overlay-fast {
+  animation-duration: 0.25s;
+}
+
+/* Full-bleed hit target under the (pointer-events:none) content, so a click anywhere dismisses. */
+.launch-overlay-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.launch-overlay-content {
+  position: relative;
+  z-index: 1;
+  pointer-events: none; /* clicks fall through to the hit button beneath */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.launch-overlay-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.launch-omega {
+  font-family: var(--font-display);
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 24px rgba(246, 196, 83, 0.45));
+  animation: launch-omega-in 0.35s var(--ease);
+}
+
+/* Success flare: a single glow burst that spikes then settles back to the resting glow. */
+.launch-overlay-success .launch-omega {
+  animation: launch-omega-flare 0.5s var(--ease);
+}
+
+.launch-overlay-rings {
+  position: absolute;
+  inset: 0;
+}
+
+.launch-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border: 1px solid rgba(246, 196, 83, 0.55);
+  border-radius: 50%;
+  opacity: 0;
+  animation: launch-ring-pulse 1.8s var(--ease) infinite;
+}
+.launch-ring:nth-child(2) {
+  animation-delay: 0.9s;
+}
+
+/* Rings only pulse while igniting - they stop the instant the success beat or close begins. */
+.launch-overlay-success .launch-ring,
+.launch-overlay-closing .launch-ring {
+  animation: none;
+  opacity: 0;
+}
+
+.launch-overlay-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  color: #fff;
+}
+
+.launch-overlay-kicker {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.launch-overlay-kicker-running {
+  color: var(--success);
+}
+
+.launch-overlay-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.launch-overlay-status {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+@keyframes launch-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes launch-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes launch-omega-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes launch-omega-flare {
+  0% {
+    filter: drop-shadow(0 0 24px rgba(246, 196, 83, 0.45));
+  }
+  40% {
+    filter: drop-shadow(0 0 48px rgba(255, 223, 142, 0.9));
+  }
+  100% {
+    filter: drop-shadow(0 0 24px rgba(246, 196, 83, 0.45));
+  }
+}
+
+@keyframes launch-ring-pulse {
+  from {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
 /* Accessibility: disable every ambient/looping motion introduced in v2 (Ken Burns, the hero aurora,
    the wordmark sheen and the periodic PLAY sheen) plus the banner hover zoom for users who ask for
    reduced motion. Static end-states are left in place. */
@@ -2705,5 +2894,15 @@ input[type="checkbox"] {
   .instance-card:hover .instance-card-banner-img {
     transition: none;
     transform: none;
+  }
+
+  /* Launch overlay: keep only the plain opacity fade in/out - no rings, flare, or Omega scale. The
+     overlay-in/out keyframes are opacity-only, so they stay (and the close-timing still lines up). */
+  .launch-omega,
+  .launch-overlay-success .launch-omega {
+    animation: none;
+  }
+  .launch-ring {
+    display: none;
   }
 }
