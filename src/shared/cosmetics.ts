@@ -50,6 +50,7 @@ export const COSMETIC_CATALOG: Cosmetic[] = [
   { id: "inferno_wings", name: "Inferno Wings", colorHex: "#FF6B4A", type: "wings", description: "Dragon-like wings with an ember-to-shadow membrane gradient." },
   { id: "azure_charm_hat", name: "Azure Charm Hat", colorHex: "#34689E", type: "hat", description: "A true-3D voxel bucket hat with a gold fish charm dangling from a chain." },
   { id: "twilight_summit_cape", name: "Twilight Summit Cape", colorHex: "#CFE8FF", type: "cape", description: "A real painted texture cape of a starry sky over icy mountain peaks." },
+  { id: "checkered_bucket_hat", name: "Checkered Bucket Hat", colorHex: "#7EC8E3", type: "hat", description: "A true-3D voxel bucket hat with a light blue and white checkerboard pattern." },
 ];
 
 /** The badge/hat color a player with no cosmetic shows - mirrors CosmeticCatalog.DEFAULT_BADGE_RGB (0xE63946). */

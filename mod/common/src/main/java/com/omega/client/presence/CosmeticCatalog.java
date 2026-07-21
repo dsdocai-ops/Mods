@@ -76,7 +76,8 @@ public final class CosmeticCatalog {
             // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
             // so a color here would silently never fire - see the Cosmetic record's own doc above.
             Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.AZURE_CHARM_HAT, null, null)),
-            Map.entry("twilight_summit_cape", new Cosmetic("twilight_summit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xCFE8FF, "cosmetics/twilight_summit_cape"))
+            Map.entry("twilight_summit_cape", new Cosmetic("twilight_summit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xCFE8FF, "cosmetics/twilight_summit_cape")),
+            Map.entry("checkered_bucket_hat", new Cosmetic("checkered_bucket_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.CHECKERED_BUCKET_HAT, null, null))
     );
 
     private CosmeticCatalog() {
