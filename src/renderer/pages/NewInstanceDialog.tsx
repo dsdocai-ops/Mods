@@ -69,7 +69,11 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
     try {
       const list = await window.api.install.listVersions();
       setReleases(list);
-      if (list.length > 0) setInstallVersion(list[0].id);
+      // Default to the flagship Omega version rather than whatever Mojang shipped most recently -
+      // that's the version most people installing fresh actually want the mod experience on.
+      const flagship = list.find((v) => v.omega?.tier === "main");
+      if (flagship) setInstallVersion(flagship.id);
+      else if (list.length > 0) setInstallVersion(list[0].id);
     } catch (err) {
       setError(`Couldn't fetch the Minecraft version list: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -120,6 +124,25 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
       setCreating(false);
     }
   };
+
+  const mainReleases = releases.filter((r) => r.omega?.tier === "main");
+  const bridgeReleases = releases.filter((r) => r.omega?.tier === "bridge");
+  const plainReleases = releases.filter((r) => !r.omega);
+
+  const selectedRelease = releases.find((r) => r.id === installVersion) ?? null;
+  let supportHint: string | null = null;
+  if (installLoader !== "vanilla" && selectedRelease) {
+    if (!selectedRelease.omega) {
+      supportHint =
+        "No Omega build for this version yet - the instance will run without the companion mod. New ports arrive automatically, no app update needed.";
+    } else if (!selectedRelease.omega.loaders.includes(installLoader)) {
+      supportHint = `Omega ships for ${selectedRelease.omega.loaders.join(", ")} on this version - ${installLoader} will run without it.`;
+    } else if (selectedRelease.omega.tier === "main") {
+      supportHint = "Full Omega feature set on this version.";
+    } else {
+      supportHint = "Omega bridge port - core features, remotely updated.";
+    }
+  }
 
   return (
     <div className="modal-backdrop" onClick={installing || creating ? undefined : onClose}>
@@ -200,11 +223,33 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
                   onChange={(e) => setInstallVersion(e.target.value)}
                 >
                   {releases.length === 0 && <option value="">Loading versions&hellip;</option>}
-                  {releases.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.id}
-                    </option>
-                  ))}
+                  {mainReleases.length > 0 && (
+                    <optgroup label="Omega — full support">
+                      {mainReleases.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.id} — ★ Omega
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {bridgeReleases.length > 0 && (
+                    <optgroup label="Omega — bridge ports">
+                      {bridgeReleases.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.id} — Omega bridge
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {plainReleases.length > 0 && (
+                    <optgroup label="All Minecraft releases">
+                      {plainReleases.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.id}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
               <label className="field">
@@ -215,12 +260,14 @@ export default function NewInstanceDialog({ onClose, onCreated }: Props) {
                   value={installLoader}
                   onChange={(e) => setInstallLoader(e.target.value as InstallLoader)}
                 >
-                  <option value="fabric">Fabric (recommended for the Omega mod)</option>
+                  <option value="fabric">Fabric{selectedRelease?.omega?.loaders.includes("fabric") ? " (recommended for the Omega mod)" : ""}</option>
                   <option value="forge">Forge</option>
                   <option value="vanilla">Vanilla (no mods)</option>
                 </select>
               </label>
             </div>
+
+            {supportHint && <p className="empty-hint omega-support-hint">{supportHint}</p>}
 
             {installing && (
               <div className="install-progress">

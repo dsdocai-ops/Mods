@@ -1991,6 +1991,12 @@ input[type="checkbox"] {
   font-size: 13px;
 }
 
+/* Sits right under the version/loader row - needs breathing room above so it doesn't read as
+   attached to the loader select, and below so it doesn't crowd the install button/progress bar. */
+.omega-support-hint {
+  margin: -4px 0 8px 0;
+}
+
 .error-text {
   color: #ff8080;
   font-size: 12.5px;
