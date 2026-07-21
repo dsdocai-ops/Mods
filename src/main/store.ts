@@ -27,6 +27,7 @@ const DEFAULT_STORE: StoreShape = {
     autoUpdateEnabled: true,
     showModDownloadWarning: true,
     discordRichPresenceEnabled: true,
+    launchAnimationsEnabled: true,
   },
 };
 
@@ -57,6 +58,7 @@ function readStore(): StoreShape {
         autoUpdateEnabled: parsed.settings?.autoUpdateEnabled ?? true,
         showModDownloadWarning: parsed.settings?.showModDownloadWarning ?? true,
         discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? true,
+        launchAnimationsEnabled: parsed.settings?.launchAnimationsEnabled ?? true,
       },
     };
   } catch {

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConfigFormat, Instance, ModInfo, ModrinthUpdate, ModTag, PublicAccount } from "@shared/types";
 import { MOD_TAG_PRESETS } from "@shared/types";
+import { AUTO_BANNER, BANNER_THEMES, resolveBannerTheme } from "@shared/banners";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
 import DiscoverMods from "../components/DiscoverMods";
@@ -322,8 +323,17 @@ export default function InstanceDetail({
 
   const enabledCount = mods.filter((m) => m.enabled).length;
 
+  // Header banner strip reflects the persisted banner (cards use the same resolve). The Auto swatch
+  // in the picker shows this same hash-resolved art so "auto" reads as a concrete, computed choice.
+  const headerBannerTheme = resolveBannerTheme(instance.id, instance.banner);
+  const autoBannerTheme = resolveBannerTheme(instance.id, undefined);
+  const bannerIsAuto = draft.banner == null || draft.banner === AUTO_BANNER;
+
   return (
     <div className="instance-detail">
+      <div className="instance-detail-banner" aria-hidden="true">
+        <div className="instance-detail-banner-img banner-fill" style={{ filter: headerBannerTheme.filter }} />
+      </div>
       <button className="back-link" onClick={onBack}>
         <span className="back-arrow">
           <ArrowRightIcon size={14} />
@@ -481,6 +491,35 @@ export default function InstanceDetail({
             <span>Instance name</span>
             <input className="input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </label>
+
+          <div className="field">
+            <span>Banner</span>
+            <div className="banner-swatches">
+              <button
+                type="button"
+                className={`banner-swatch ${bannerIsAuto ? "banner-swatch-active" : ""}`}
+                onClick={() => setDraft({ ...draft, banner: undefined })}
+                title="Auto - picked from this instance's id"
+              >
+                <span className="banner-swatch-thumb banner-fill" style={{ filter: autoBannerTheme.filter }}>
+                  <span className="banner-swatch-auto">AUTO</span>
+                </span>
+                <span className="banner-swatch-label">Auto</span>
+              </button>
+              {BANNER_THEMES.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={`banner-swatch ${draft.banner === theme.id ? "banner-swatch-active" : ""}`}
+                  onClick={() => setDraft({ ...draft, banner: theme.id })}
+                  title={theme.name}
+                >
+                  <span className="banner-swatch-thumb banner-fill" style={{ filter: theme.filter }} />
+                  <span className="banner-swatch-label">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <label className="field">
             <span>Account</span>

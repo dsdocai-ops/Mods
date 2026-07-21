@@ -1,6 +1,7 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Instance, PublicAccount } from "@shared/types";
+import { resolveBannerTheme } from "@shared/banners";
 import { SPONSOR_PLACEMENTS } from "@shared/affiliates";
 import { RELEASES_URL } from "@shared/links";
 import SponsorCard from "../components/SponsorCard";
@@ -79,9 +80,11 @@ export default function Home({ instances, accounts, runningIds, onNewInstance, o
             <p className="section-label">Selected profile</p>
             <div className="profile-select" ref={menuRef}>
               <button className="profile-card" onClick={() => setMenuOpen((v) => !v)}>
-                <span className="profile-card-icon">
-                  <CubeIcon size={20} />
-                </span>
+                <span
+                  className="profile-card-icon profile-card-thumb"
+                  style={{ filter: resolveBannerTheme(selected?.id ?? "", selected?.banner).filter }}
+                  aria-hidden="true"
+                />
                 <span className="profile-card-info">
                   <span className="profile-card-name">{selected?.name}</span>
                   <span className="profile-card-meta">
@@ -163,6 +166,8 @@ export default function Home({ instances, accounts, runningIds, onNewInstance, o
       </div>
 
       <div className="home-hero">
+        <div className="hero-bg" />
+        <div className="hero-aurora" />
         <div className="hero-wordmark">
           <span className="hero-omega">Omega</span>
           <span className="hero-tagline">The ultimate Minecraft client</span>

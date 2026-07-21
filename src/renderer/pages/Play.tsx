@@ -1,5 +1,6 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import type { Instance } from "@shared/types";
+import { resolveBannerTheme } from "@shared/banners";
 import { CubeIcon, GearIcon, PlayIcon, PlusIcon } from "../components/Icons";
 
 interface Props {
@@ -34,8 +35,12 @@ export default function Play({ instances, runningIds, onNewInstance, onOpenInsta
       <div className="instance-grid">
         {instances.map((instance) => {
           const running = runningIds.has(instance.id);
+          const bannerTheme = resolveBannerTheme(instance.id, instance.banner);
           return (
             <div key={instance.id} className={`instance-card ${running ? "running" : ""}`}>
+              <div className="instance-card-banner">
+                <div className="instance-card-banner-img banner-fill" style={{ filter: bannerTheme.filter }} />
+              </div>
               <button className="instance-card-main" onClick={() => onOpenInstance(instance.id)}>
                 <span className="instance-card-icon">
                   <CubeIcon size={22} />
