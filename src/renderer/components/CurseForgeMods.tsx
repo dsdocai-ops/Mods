@@ -1,6 +1,6 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useRef, useState } from "react";
-import type { AppSettings, CurseForgeInstallProgress, CurseForgeSearchHit, Instance } from "@shared/types";
+import type { CurseForgeInstallProgress, CurseForgeSearchHit, Instance } from "@shared/types";
 import { DownloadIcon, SearchIcon } from "./Icons";
 import { toast } from "../toast";
 
@@ -15,8 +15,8 @@ interface Props {
 /**
  * The "CurseForge" Discover segment: searches CurseForge for mods compatible with this instance's
  * loader + Minecraft version and installs the chosen one (plus its required dependencies) into
- * modsDir. Unlike Modrinth, CurseForge requires a personal API key (Settings > CurseForge) - this
- * gates the search box on that instead of hitting the API and surfacing a 401.
+ * modsDir. Uses Omega's own shared CurseForge API key (main/curseforge.ts) - there's nothing for
+ * the player to configure here, same as the Modrinth segment.
  */
 export default function CurseForgeMods({ instance, installedIds, onInstalled }: Props) {
   const [query, setQuery] = useState("");
@@ -24,18 +24,10 @@ export default function CurseForgeMods({ instance, installedIds, onInstalled }: 
   const [searching, setSearching] = useState(false);
   const [installingId, setInstallingId] = useState<number | null>(null);
   const [progress, setProgress] = useState<CurseForgeInstallProgress | null>(null);
-  // null while we're still reading settings - avoids flashing "add an API key" for someone who already has one.
-  const [apiKey, setApiKey] = useState<string | null>(null);
 
   const searchRequestRef = useRef(0);
 
   useEffect(() => window.api.curseforge.onProgress(setProgress), []);
-  useEffect(() => {
-    window.api.settings
-      .get()
-      .then((s: AppSettings) => setApiKey(s.curseforgeApiKey))
-      .catch(() => setApiKey(""));
-  }, []);
 
   const runSearch = async () => {
     const requestId = ++searchRequestRef.current;
@@ -78,17 +70,6 @@ export default function CurseForgeMods({ instance, installedIds, onInstalled }: 
       <p className="empty-hint">
         This is a vanilla instance, so there's no mod loader to install mods into. Create a Fabric or Forge instance to
         browse and download mods here.
-      </p>
-    );
-  }
-
-  if (apiKey === null) return <p className="empty-hint">Loading&hellip;</p>;
-
-  if (apiKey === "") {
-    return (
-      <p className="empty-hint">
-        Add a CurseForge API key in Settings to search and install mods from CurseForge (get a free one at
-        console.curseforge.com).
       </p>
     );
   }

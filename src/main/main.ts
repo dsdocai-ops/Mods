@@ -291,7 +291,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("curseforge:search", (_e, query: string, loader: Loader, versionId: string) =>
-    curseforge.searchCurseForge(query, loader, versionId, store.getSettings().curseforgeApiKey)
+    curseforge.searchCurseForge(query, loader, versionId)
   );
 
   // One CurseForge install at a time, mirroring modrinthInstallInFlight above - guards the same
@@ -303,7 +303,7 @@ app.whenReady().then(() => {
     }
     curseforgeInstallInFlight = true;
     try {
-      return await curseforge.installFromCurseForge(modsDir, modId, loader, versionId, store.getSettings().curseforgeApiKey, (progress) =>
+      return await curseforge.installFromCurseForge(modsDir, modId, loader, versionId, (progress) =>
         sendToRenderer("curseforge:installProgress", progress)
       );
     } finally {

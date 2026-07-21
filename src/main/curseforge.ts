@@ -7,13 +7,18 @@ import { downloadFile, fetchWithRetry } from "./installer";
 /**
  * In-launcher mod browser backed by CurseForge's REST API (api.curseforge.com/v1) - the
  * "CurseForge" Discover segment, alongside Featured Mods (featuredMods.ts). Unlike Modrinth,
- * CurseForge requires a personal API key (from console.curseforge.com) sent as `x-api-key`; every
- * exported function here takes that key as a parameter rather than reading settings itself, so
- * this module stays a plain API client with no store.ts dependency.
+ * CurseForge requires an API key (from console.curseforge.com) sent as `x-api-key` on every
+ * request. There's no per-user sign-in concept for this like Microsoft accounts have, so - same
+ * model as store.ts's DEFAULT_MSA_CLIENT_ID - Omega ships one shared key baked in here rather than
+ * asking every player to register their own; it isn't a Settings field.
  *
  * Reuses installer.ts's downloadFile (sha1-verified... though CurseForge's file listing doesn't
  * expose a hash the way Modrinth's does, so downloads here aren't hash-checked) and fetchWithRetry.
  */
+
+// TODO: fill in Omega's CurseForge API key (console.curseforge.com) - search/install fail with a
+// clear error until this is set, same as an unset MSA client id would for Microsoft sign-in.
+const CURSEFORGE_API_KEY = "";
 
 const API_BASE = "https://api.curseforge.com/v1";
 const GAME_ID_MINECRAFT = 432;
@@ -43,17 +48,17 @@ function minecraftVersionOf(versionId: string): string {
   return matches ? matches[matches.length - 1] : versionId;
 }
 
-async function apiJson(pathAndQuery: string, apiKey: string, init?: RequestInit): Promise<any> {
-  if (!apiKey.trim()) {
-    throw new Error("Add a CurseForge API key in Settings first (get one free at console.curseforge.com).");
+async function apiJson(pathAndQuery: string, init?: RequestInit): Promise<any> {
+  if (!CURSEFORGE_API_KEY) {
+    throw new Error("CurseForge search isn't configured yet - check back in a future update.");
   }
   const response = await fetchWithRetry(`${API_BASE}${pathAndQuery}`, {
     ...init,
-    headers: { "x-api-key": apiKey, Accept: "application/json", ...(init?.headers ?? {}) },
+    headers: { "x-api-key": CURSEFORGE_API_KEY, Accept: "application/json", ...(init?.headers ?? {}) },
   });
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new Error("CurseForge rejected the configured API key - check it in Settings.");
+      throw new Error("CurseForge rejected Omega's API key - please report this.");
     }
     throw new Error(`CurseForge request failed (${response.status}) for ${pathAndQuery}`);
   }
@@ -61,7 +66,7 @@ async function apiJson(pathAndQuery: string, apiKey: string, init?: RequestInit)
 }
 
 /** Searches CurseForge for mods compatible with this instance's loader and Minecraft version. */
-export async function searchCurseForge(query: string, loader: Loader, versionId: string, apiKey: string): Promise<CurseForgeSearchHit[]> {
+export async function searchCurseForge(query: string, loader: Loader, versionId: string): Promise<CurseForgeSearchHit[]> {
   const modLoaderType = modLoaderTypeFor(loader);
   if (modLoaderType === null) return []; // vanilla instance - nothing to install
 
@@ -77,7 +82,7 @@ export async function searchCurseForge(query: string, loader: Loader, versionId:
   });
   if (gameVersion) params.set("gameVersion", gameVersion);
 
-  const body = await apiJson(`/mods/search?${params.toString()}`, apiKey);
+  const body = await apiJson(`/mods/search?${params.toString()}`);
   return ((body.data ?? []) as any[]).map(
     (m): CurseForgeSearchHit => ({
       modId: m.id,
@@ -104,17 +109,17 @@ interface CurseForgeFile {
 const REQUIRED_DEPENDENCY = 3;
 
 /** Picks the file to install for a mod under this loader/game version - CurseForge returns these newest-first already. */
-async function bestFile(modId: number, modLoaderType: number, gameVersion: string, apiKey: string): Promise<CurseForgeFile | null> {
+async function bestFile(modId: number, modLoaderType: number, gameVersion: string): Promise<CurseForgeFile | null> {
   const params = new URLSearchParams({ modLoaderType: String(modLoaderType), pageSize: "1" });
   if (gameVersion) params.set("gameVersion", gameVersion);
-  const body = await apiJson(`/mods/${modId}/files?${params.toString()}`, apiKey);
+  const body = await apiJson(`/mods/${modId}/files?${params.toString()}`);
   return ((body.data ?? []) as CurseForgeFile[])[0] ?? null;
 }
 
 /** Some files have no `downloadUrl` (author disabled third-party distribution) - fall back to the dedicated endpoint before giving up. */
-async function resolveDownloadUrl(file: CurseForgeFile, apiKey: string): Promise<string | null> {
+async function resolveDownloadUrl(file: CurseForgeFile): Promise<string | null> {
   if (file.downloadUrl) return file.downloadUrl;
-  const body = await apiJson(`/mods/${file.modId}/files/${file.id}/download-url`, apiKey).catch(() => null);
+  const body = await apiJson(`/mods/${file.modId}/files/${file.id}/download-url`).catch(() => null);
   return body?.data ?? null;
 }
 
@@ -133,7 +138,6 @@ async function resolveMod(
   isRoot: boolean,
   modLoaderType: number,
   gameVersion: string,
-  apiKey: string,
   visited: Set<number>,
   plan: PlannedDownload[],
   skipped: string[],
@@ -143,14 +147,14 @@ async function resolveMod(
   visited.add(modId);
   onProgress({ phase: "resolving", name: String(modId), done: plan.length, total: plan.length, detail: "Resolving dependencies..." });
 
-  const file = await bestFile(modId, modLoaderType, gameVersion, apiKey);
+  const file = await bestFile(modId, modLoaderType, gameVersion);
   if (!file) {
     if (isRoot) throw new Error("No build of this mod exists for this loader/Minecraft version.");
     skipped.push(String(modId));
     return;
   }
 
-  const url = await resolveDownloadUrl(file, apiKey);
+  const url = await resolveDownloadUrl(file);
   if (!url) {
     if (isRoot) throw new Error("CurseForge returned no downloadable file for this mod (the author disabled external downloads).");
     skipped.push(String(modId));
@@ -161,7 +165,7 @@ async function resolveMod(
 
   for (const dep of file.dependencies ?? []) {
     if (dep.relationType !== REQUIRED_DEPENDENCY) continue;
-    await resolveMod(dep.modId, false, modLoaderType, gameVersion, apiKey, visited, plan, skipped, onProgress);
+    await resolveMod(dep.modId, false, modLoaderType, gameVersion, visited, plan, skipped, onProgress);
   }
 }
 
@@ -171,7 +175,6 @@ export async function installFromCurseForge(
   modId: number,
   loader: Loader,
   versionId: string,
-  apiKey: string,
   onProgress: (progress: CurseForgeInstallProgress) => void
 ): Promise<CurseForgeInstallResult> {
   const modLoaderType = modLoaderTypeFor(loader);
@@ -183,7 +186,7 @@ export async function installFromCurseForge(
 
   const plan: PlannedDownload[] = [];
   const skippedDependencies: string[] = [];
-  await resolveMod(modId, true, modLoaderType, gameVersion, apiKey, new Set(), plan, skippedDependencies, onProgress);
+  await resolveMod(modId, true, modLoaderType, gameVersion, new Set(), plan, skippedDependencies, onProgress);
 
   let done = 0;
   const total = plan.length;
