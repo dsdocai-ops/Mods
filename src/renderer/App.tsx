@@ -14,6 +14,7 @@ import SignInRequired from "./pages/SignInRequired";
 import ToastHost from "./components/ToastHost";
 import LaunchOverlay, { type LaunchPhase } from "./components/LaunchOverlay";
 import SessionEndedOverlay from "./components/SessionEndedOverlay";
+import SyncAccountPrompt from "./components/SyncAccountPrompt";
 import { toast } from "./toast";
 
 // "Ignition" overlay timing. The min-display gate keeps the overlay up this long before the success
@@ -42,6 +43,9 @@ export default function App() {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [view, setView] = useState<View>({ kind: "home" });
   const [showNewInstance, setShowNewInstance] = useState(false);
+  // Set right after creating an instance when at least one other instance already exists - see the
+  // NewInstanceDialog's onCreated handler and SyncAccountPrompt.
+  const [syncPrompt, setSyncPrompt] = useState<{ instance: Instance; defaultSync: boolean; joinAccountId?: string } | null>(null);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
   const [switchAccountRequest, setSwitchAccountRequest] = useState<{ instanceId: string; token: number }>({
@@ -491,11 +495,40 @@ export default function App() {
             setShowNewInstance(false);
             // Sign-in is required to reach this dialog at all, so there's always >=1 account -
             // every new instance uses it by default rather than falling back to offline play.
-            if (!instance.accountId && accounts.length > 0) {
-              await window.api.instances.update({ ...instance, accountId: accounts[0].id });
+            const withAccount = instance.accountId ? instance : { ...instance, accountId: accounts[0].id };
+
+            const others = instancesRef.current;
+            if (others.length === 0) {
+              // First instance ever - nothing to sync account selection with yet, so skip the prompt.
+              if (withAccount !== instance) await window.api.instances.update(withAccount);
+              await refreshInstances();
+              openInstance(instance.id);
+              return;
             }
+
+            const settings = await window.api.settings.get().catch(() => null);
+            const defaultSync = settings?.syncAccountAcrossInstances ?? true;
+            const joinAccountId = others.find((i) => (i.syncAccount ?? defaultSync) && i.accountId)?.accountId;
+            setSyncPrompt({ instance: withAccount, defaultSync, joinAccountId });
+          }}
+        />
+      )}
+
+      {syncPrompt && (
+        <SyncAccountPrompt
+          instanceName={syncPrompt.instance.name}
+          defaultSync={syncPrompt.defaultSync}
+          onChoose={async (sync) => {
+            const { instance, joinAccountId } = syncPrompt;
+            const updated: Instance = {
+              ...instance,
+              syncAccount: sync,
+              accountId: sync && joinAccountId ? joinAccountId : instance.accountId,
+            };
+            setSyncPrompt(null);
+            await window.api.instances.update(updated);
             await refreshInstances();
-            openInstance(instance.id);
+            openInstance(updated.id);
           }}
         />
       )}

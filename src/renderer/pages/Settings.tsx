@@ -116,6 +116,18 @@ export default function SettingsPage({ onAccountsChanged, onSettingsChanged }: P
         </button>
       </div>
 
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.syncAccountAcrossInstances}
+          onChange={(e) => setSettings({ ...settings, syncAccountAcrossInstances: e.target.checked })}
+        />
+        <span>
+          Sync the selected account across instances by default - switching accounts on one synced instance switches
+          it on the rest. You'll be asked per new instance whether it should join the sync.
+        </span>
+      </label>
+
       <h3 className="settings-subheading">Mods</h3>
       <label className="field-checkbox">
         <input

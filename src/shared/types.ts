@@ -71,6 +71,14 @@ export interface Instance {
   /** If set, launch with this signed-in Microsoft/Minecraft account instead of an offline session. */
   accountId?: string;
   /**
+   * Whether switching the account on this instance also updates every other synced instance (and
+   * vice versa) - see AppSettings.syncAccountAcrossInstances and main/instances.ts's updateInstance.
+   * Set from the "Sync account?" prompt shown right after creating an instance. Absent (instances
+   * saved before this field existed, or before that prompt had another instance to offer syncing
+   * with) falls back to the global default.
+   */
+  syncAccount?: boolean;
+  /**
    * When true, this instance's Modrinth-sourced mods are checked for newer builds and updated right
    * before it launches. Off by default and opt-in per instance - auto-changing mods before a launch
    * is exactly the kind of surprise a competitive/frozen setup doesn't want. Optional so instances
@@ -271,6 +279,13 @@ export interface AppSettings {
   showModDownloadWarning: boolean;
   /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
   discordRichPresenceEnabled: boolean;
+  /**
+   * Default for whether a new instance keeps its selected account in sync with every other synced
+   * instance (switching the account on one updates them all) - see Instance.syncAccount, which can
+   * override this per instance. On by default: most players use one account everywhere, and
+   * per-instance account juggling is the edge case. See main/instances.ts's updateInstance.
+   */
+  syncAccountAcrossInstances: boolean;
   /** Play the "Ignition" launch-transition overlay and "Afterglow" session-end overlay in App.tsx. On by default; for players who want zero friction between click and game, an opt-out. */
   launchAnimationsEnabled: boolean;
 }
