@@ -1820,6 +1820,18 @@ input[type="checkbox"] {
   -webkit-box-orient: vertical;
 }
 
+.discover-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
 .discover-progress {
   margin: 6px 0 0 0;
   font-size: 12px;

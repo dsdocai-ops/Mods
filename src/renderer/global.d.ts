@@ -3,7 +3,11 @@ import type {
   AppSettings,
   ConfigFormat,
   CreateInstanceInput,
+  CurseForgeInstallProgress,
+  CurseForgeInstallResult,
+  CurseForgeSearchHit,
   DetectedVersion,
+  FeaturedMod,
   InstallableVersion,
   InstallProgress,
   Instance,
@@ -51,6 +55,14 @@ export interface LauncherApi {
     checkUpdates(modsDir: string, loader: Loader, versionId: string): Promise<ModrinthUpdate[]>;
     applyUpdates(modsDir: string, updates: ModrinthUpdate[], loader: Loader, versionId: string): Promise<ModrinthInstallResult>;
     onProgress(callback: (progress: ModrinthInstallProgress) => void): () => void;
+  };
+  curseforge: {
+    search(query: string, loader: Loader, versionId: string): Promise<CurseForgeSearchHit[]>;
+    install(modsDir: string, modId: number, loader: Loader, versionId: string): Promise<CurseForgeInstallResult>;
+    onProgress(callback: (progress: CurseForgeInstallProgress) => void): () => void;
+  };
+  featured: {
+    list(): Promise<FeaturedMod[]>;
   };
   shaders: {
     list(modsDir: string): Promise<ShaderPackInfo[]>;

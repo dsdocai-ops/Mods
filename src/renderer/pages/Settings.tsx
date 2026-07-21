@@ -126,6 +126,22 @@ export default function SettingsPage({ onAccountsChanged, onSettingsChanged }: P
         <span>Show a warning that mods are downloaded from the internet when browsing the Discover tab</span>
       </label>
 
+      <h3 className="settings-subheading">CurseForge</h3>
+      <p className="instance-subtitle">
+        The CurseForge Discover segment needs a personal API key to search and install mods - get a free one at
+        console.curseforge.com and paste it below.
+      </p>
+      <label className="field">
+        <span>CurseForge API key</span>
+        <input
+          className="input"
+          type="password"
+          placeholder="paste your CurseForge API key"
+          value={settings.curseforgeApiKey}
+          onChange={(e) => setSettings({ ...settings, curseforgeApiKey: e.target.value })}
+        />
+      </label>
+
       <h3 className="settings-subheading">Discord Rich Presence</h3>
       <p className="instance-subtitle">
         Shows "Playing Omega Client" on your Discord profile while an instance is running - works out of the box via

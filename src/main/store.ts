@@ -28,6 +28,7 @@ const DEFAULT_STORE: StoreShape = {
     showModDownloadWarning: true,
     discordRichPresenceEnabled: true,
     launchAnimationsEnabled: true,
+    curseforgeApiKey: "",
   },
 };
 
@@ -59,6 +60,7 @@ function readStore(): StoreShape {
         showModDownloadWarning: parsed.settings?.showModDownloadWarning ?? true,
         discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? true,
         launchAnimationsEnabled: parsed.settings?.launchAnimationsEnabled ?? true,
+        curseforgeApiKey: parsed.settings?.curseforgeApiKey ?? "",
       },
     };
   } catch {

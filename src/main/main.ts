@@ -7,6 +7,8 @@ import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLo
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as modrinth from "./modrinth";
+import * as curseforge from "./curseforge";
+import { listFeaturedMods } from "./featuredMods";
 import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
@@ -287,6 +289,29 @@ app.whenReady().then(() => {
       modrinthInstallInFlight = false;
     }
   });
+
+  ipcMain.handle("curseforge:search", (_e, query: string, loader: Loader, versionId: string) =>
+    curseforge.searchCurseForge(query, loader, versionId, store.getSettings().curseforgeApiKey)
+  );
+
+  // One CurseForge install at a time, mirroring modrinthInstallInFlight above - guards the same
+  // shared-jar-in-modsDir hazard, just for this source.
+  let curseforgeInstallInFlight = false;
+  ipcMain.handle("curseforge:install", async (_e, modsDir: string, modId: number, loader: Loader, versionId: string) => {
+    if (curseforgeInstallInFlight) {
+      throw new Error("Another mod is already installing - wait for it to finish.");
+    }
+    curseforgeInstallInFlight = true;
+    try {
+      return await curseforge.installFromCurseForge(modsDir, modId, loader, versionId, store.getSettings().curseforgeApiKey, (progress) =>
+        sendToRenderer("curseforge:installProgress", progress)
+      );
+    } finally {
+      curseforgeInstallInFlight = false;
+    }
+  });
+
+  ipcMain.handle("featured:list", () => listFeaturedMods());
 
   ipcMain.handle("settings:get", () => store.getSettings());
   ipcMain.handle("settings:set", (_e, settings: AppSettings) => {

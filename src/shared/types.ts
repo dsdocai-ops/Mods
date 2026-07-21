@@ -199,6 +199,55 @@ export interface ModrinthUpdate {
   enabled: boolean;
 }
 
+/**
+ * One search result from CurseForge's `/v1/mods/search` endpoint (the "CurseForge" Discover
+ * segment), flattened the same way ModrinthSearchHit is. `modId` identifies the mod for the
+ * follow-up install call - see main/curseforge.ts.
+ */
+export interface CurseForgeSearchHit {
+  modId: number;
+  slug: string;
+  name: string;
+  summary: string;
+  author: string;
+  downloads: number;
+  iconUrl: string;
+  categories: string[];
+}
+
+/** Progress streamed while a CurseForge mod (and its required dependencies) is downloaded into an instance's modsDir - see main/curseforge.ts. Mirrors ModrinthInstallProgress's shape. */
+export interface CurseForgeInstallProgress {
+  phase: "resolving" | "downloading" | "done";
+  name: string;
+  done: number;
+  total: number;
+  detail: string;
+}
+
+/** What a completed CurseForge install returns - mirrors ModrinthInstallResult. */
+export interface CurseForgeInstallResult {
+  installedFiles: string[];
+  skippedDependencies: string[];
+}
+
+/**
+ * One entry in the "Featured Mods" Discover segment - Omega's own curated picks, as opposed to the
+ * CurseForge segment's live API search. `status: "coming-soon"` marks a mod that's been announced
+ * but has no build yet, so the card shows a disabled placeholder instead of an install button and
+ * `downloadUrl` is omitted. See main/featuredMods.ts.
+ */
+export interface FeaturedMod {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  iconUrl: string;
+  tags: ModTag[];
+  status: "available" | "coming-soon";
+  /** Direct download URL for the jar, present only when status is "available". */
+  downloadUrl?: string;
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   /**
@@ -222,6 +271,8 @@ export interface AppSettings {
   showModDownloadWarning: boolean;
   /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
   discordRichPresenceEnabled: boolean;
+  /** Personal API key from console.curseforge.com, required to search/install from the CurseForge Discover segment - see main/curseforge.ts. Empty until the user provides their own; CurseForge doesn't offer a shared default like Modrinth's keyless API. */
+  curseforgeApiKey: string;
   /** Play the "Ignition" launch-transition overlay and "Afterglow" session-end overlay in App.tsx. On by default; for players who want zero friction between click and game, an opt-out. */
   launchAnimationsEnabled: boolean;
 }
