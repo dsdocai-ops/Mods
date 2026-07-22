@@ -56,6 +56,13 @@ Shared options:
   --crack-sectors N     angular buckets used for crack placement (default 16)
   --crack-every N        place a crack every Nth bucket (default 4)
   --tip/--body/--crack-color/--trim/--band/--rim/--gem #hex   palette overrides (sane defaults given)
+  --body-stops c1,c2,c3,...   optional multi-color vertical gradient for the body mass (dark to
+                        bright, or vice versa - order top-to-bottom), instead of one flat --body
+                        color. Each layer in the spike/core span gets the nearest stop for its
+                        position, so a "glowing embers in cooling rock" or "dark base to bright
+                        tip" read becomes a real multi-band gradient, not a single flat color -
+                        overrides --body when given (3-5 stops is plenty; each is still one FLAT
+                        color per layer, this is a discrete step gradient, not a smooth blend).
   --out file.txt        write output to a file instead of stdout
 
 crown  (a real king's-crown silhouette: N separated spikes over a trim ring over a band - NOT a
@@ -69,6 +76,10 @@ crown  (a real king's-crown silhouette: N separated spikes over a trim ring over
                         them are real transparent space (default 3)
   --trim-layers N       thin flat-colored ring between the spikes and the band - a real crown's
                         fur trim (default 1)
+  --alt-height F        0 (default, disabled) to 1: makes every OTHER point shorter by this
+                        fraction of the prong span, so points read tall-short-tall-short like a
+                        real king's crown instead of all-identical - e.g. 0.5 means the minor
+                        points only occupy the bottom half of the prong layers
 
 dome   (a smooth rounded cap, radius tapering from top to bottom - skullcaps, rounded helmets)
   --radius N            radius at the bottom-most dome layer (default 5.5)
@@ -93,10 +104,11 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 const opts = {
   shape: "", width: "14", depth: "14", height: "",
   radius: "", radiusTop: "", brimRadius: "7.0", brimLayers: "2",
-  points: "5", pointHalfwidth: "9", prongLayers: "3", trimLayers: "1",
+  points: "5", pointHalfwidth: "9", prongLayers: "3", trimLayers: "1", altHeight: "0",
   tipGlowLayers: "1", bandLayers: "1", rimLayers: "1", gems: "1", gemSize: "1", gemStartDeg: "270",
   crack: false, crackSectors: "16", crackEvery: "4",
   tip: "FFFFFF", body: "3D6E8C", crackColor: "FF9933", trim: "F0EAD8", band: "C9A227", rim: "1A1A1A", gem: "B3122A",
+  bodyStops: "",
   out: "",
 };
 for (let i = 0; i < args.length; i++) {
@@ -247,7 +259,21 @@ function buildCrown(o) {
   if (mergeLayers < 1) {
     throw new Error("--height too small for the requested --prong-layers/--trim-layers/--band-layers/--rim-layers");
   }
-  const angles = Array.from({ length: points }, (_, i) => (360 * i) / points);
+  const allAngles = Array.from({ length: points }, (_, i) => (360 * i) / points);
+  // Alternating tall/short points (a real king's crown silhouette, not identical uniform spikes):
+  // "minor" points (odd index) simply don't exist yet in the topmost layers, so they read shorter
+  // without needing a second radius system - they're absent, not smaller.
+  const majorAngles = o.altHeight > 0 ? allAngles.filter((_, i) => i % 2 === 0) : allAngles;
+  const minorAngles = o.altHeight > 0 ? allAngles.filter((_, i) => i % 2 === 1) : [];
+
+  const tipUsed = o.tipGlowLayers > 0;
+  const bodyLayerCount = prongLayers + mergeLayers - (tipUsed ? 1 : 0);
+  let bodyLayerIndex = 0;
+  const nextBodyRole = () => {
+    const t = bodyLayerCount <= 1 ? 0 : bodyLayerIndex / (bodyLayerCount - 1);
+    bodyLayerIndex++;
+    return o.bodyRoleAt(t);
+  };
 
   const layers = [];
   // Prong-only layers: NO core at all (coreRadius -1), so the gap between points is real
@@ -257,17 +283,21 @@ function buildCrown(o) {
   for (let i = 0; i < prongLayers; i++) {
     const t = prongLayers === 1 ? 1 : i / (prongLayers - 1);
     const pointRadius = lerp(radius * 0.55, radius, t);
-    const fill = i === 0 && o.tipGlowLayers > 0 ? "tip" : "body";
-    layers.push(radialPointMask(-1, pointRadius, angles, halfwidth, fill));
+    const minorActive = minorAngles.length > 0 && (prongLayers === 1 || i / (prongLayers - 1) >= 1 - o.altHeight);
+    const anglesForLayer = minorActive ? allAngles : majorAngles;
+    const fill = i === 0 && tipUsed ? "tip" : nextBodyRole();
+    layers.push(radialPointMask(-1, pointRadius, anglesForLayer, halfwidth, fill));
   }
   // Merge layers: core radius ramps from bare (matches the last prong layer) up to the full band
   // radius, so the points visually plant into a solid base instead of either floating disconnected
-  // or being absorbed into it immediately.
+  // or being absorbed into it immediately. Points are already fully merged/round by now, so every
+  // angle is back in play regardless of the prong phase's major/minor split.
   for (let i = 0; i < mergeLayers; i++) {
     const t = mergeLayers === 1 ? 1 : i / (mergeLayers - 1);
     const coreRadius = lerp(-1, radius, t);
-    let grid = radialPointMask(coreRadius, radius, angles, halfwidth, "body");
-    if (o.crack) grid = addCracks(grid, { baseChar: "body", crackChar: "crack", sectorCount: o.crackSectors, everyN: o.crackEvery });
+    const role = nextBodyRole();
+    let grid = radialPointMask(coreRadius, radius, allAngles, halfwidth, role);
+    if (o.crack) grid = addCracks(grid, { baseChar: role, crackChar: "crack", sectorCount: o.crackSectors, everyN: o.crackEvery });
     layers.push(grid);
   }
   // Trim: a distinct, thin, flat-colored ring between the spikes and the main band (the "white fur
@@ -279,7 +309,10 @@ function buildCrown(o) {
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(radius, "band");
     if (i === bandLayers - 1 && o.gems > 0) {
-      placeAccents(grid, { count: o.gems, radius: radius - 0.9, char: "gem", startDeg: o.gemStartDeg, size: o.gemSize });
+      // Inset well past the disc edge (not just ~1px) - a size:1/2 gem is a 3x3 or wider cluster,
+      // and placing its CENTER only ~1px from the boundary clips it into a ragged partial shape
+      // that reads as a texture glitch, not a mounted gem (see the "Judging..." section).
+      placeAccents(grid, { count: o.gems, radius: radius - 1.6, char: "gem", startDeg: o.gemStartDeg, size: o.gemSize });
     }
     layers.push(grid);
   }
@@ -311,7 +344,7 @@ function buildDome(o) {
   }
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(o.radius, "band");
-    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
+    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 1.4, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
     layers.push(grid);
   }
   for (let i = 0; i < rimLayers; i++) layers.push(discMask(o.radius, "rim"));
@@ -373,7 +406,7 @@ function buildCone(o) {
   }
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(o.radius, "band");
-    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
+    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 1.4, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
     layers.push(grid);
   }
   for (let i = 0; i < rimLayers; i++) layers.push(discMask(o.radius, "rim"));
@@ -395,6 +428,29 @@ const colorOf = {
 // uses end up referenced by any cell, but all seven are always declared so the palette line count
 // is predictable to scan.
 const KEY = { tip: "t", body: "b", crack: "c", trim: "m", band: "n", rim: "r", gem: "g" };
+// Extra letters for --body-stops' dynamically-named body0/body1/... roles - the fixed roles above
+// never use these, so there's no collision risk.
+const GRADIENT_LETTERS = ["a", "d", "e", "h", "i", "j", "k", "l", "o", "p", "q", "s", "u", "v", "w"];
+
+// --body-stops turns the single flat --body color into a multi-band top-to-bottom gradient (still
+// one flat color per LAYER - a discrete step gradient, not a smooth blend, since a single voxel/
+// pixel cell can only be one color). Falls back to the plain single "body" role when omitted, so
+// every existing call site that used a hardcoded "body" fill keeps working unchanged.
+const bodyStops = opts.bodyStops
+  ? opts.bodyStops.split(",").map((h, i) => normalizeHex(h, `--body-stops[${i}]`))
+  : [colorOf.body];
+if (bodyStops.length > 1) {
+  bodyStops.forEach((hex, i) => {
+    const role = `body${i}`;
+    KEY[role] = GRADIENT_LETTERS[i] ?? String.fromCharCode(97 + 20 + i); // extremely unlikely to run out
+    colorOf[role] = hex;
+  });
+}
+/** t=0 at the tip/top end of the body span, t=1 at the band end - see --body-stops above. */
+function bodyRoleAt(t) {
+  if (bodyStops.length <= 1) return "body";
+  return `body${Math.round(t * (bodyStops.length - 1))}`;
+}
 
 const defaultHeight = { crown: 9, dome: 6, bucket: 10, cone: 8 };
 const defaultRadius = { crown: 5.6, dome: 5.5, bucket: 4.5, cone: 5.5 };
@@ -408,6 +464,8 @@ const shapeOpts = {
   pointHalfwidth: parseFloat(opts.pointHalfwidth),
   prongLayers: parseInt(opts.prongLayers, 10),
   trimLayers: parseInt(opts.trimLayers, 10),
+  altHeight: parseFloat(opts.altHeight),
+  bodyRoleAt,
   tipGlowLayers: parseInt(opts.tipGlowLayers, 10),
   bandLayers: parseInt(opts.bandLayers, 10),
   rimLayers: parseInt(opts.rimLayers, 10),
@@ -450,14 +508,15 @@ const paletteLines = Object.entries(KEY)
   .map(([role, key]) => `${key}=${colorOf[role]}`);
 
 // --- value-contrast check ---------------------------------------------------------------------
-// Faces are shaded 1.0 (top) / 0.65 (side) / 0.5 (bottom) - see CosmeticGeometry.shadeOf. That's
-// the ONLY lighting this pipeline has (flat position-color quads, no normals/light at render time),
-// so a bulk-fill color's lightness decides whether those three multipliers read as a lit 3D shape
-// or collapse into one flat mass. This is exactly how the first Molten Crown draft went wrong: a
-// structurally correct crown shape filled with a near-black body color (lightness ~0.07) whose
-// 1.0/0.65/0.5-shaded faces were all still near-black, so it rendered as a muddy blob despite the
-// shape being right - the fix was a palette problem, not a geometry problem. Warn here so that
-// mistake is caught before the first preview, not after.
+// Faces are shaded using vanilla Minecraft's real per-direction table (CosmeticGeometry.shadeOf):
+// up 1.0, down 0.5, one horizontal axis 0.8, the other 0.6. That's the ONLY lighting this pipeline
+// has (flat position-color quads, no normals/light at render time), so a bulk-fill color's
+// lightness decides whether those four multipliers read as a lit 3D shape or collapse into one
+// flat mass. This is exactly how the first Molten Crown draft went wrong: a structurally correct
+// crown shape filled with a near-black body color (lightness ~0.07) whose shaded faces were all
+// still near-black, so it rendered as a muddy blob despite the shape being right - the fix was a
+// palette problem, not a geometry problem. Warn here so that mistake is caught before the first
+// preview, not after.
 function hexToRgb01(hex) {
   return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
 }
@@ -472,11 +531,12 @@ function saturationOf(hex) {
   const d = max - min;
   return l > 0.5 ? d / (2 - max - min) : d / (max + min);
 }
-// body/band are the roles that typically cover a large, multi-orientation surface (the hat's bulk
-// mass); tip/crack/gem/rim are deliberately small accents where a lightness extreme is fine (a
-// bright glowing tip, a near-black thin rim line) since there's barely any face area for the
-// 1.0/0.65/0.5 spread to show up on regardless.
-for (const role of ["body", "band"]) {
+// body/band (and any body0/body1/... --body-stops roles) typically cover a large, multi-orientation
+// surface (the hat's bulk mass); tip/crack/gem/rim/trim are deliberately small accents where a
+// lightness extreme is fine (a bright glowing tip, a near-black thin rim line) since there's barely
+// any face area for the shading spread to show up on regardless.
+const bulkRoles = Object.keys(KEY).filter((role) => role === "band" || role === "body" || /^body\d+$/.test(role));
+for (const role of bulkRoles) {
   if (!usedKeys.has(KEY[role])) continue;
   const hex = colorOf[role];
   const l = lightnessOf(hex);
@@ -484,7 +544,7 @@ for (const role of ["body", "band"]) {
   if (l < 0.2 || l > 0.85) {
     console.error(
       `warning: --${role} #${hex} has lightness ${l.toFixed(2)} - a near-${l < 0.5 ? "black" : "white"} ` +
-      `bulk color collapses the 1.0/0.65/0.5 top/side/bottom shading into one flat mass instead of a lit ` +
+      `bulk color collapses the vanilla 1.0/0.8/0.6/0.5 shading spread into one flat mass instead of a lit ` +
       `3D shape. Prefer roughly 0.35-0.65 lightness for any color covering a large fill; save near-black/` +
       `near-white for thin trim or outline accents, where there's little face area for the shading to show on.`
     );

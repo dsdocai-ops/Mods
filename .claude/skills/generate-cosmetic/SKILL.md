@@ -353,8 +353,9 @@ starts out structurally correct and only needs palette/accent tuning:
 
 ```bash
 node .claude/skills/generate-cosmetic/voxel-hat-builder.mjs --shape crown \
-    --radius 5.6 --points 8 --crack \
-    --tip FFD23F --body 17140F --crack-color FF5A1F --band C9A227 --rim 2A1008 --gem B3122A \
+    --radius 6.5 --height 10 --points 6 --point-halfwidth 8 --prong-layers 5 --alt-height 0.5 \
+    --tip FFEBB0 --body-stops FFB347,FF7A1A,B8481A,6B2A12 --trim 4A1A0C --band D4A017 --rim 2B0A05 \
+    --crack --crack-color FFB347 --gems 1 --gem-size 1 --gem FFE9A8 \
     --out crown.txt
 node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --art crown.txt --kind hat
 ```
@@ -364,8 +365,11 @@ node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --art crown.txt --kin
 - **crown** - N spikes rising off a solid band (a real king's-crown
   silhouette: the core radius ramps up to meet fixed-radius spike wedges, so
   the points stay visually distinct instead of being absorbed into a dome -
-  see `--help` for `--points`/`--point-halfwidth`). Right for anything with a
-  jagged/regal top.
+  see `--help` for `--points`/`--point-halfwidth`). `--alt-height` makes every
+  other spike shorter for a real tall-short-tall crown silhouette instead of
+  identical uniform points - a Fable-advisor review flagged uniform points as
+  a tooling gap between "acceptable" and "flagship" (see the Molten Crown
+  case study below). Right for anything with a jagged/regal top.
 - **dome** - a smooth ease-out taper from a small top radius to a wider base
   (skullcaps, rounded helmets, simple caps).
 - **bucket** - a rounded crown that flares into a wide flat brim (bucket
@@ -373,14 +377,46 @@ node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --art crown.txt --kin
 - **cone** - a straight-sided linear taper to a point apex (wizard/witch
   hats).
 
-Every shape takes `--band-layers`/`--rim-layers`/`--gems` for a trim band
-with evenly-spaced accent studs, and `--crack` for deterministic vein
+Every shape takes `--band-layers`/`--rim-layers`/`--gems`/`--gem-size` for a
+trim band with a focal accent (inset well past the disc edge - `radius -
+1.6` for crown, `radius - 1.4` for dome/cone - or a multi-cell gem clips into
+a ragged partial shape at the boundary), and `--crack` for deterministic vein
 texture (a few angled lines, not scattered noise - see `addCracks`) - built
 from the same small primitive set (`discMask`, `radialPointMask`, `addCracks`,
 `placeAccents`, `ringOverlay`) the script exports, so a fifth shape family is
-a new function composing those primitives, not new taper math. It prints
-both the raw art (for `preview-cosmetic.mjs --art`) and a ready Java text
-block, same convention as `pixelate.mjs`'s flat-art output.
+a new function composing those primitives, not new taper math. `--body-stops`
+(crown only so far) turns the single flat `--body` color into a discrete
+multi-band top-to-bottom gradient (still one flat color per LAYER, not a
+smooth blend) - order stops top-to-bottom (brightest first for a "glowing tip
+cooling to a dark base" read); a trim/band color placed BELOW the gradient's
+darkest stop should stay dark too, or a bright ring sitting under a dark
+gradient-bottom reads as the color story being scrambled rather than a
+deliberate accent (see the case study below). It prints both the raw art
+(for `preview-cosmetic.mjs --art`) and a ready Java text block, same
+convention as `pixelate.mjs`'s flat-art output.
+
+**Case study - the Molten Crown hat**, worked end-to-end through a real
+critique loop (a separate model instance reviewing renders against the
+shipped catalog, not self-assessment) until it passed: v1 (uniform points,
+near-black body) rendered as a muddy blob - fixed the body's lightness. v2
+(clean bands, one bold gem, separated points) was still "acceptable, not
+flagship" - too small/squat, gems invisible, no real heat-gradient. v3 added
+`--alt-height` and `--body-stops` (both new tool capabilities built
+specifically because the existing flags couldn't express what was needed),
+plus a bigger radius/height - but the FIRST attempt with these new flags
+still failed on execution, not concept: the gradient stops were ordered
+correctly in the FLAG, but the trim layer (a separate role, not part of the
+gradient) was left bright, sitting directly below the gradient's darkest
+stop - so the two facts "gradient is monotonic" and "trim happens to be
+bright" were each individually true but composed into a scrambled-looking
+result. Fixed by making trim continue the gradient's dark end instead of
+interrupting it, and by fixing a real bug the review caught (gems clipping
+into ragged smudges because they were inset only ~1px from the disc edge).
+The lesson generalizes: when composing multiple independently-correct
+pieces (a gradient, a trim color, a band color, a gem), check the SEAMS
+between them, not just each piece in isolation - a render can fail from a
+correct gradient meeting an incompatible neighbor color, not from either
+being wrong on its own.
 
 **This generates a correct starting SHAPE, not a finished cosmetic** - still
 preview it, still hand-edit rows afterward for a unique accent, an asymmetric
