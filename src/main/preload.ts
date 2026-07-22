@@ -4,6 +4,10 @@ import type {
   AppSettings,
   ConfigFormat,
   CreateInstanceInput,
+  CurseForgeInstallProgress,
+  CurseForgeInstallResult,
+  CurseForgeSearchHit,
+  FeaturedMod,
   InstallableVersion,
   InstallProgress,
   Instance,
@@ -59,6 +63,20 @@ const api = {
       ipcRenderer.on("modrinth:installProgress", listener);
       return () => ipcRenderer.removeListener("modrinth:installProgress", listener);
     },
+  },
+  curseforge: {
+    search: (query: string, loader: Loader, versionId: string): Promise<CurseForgeSearchHit[]> =>
+      ipcRenderer.invoke("curseforge:search", query, loader, versionId),
+    install: (modsDir: string, modId: number, loader: Loader, versionId: string): Promise<CurseForgeInstallResult> =>
+      ipcRenderer.invoke("curseforge:install", modsDir, modId, loader, versionId),
+    onProgress: (callback: (progress: CurseForgeInstallProgress) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, progress: CurseForgeInstallProgress) => callback(progress);
+      ipcRenderer.on("curseforge:installProgress", listener);
+      return () => ipcRenderer.removeListener("curseforge:installProgress", listener);
+    },
+  },
+  featured: {
+    list: (): Promise<FeaturedMod[]> => ipcRenderer.invoke("featured:list"),
   },
   shaders: {
     list: (modsDir: string): Promise<ShaderPackInfo[]> => ipcRenderer.invoke("shaders:list", modsDir),

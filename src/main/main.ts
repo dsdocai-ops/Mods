@@ -7,6 +7,8 @@ import type { AppSettings, ConfigFormat, CreateInstanceInput, Instance, LaunchLo
 import * as instances from "./instances";
 import * as mods from "./mods";
 import * as modrinth from "./modrinth";
+import * as curseforge from "./curseforge";
+import { listFeaturedMods } from "./featuredMods";
 import * as shaders from "./shaders";
 import * as store from "./store";
 import * as javaModule from "./java";
@@ -15,6 +17,7 @@ import { installFabric, installForge, installVanilla, listInstallableVersions } 
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
+import * as gameSettingsSync from "./gameSettingsSync";
 import * as discordPresence from "./discordPresence";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
@@ -288,6 +291,29 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle("curseforge:search", (_e, query: string, loader: Loader, versionId: string) =>
+    curseforge.searchCurseForge(query, loader, versionId)
+  );
+
+  // One CurseForge install at a time, mirroring modrinthInstallInFlight above - guards the same
+  // shared-jar-in-modsDir hazard, just for this source.
+  let curseforgeInstallInFlight = false;
+  ipcMain.handle("curseforge:install", async (_e, modsDir: string, modId: number, loader: Loader, versionId: string) => {
+    if (curseforgeInstallInFlight) {
+      throw new Error("Another mod is already installing - wait for it to finish.");
+    }
+    curseforgeInstallInFlight = true;
+    try {
+      return await curseforge.installFromCurseForge(modsDir, modId, loader, versionId, (progress) =>
+        sendToRenderer("curseforge:installProgress", progress)
+      );
+    } finally {
+      curseforgeInstallInFlight = false;
+    }
+  });
+
+  ipcMain.handle("featured:list", () => listFeaturedMods());
+
   ipcMain.handle("settings:get", () => store.getSettings());
   ipcMain.handle("settings:set", (_e, settings: AppSettings) => {
     const saved = store.saveSettings(settings);
@@ -345,6 +371,14 @@ app.whenReady().then(() => {
         }
       }
       const settingsForLaunch = store.getSettings();
+      // Pull in the sync group's latest in-game settings (options.txt) before starting, if this
+      // instance opted into game-settings syncing - see gameSettingsSync.ts. Best-effort: a
+      // read/copy failure here must never block the game from launching.
+      try {
+        gameSettingsSync.pullBeforeLaunch(instance);
+      } catch {
+        /* non-fatal - this instance simply launches with its own current settings */
+      }
       const launchedAt = Date.now();
       const handle = await launchInstance(instance, settingsForLaunch.msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
@@ -359,6 +393,14 @@ app.whenReady().then(() => {
         // clear it once nothing else launched by this app is still running.
         if (runningProcesses.size === 0) discordPresence.clearPresence().catch(() => {});
         checkSwitchAccountRequest(instance);
+        // Push any in-game settings changed this session out to the rest of the sync group -
+        // see gameSettingsSync.ts. Best-effort: a missing/unwritable options.txt just means nothing
+        // to push, not a launch failure.
+        try {
+          gameSettingsSync.pushAfterExit(instance);
+        } catch {
+          /* non-fatal - the group simply stays on its previous settings */
+        }
         if (!wasStopRequested && code !== 0 && Date.now() - launchedAt < EARLY_EXIT_THRESHOLD_MS) {
           onLog({
             instanceId: instance.id,

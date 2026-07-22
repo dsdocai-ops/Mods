@@ -5,7 +5,8 @@ import { MOD_TAG_PRESETS } from "@shared/types";
 import { AUTO_BANNER, BANNER_THEMES, resolveBannerTheme } from "@shared/banners";
 import ModRow from "../components/ModRow";
 import ConsoleLog from "../components/ConsoleLog";
-import DiscoverMods from "../components/DiscoverMods";
+import FeaturedMods from "../components/FeaturedMods";
+import CurseForgeMods from "../components/CurseForgeMods";
 import { ArrowRightIcon, PlayIcon, PlusIcon, RefreshIcon } from "../components/Icons";
 import ConfigModal from "../components/ConfigModal";
 import AccountSwitcher from "../components/AccountSwitcher";
@@ -58,7 +59,7 @@ export default function InstanceDetail({
 }: Props) {
   const [mods, setMods] = useState<ModInfo[]>([]);
   const [filter, setFilter] = useState("");
-  const [modsView, setModsView] = useState<"installed" | "discover">("installed");
+  const [modsView, setModsView] = useState<"installed" | "featured" | "curseforge">("installed");
   const [updates, setUpdates] = useState<ModrinthUpdate[]>([]);
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
@@ -393,10 +394,16 @@ export default function InstanceDetail({
               Installed ({mods.length})
             </button>
             <button
-              className={modsView === "discover" ? "seg active" : "seg"}
-              onClick={() => setModsView("discover")}
+              className={modsView === "featured" ? "seg active" : "seg"}
+              onClick={() => setModsView("featured")}
             >
-              Discover
+              Featured
+            </button>
+            <button
+              className={modsView === "curseforge" ? "seg active" : "seg"}
+              onClick={() => setModsView("curseforge")}
+            >
+              CurseForge
             </button>
           </div>
 
@@ -454,8 +461,8 @@ export default function InstanceDetail({
               <div className="mod-list">
                 {filteredMods.length === 0 && (
                   <p className="empty-hint">
-                    No mods yet. Click "Discover" to browse and install mods from Modrinth, or "Import your mods" to add
-                    .jar files from your existing mods folder - either way they show up here as toggles.
+                    No mods yet. Click "Featured" or "CurseForge" to browse and install mods, or "Import your mods" to
+                    add .jar files from your existing mods folder - either way they show up here as toggles.
                   </p>
                 )}
                 {filteredMods.map((mod) => (
@@ -471,8 +478,10 @@ export default function InstanceDetail({
                 ))}
               </div>
             </>
+          ) : modsView === "featured" ? (
+            <FeaturedMods installedIds={new Set(mods.flatMap((m) => [m.id.toLowerCase(), m.modId.toLowerCase()]))} />
           ) : (
-            <DiscoverMods
+            <CurseForgeMods
               instance={instance}
               installedIds={new Set(mods.flatMap((m) => [m.id.toLowerCase(), m.modId.toLowerCase()]))}
               onInstalled={loadMods}

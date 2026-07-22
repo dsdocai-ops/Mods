@@ -116,6 +116,21 @@ export default function SettingsPage({ onAccountsChanged, onSettingsChanged }: P
         </button>
       </div>
 
+      <h3 className="settings-subheading">Sync Settings</h3>
+      <p className="instance-subtitle">
+        Keep in-game settings - FOV, render distance, graphics, sound, key binds, and everything else Minecraft saves
+        to options.txt - identical across your instances. Pulled in right before an instance launches and pushed out
+        to the rest of the group right after it closes.
+      </p>
+      <label className="field-checkbox">
+        <input
+          type="checkbox"
+          checked={settings.syncGameSettingsAcrossInstances}
+          onChange={(e) => setSettings({ ...settings, syncGameSettingsAcrossInstances: e.target.checked })}
+        />
+        <span>Sync in-game settings across instances by default - you'll be asked per new instance whether it should join.</span>
+      </label>
+
       <h3 className="settings-subheading">Mods</h3>
       <label className="field-checkbox">
         <input

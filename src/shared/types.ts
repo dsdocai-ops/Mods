@@ -71,6 +71,15 @@ export interface Instance {
   /** If set, launch with this signed-in Microsoft/Minecraft account instead of an offline session. */
   accountId?: string;
   /**
+   * Whether this instance's in-game settings (options.txt - FOV, render distance, graphics, sound,
+   * key binds, everything Minecraft itself persists there) are kept in sync with every other synced
+   * instance - see AppSettings.syncGameSettingsAcrossInstances and main/gameSettingsSync.ts. Set
+   * from the "Sync settings?" prompt shown right after creating an instance. Absent (instances saved
+   * before this field existed, or before that prompt had another instance to offer syncing with)
+   * falls back to the global default.
+   */
+  syncGameSettings?: boolean;
+  /**
    * When true, this instance's Modrinth-sourced mods are checked for newer builds and updated right
    * before it launches. Off by default and opt-in per instance - auto-changing mods before a launch
    * is exactly the kind of surprise a competitive/frozen setup doesn't want. Optional so instances
@@ -199,6 +208,55 @@ export interface ModrinthUpdate {
   enabled: boolean;
 }
 
+/**
+ * One search result from CurseForge's `/v1/mods/search` endpoint (the "CurseForge" Discover
+ * segment), flattened the same way ModrinthSearchHit is. `modId` identifies the mod for the
+ * follow-up install call - see main/curseforge.ts.
+ */
+export interface CurseForgeSearchHit {
+  modId: number;
+  slug: string;
+  name: string;
+  summary: string;
+  author: string;
+  downloads: number;
+  iconUrl: string;
+  categories: string[];
+}
+
+/** Progress streamed while a CurseForge mod (and its required dependencies) is downloaded into an instance's modsDir - see main/curseforge.ts. Mirrors ModrinthInstallProgress's shape. */
+export interface CurseForgeInstallProgress {
+  phase: "resolving" | "downloading" | "done";
+  name: string;
+  done: number;
+  total: number;
+  detail: string;
+}
+
+/** What a completed CurseForge install returns - mirrors ModrinthInstallResult. */
+export interface CurseForgeInstallResult {
+  installedFiles: string[];
+  skippedDependencies: string[];
+}
+
+/**
+ * One entry in the "Featured Mods" Discover segment - Omega's own curated picks, as opposed to the
+ * CurseForge segment's live API search. `status: "coming-soon"` marks a mod that's been announced
+ * but has no build yet, so the card shows a disabled placeholder instead of an install button and
+ * `downloadUrl` is omitted. See main/featuredMods.ts.
+ */
+export interface FeaturedMod {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  iconUrl: string;
+  tags: ModTag[];
+  status: "available" | "coming-soon";
+  /** Direct download URL for the jar, present only when status is "available". */
+  downloadUrl?: string;
+}
+
 export interface LaunchLogEvent {
   instanceId: string;
   /**
@@ -222,6 +280,14 @@ export interface AppSettings {
   showModDownloadWarning: boolean;
   /** Show a "Playing Omega Client" Discord Rich Presence status while an instance is running, via Omega Client's own shared Discord application (see main/discordPresence.ts) - no sign-in or setup involved, just an opt-out. On by default. */
   discordRichPresenceEnabled: boolean;
+  /**
+   * Default for whether a new instance keeps its in-game settings (options.txt - FOV, render
+   * distance, graphics, sound, key binds, and everything else Minecraft itself persists there) in
+   * sync with every other synced instance - see Instance.syncGameSettings, which can override this
+   * per instance, and main/gameSettingsSync.ts. On by default: most players want the same feel
+   * everywhere, and per-instance settings drift is the edge case.
+   */
+  syncGameSettingsAcrossInstances: boolean;
   /** Play the "Ignition" launch-transition overlay and "Afterglow" session-end overlay in App.tsx. On by default; for players who want zero friction between click and game, an opt-out. */
   launchAnimationsEnabled: boolean;
 }
