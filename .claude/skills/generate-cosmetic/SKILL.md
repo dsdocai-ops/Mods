@@ -466,6 +466,50 @@ same hue reads as flat regardless of the shape underneath; strong hue
 contrast between the bulk and its accents is what makes a band, rim, or gem
 actually pop instead of blending in.
 
+**Clean flat color BANDS beat scattered texture noise.** Compare
+`NAVY_CAPTAIN_HAT` (navy crown / gold band+white stripe / gold brim / black
+rim - four or five FLAT, distinct color blocks, zero per-pixel texture) or
+`OBSIDIAN_TOP_HAT` (near-solid black block + one bold red stripe) against a
+crown design that sprinkles a second "crack" color across the whole body in
+an irregular scatter: the flat-banded hats read instantly as "designed"; the
+scattered one reads as "generated static" even with a good bulk color,
+because the eye can't find a clear shape in the noise. `addCracks` /
+`--crack` exists for a subtle accent on a SMALL portion of one layer, not as
+a cosmetic's primary visual interest - default to zero texture and clean
+per-layer color blocks (`discMask`/`radialPointMask`'s plain fill), and reach
+for cracks only as a light garnish after the color-blocking already reads
+well without it.
+
+**One bold focal accent beats several tiny ones.** Four single-voxel gems
+scattered around a band are each about one screen pixel at this render's
+scale - structurally present, visually invisible (this is exactly what
+happened to the first Molten Crown redesign's four cardinal gems). One
+multi-cell accent (`placeAccents`'s `size: 1` plus-shape or `size: 2`
+diamond) in a contrasting hue, placed once at the front, reads as a mounted
+jewel the way `NAVY_CAPTAIN_HAT`'s white emblem stripe reads as a stripe.
+Prefer fewer, bigger, off-hue accents over more, smaller, same-family ones.
+
+**Spike/point counts and widths have a resolution floor.** A crown's points
+only read as separated spikes if the gap between them survives being
+rendered on a ~14-cell grid - `points * 2 * halfwidthDeg` needs real slack
+under 360°, and the gap's arc length (`radius * gapDegrees * π/180`) needs to
+clear roughly 2-3 pixels or it vanishes and the points blur into one bumpy
+dome (this is what an 8-point crown at 16° half-width did in an earlier
+draft - the math allowed it, the render couldn't show it). Fewer, narrower
+points - `voxel-hat-builder.mjs --shape crown`'s current defaults are 5
+points at 9° half-width - leave enough gap to actually see daylight between
+spikes; verify by looking at the preview, not by trusting the parameters.
+
+**Calibrate against the cosmetics already in the catalog, not just
+principles.** When a new cosmetic still looks off after checking the above,
+render 3-4 existing catalog entries with the SAME preview tool
+(`preview-cosmetic.mjs --id <existing_id>`) and put them side by side with
+the candidate (crop/resize with any image tool, or just look at both PNGs) -
+concrete visual difference is easier to diagnose from a real comparison than
+from restating principles in the abstract. This is exactly how the "clean
+bands vs. crack noise" and "one bold gem vs. four invisible ones" lessons
+above were actually found, not guessed.
+
 **Look at the actual preview PNG critically before calling it done** - not
 just "does the silhouette read as the intended shape" (Workflow step 2
 already covers that) but "would this pass next to a screenshot of a real

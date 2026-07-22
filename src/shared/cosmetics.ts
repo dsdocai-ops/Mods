@@ -50,7 +50,7 @@ export const COSMETIC_CATALOG: Cosmetic[] = [
   { id: "inferno_wings", name: "Inferno Wings", colorHex: "#FF6B4A", type: "wings", description: "Dragon-like wings with an ember-to-shadow membrane gradient." },
   { id: "azure_charm_hat", name: "Azure Charm Hat", colorHex: "#34689E", type: "hat", description: "A true-3D voxel bucket hat with a gold fish charm dangling from a chain." },
   { id: "twilight_summit_cape", name: "Twilight Summit Cape", colorHex: "#CFE8FF", type: "cape", description: "A real painted texture cape of a starry sky over icy mountain peaks." },
-  { id: "molten_crown_hat", name: "Molten Crown", colorHex: "#D4A017", type: "hat", description: "A true-3D voxel crown with a cream-gold-tipped peak, a glowing ember-red band veined with molten cracks, and a gold browband set with ruby gems." },
+  { id: "molten_crown_hat", name: "Molten Crown", colorHex: "#B8481A", type: "hat", description: "A true-3D voxel crown with 5 separated glowing spikes over a vivid ember-red body, a cream fur trim, and a gold browband set with a bold sapphire gem." },
 ];
 
 /** Id list, still exported for the license-key validator (see main/licensing.ts). */

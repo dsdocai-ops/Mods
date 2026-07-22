@@ -44,17 +44,31 @@ Shared options:
   --tip-glow-layers N   topmost layers colored with --tip instead of --body (default 1)
   --band-layers N       solid full-disc trim/band layers before the rim (default 1)
   --rim-layers N        solid full-disc layers at the very bottom (default 1)
-  --gems N              accent studs placed evenly on the band layer, 0 disables (default 4)
-  --crack               sprinkle --crack-color veins into body layers (off by default)
+  --gems N              focal accents on the band layer, 0 disables (default 1 - ONE bold accent
+                        at the front, not several small ones; see --gem-size)
+  --gem-size N          0 = single cell, 1 = 5-cell plus (default), 2 = 9-cell diamond - a single
+                        cell is nearly invisible at this render scale, use it only for a repeated
+                        small detail (rivets), not a cosmetic's one focal accent
+  --gem-start-deg N     angle of the first gem; 270 (default) is the front-facing cell
+  --crack               sprinkle --crack-color veins into body layers (OFF by default - a clean
+                        flat color band reads as "designed"; scattered crack texture reads as
+                        noise unless used sparingly - see "Judging..." below before turning this on)
   --crack-sectors N     angular buckets used for crack placement (default 16)
   --crack-every N        place a crack every Nth bucket (default 4)
-  --tip/--body/--crack-color/--band/--rim/--gem #hex   palette overrides (sane defaults given)
+  --tip/--body/--crack-color/--trim/--band/--rim/--gem #hex   palette overrides (sane defaults given)
   --out file.txt        write output to a file instead of stdout
 
-crown  (a real king's-crown silhouette: N spikes rising off a solid band, not a dome)
+crown  (a real king's-crown silhouette: N separated spikes over a trim ring over a band - NOT a
+        scalloped dome; see "Judging..." below for why point count/width matters here)
   --radius N            outer radius at the spike tips / band (default 5.6)
-  --points N            number of spikes, evenly spaced (default 8)
-  --point-halfwidth N   half-width in degrees of each spike wedge (default 16)
+  --points N            number of spikes, evenly spaced (default 5 - fewer, wider-spaced points
+                        read as distinct spikes; 8+ points blur into a bumpy dome at this grid size)
+  --point-halfwidth N   half-width in degrees of each spike wedge (default 9 - keep this narrow
+                        relative to 360/points, or the gaps between spikes disappear entirely)
+  --prong-layers N      top layers that are PURE spikes with no core at all, so the gaps between
+                        them are real transparent space (default 3)
+  --trim-layers N       thin flat-colored ring between the spikes and the band - a real crown's
+                        fur trim (default 1)
 
 dome   (a smooth rounded cap, radius tapering from top to bottom - skullcaps, rounded helmets)
   --radius N            radius at the bottom-most dome layer (default 5.5)
@@ -79,10 +93,10 @@ if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
 const opts = {
   shape: "", width: "14", depth: "14", height: "",
   radius: "", radiusTop: "", brimRadius: "7.0", brimLayers: "2",
-  points: "8", pointHalfwidth: "16",
-  tipGlowLayers: "1", bandLayers: "1", rimLayers: "1", gems: "4",
+  points: "5", pointHalfwidth: "9", prongLayers: "3", trimLayers: "1",
+  tipGlowLayers: "1", bandLayers: "1", rimLayers: "1", gems: "1", gemSize: "1", gemStartDeg: "270",
   crack: false, crackSectors: "16", crackEvery: "4",
-  tip: "FFFFFF", body: "2B2B2B", crackColor: "FF9933", band: "C9A227", rim: "1A1A1A", gem: "B3122A",
+  tip: "FFFFFF", body: "3D6E8C", crackColor: "FF9933", trim: "F0EAD8", band: "C9A227", rim: "1A1A1A", gem: "B3122A",
   out: "",
 };
 for (let i = 0; i < args.length; i++) {
@@ -173,14 +187,28 @@ function addCracks(grid, { baseChar, crackChar, sectorCount = 16, everyN = 4, mi
   return grid;
 }
 
-/** Places single-cell accents (gems, studs, chain nubs) at evenly-spaced absolute angles and a fixed radius. */
-function placeAccents(grid, { count, radius, char, startDeg = 0 }) {
+/**
+ * Places accents (gems, studs, chain nubs) at evenly-spaced absolute angles and a fixed radius.
+ * `size: 0` (default) is a single cell - fine for a repeated small detail (a row of rivets), but a
+ * single voxel is genuinely hard to see in the preview's render scale (see the Molten Crown's first
+ * four cardinal gems, which were structurally present but essentially invisible). For a cosmetic's
+ * ONE focal accent - the thing meant to catch the eye, not just texture the surface - use `size: 1`
+ * (a 5-cell plus/diamond) or `size: 2` (a fuller diamond) so it actually reads as a mounted gem
+ * instead of a stray colored pixel.
+ */
+function placeAccents(grid, { count, radius, char, startDeg = 0, size = 0 }) {
   for (let i = 0; i < count; i++) {
     const deg = startDeg + (360 * i) / count;
     const rad = (deg * Math.PI) / 180;
-    const x = Math.round(cx + radius * Math.cos(rad));
-    const z = Math.round(cz + radius * Math.sin(rad));
-    if (x >= 0 && x < W && z >= 0 && z < D) grid[z][x] = char;
+    const cxi = Math.round(cx + radius * Math.cos(rad));
+    const czi = Math.round(cz + radius * Math.sin(rad));
+    const offsets = size <= 0 ? [[0, 0]]
+      : size === 1 ? [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]
+      : [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    for (const [ox, oz] of offsets) {
+      const x = cxi + ox, z = czi + oz;
+      if (x >= 0 && x < W && z >= 0 && z < D) grid[z][x] = char;
+    }
   }
   return grid;
 }
@@ -207,31 +235,52 @@ function buildCrown(o) {
   const points = o.points;
   const halfwidth = o.pointHalfwidth;
   const height = o.height;
-  const tipGlowLayers = Math.min(o.tipGlowLayers, height);
   const bandLayers = o.bandLayers;
   const rimLayers = o.rimLayers;
-  const coreLayers = height - bandLayers - rimLayers;
-  if (coreLayers < 1) throw new Error("--height too small for the requested --band-layers/--rim-layers");
+  const trimLayers = o.trimLayers;
+  // Fewer, narrower points read as distinct spikes with visible gaps between them (like a real
+  // crown silhouette); many wide points blur into a scalloped dome instead - see the "Judging..."
+  // section for why (at this pixel budget the gap between points is only a couple of pixels wide
+  // to begin with, so a wide halfwidth or a high point count erases it entirely).
+  const prongLayers = Math.min(o.prongLayers, height);
+  const mergeLayers = height - prongLayers - trimLayers - bandLayers - rimLayers;
+  if (mergeLayers < 1) {
+    throw new Error("--height too small for the requested --prong-layers/--trim-layers/--band-layers/--rim-layers");
+  }
   const angles = Array.from({ length: points }, (_, i) => (360 * i) / points);
 
   const layers = [];
-  for (let i = 0; i < coreLayers; i++) {
-    const t = coreLayers === 1 ? 1 : i / (coreLayers - 1);
-    // Core radius ramps from "no core at all" (bare points, t=0) to the full band radius (t=1) -
-    // points stay at `radius` throughout, so the core visibly grows UP to meet them rather than
-    // the whole shape ballooning outward together (that's what erases the spikes into a blob).
+  // Prong-only layers: NO core at all (coreRadius -1), so the gap between points is real
+  // transparent space, not a shallow notch in an otherwise-solid disc - this is what makes them
+  // read as separate raised spikes instead of a bumpy dome edge. Point radius tapers in from a
+  // narrower tip to the full radius, so each spike is a real triangular point, not a uniform post.
+  for (let i = 0; i < prongLayers; i++) {
+    const t = prongLayers === 1 ? 1 : i / (prongLayers - 1);
+    const pointRadius = lerp(radius * 0.55, radius, t);
+    const fill = i === 0 && o.tipGlowLayers > 0 ? "tip" : "body";
+    layers.push(radialPointMask(-1, pointRadius, angles, halfwidth, fill));
+  }
+  // Merge layers: core radius ramps from bare (matches the last prong layer) up to the full band
+  // radius, so the points visually plant into a solid base instead of either floating disconnected
+  // or being absorbed into it immediately.
+  for (let i = 0; i < mergeLayers; i++) {
+    const t = mergeLayers === 1 ? 1 : i / (mergeLayers - 1);
     const coreRadius = lerp(-1, radius, t);
-    const pointRadius = radius;
-    const fill = i < tipGlowLayers ? "tip" : "body";
-    let grid = radialPointMask(coreRadius, pointRadius, angles, halfwidth, fill);
-    if (o.crack && fill === "body") {
-      grid = addCracks(grid, { baseChar: "body", crackChar: "crack", sectorCount: o.crackSectors, everyN: o.crackEvery });
-    }
+    let grid = radialPointMask(coreRadius, radius, angles, halfwidth, "body");
+    if (o.crack) grid = addCracks(grid, { baseChar: "body", crackChar: "crack", sectorCount: o.crackSectors, everyN: o.crackEvery });
     layers.push(grid);
   }
+  // Trim: a distinct, thin, flat-colored ring between the spikes and the main band (the "white fur
+  // trim" a real crown has) - one clean color block, not a blend, per the "clean bands over noisy
+  // texture" lesson in the "Judging..." section.
+  for (let i = 0; i < trimLayers; i++) layers.push(discMask(radius, "trim"));
+  // Band: the main colored body, carrying ONE bold, multi-cell focal accent (not several
+  // single-pixel dots, which are nearly invisible at this render scale) at the front by default.
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(radius, "band");
-    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: radius - 0.8, char: "gem" });
+    if (i === bandLayers - 1 && o.gems > 0) {
+      placeAccents(grid, { count: o.gems, radius: radius - 0.9, char: "gem", startDeg: o.gemStartDeg, size: o.gemSize });
+    }
     layers.push(grid);
   }
   for (let i = 0; i < rimLayers; i++) layers.push(discMask(radius, "rim"));
@@ -262,7 +311,7 @@ function buildDome(o) {
   }
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(o.radius, "band");
-    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem" });
+    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
     layers.push(grid);
   }
   for (let i = 0; i < rimLayers; i++) layers.push(discMask(o.radius, "rim"));
@@ -324,7 +373,7 @@ function buildCone(o) {
   }
   for (let i = 0; i < bandLayers; i++) {
     const grid = discMask(o.radius, "band");
-    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem" });
+    if (i === bandLayers - 1 && o.gems > 0) placeAccents(grid, { count: o.gems, radius: o.radius - 0.8, char: "gem", startDeg: o.gemStartDeg ?? 270, size: o.gemSize ?? 1 });
     layers.push(grid);
   }
   for (let i = 0; i < rimLayers; i++) layers.push(discMask(o.radius, "rim"));
@@ -337,16 +386,17 @@ const colorOf = {
   tip: normalizeHex(opts.tip, "--tip"),
   body: normalizeHex(opts.body, "--body"),
   crack: normalizeHex(opts.crackColor, "--crack-color"),
+  trim: normalizeHex(opts.trim, "--trim"),
   band: normalizeHex(opts.band, "--band"),
   rim: normalizeHex(opts.rim, "--rim"),
   gem: normalizeHex(opts.gem, "--gem"),
 };
-// One-letter palette keys, assigned in a fixed, memorable order (t/b/c/n/r/g); only the roles a
-// shape actually uses end up referenced by any cell, but all six are always declared so the
-// palette line count is predictable to scan.
-const KEY = { tip: "t", body: "b", crack: "c", band: "n", rim: "r", gem: "g" };
+// One-letter palette keys, assigned in a fixed, memorable order; only the roles a shape actually
+// uses end up referenced by any cell, but all seven are always declared so the palette line count
+// is predictable to scan.
+const KEY = { tip: "t", body: "b", crack: "c", trim: "m", band: "n", rim: "r", gem: "g" };
 
-const defaultHeight = { crown: 8, dome: 6, bucket: 10, cone: 8 };
+const defaultHeight = { crown: 9, dome: 6, bucket: 10, cone: 8 };
 const defaultRadius = { crown: 5.6, dome: 5.5, bucket: 4.5, cone: 5.5 };
 const shapeOpts = {
   height: parseInt(opts.height || defaultHeight[opts.shape], 10),
@@ -356,10 +406,14 @@ const shapeOpts = {
   brimLayers: parseInt(opts.brimLayers, 10),
   points: parseInt(opts.points, 10),
   pointHalfwidth: parseFloat(opts.pointHalfwidth),
+  prongLayers: parseInt(opts.prongLayers, 10),
+  trimLayers: parseInt(opts.trimLayers, 10),
   tipGlowLayers: parseInt(opts.tipGlowLayers, 10),
   bandLayers: parseInt(opts.bandLayers, 10),
   rimLayers: parseInt(opts.rimLayers, 10),
   gems: parseInt(opts.gems, 10),
+  gemSize: parseInt(opts.gemSize, 10),
+  gemStartDeg: parseFloat(opts.gemStartDeg),
   crack: opts.crack,
   crackSectors: parseInt(opts.crackSectors, 10),
   crackEvery: parseInt(opts.crackEvery, 10),
