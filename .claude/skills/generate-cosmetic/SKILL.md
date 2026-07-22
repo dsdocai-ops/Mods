@@ -341,6 +341,53 @@ overhang the 9x9 hat overlay by ~2px a side; see `AZURE_CHARM_HAT` for a full
 worked example - rounded crown top, patch-mottled walls, band layer, rimmed
 brim, and a charm dangling from the brim edge on layers BELOW the brim).
 
+**Start from `voxel-hat-builder.mjs`, don't hand-derive the taper math.**
+Hand-typing a voxel stack from scratch means inventing, under time pressure,
+the exact per-layer radius/angle equations that separate a real
+dome/crown/brim silhouette from a rounded blob - easy to get subtly wrong in
+a way that only shows up once you look at the render (a first Molten Crown
+hat attempt did exactly this: a plausible-looking taper schedule that read as
+a muddy blob in the actual preview, not a crown). `voxel-hat-builder.mjs`
+bakes the four common hat families into parametric builders so the shape
+starts out structurally correct and only needs palette/accent tuning:
+
+```bash
+node .claude/skills/generate-cosmetic/voxel-hat-builder.mjs --shape crown \
+    --radius 5.6 --points 8 --crack \
+    --tip FFD23F --body 17140F --crack-color FF5A1F --band C9A227 --rim 2A1008 --gem B3122A \
+    --out crown.txt
+node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --art crown.txt --kind hat
+```
+
+`--shape` is one of:
+
+- **crown** - N spikes rising off a solid band (a real king's-crown
+  silhouette: the core radius ramps up to meet fixed-radius spike wedges, so
+  the points stay visually distinct instead of being absorbed into a dome -
+  see `--help` for `--points`/`--point-halfwidth`). Right for anything with a
+  jagged/regal top.
+- **dome** - a smooth ease-out taper from a small top radius to a wider base
+  (skullcaps, rounded helmets, simple caps).
+- **bucket** - a rounded crown that flares into a wide flat brim (bucket
+  hats, wide-brim hats - the `AZURE_CHARM_HAT` family, generalized).
+- **cone** - a straight-sided linear taper to a point apex (wizard/witch
+  hats).
+
+Every shape takes `--band-layers`/`--rim-layers`/`--gems` for a trim band
+with evenly-spaced accent studs, and `--crack` for deterministic vein
+texture (a few angled lines, not scattered noise - see `addCracks`) - built
+from the same small primitive set (`discMask`, `radialPointMask`, `addCracks`,
+`placeAccents`, `ringOverlay`) the script exports, so a fifth shape family is
+a new function composing those primitives, not new taper math. It prints
+both the raw art (for `preview-cosmetic.mjs --art`) and a ready Java text
+block, same convention as `pixelate.mjs`'s flat-art output.
+
+**This generates a correct starting SHAPE, not a finished cosmetic** - still
+preview it, still hand-edit rows afterward for a unique accent, an asymmetric
+detail, a second palette color for depth (see "From a description" below);
+skipping that step is how a cosmetic ends up looking like every other one
+built from the same shape family.
+
 Authoring rules that matter:
 
 - **Fill interiors, don't hollow them.** Face culling means interior cells
@@ -366,7 +413,8 @@ Authoring rules that matter:
   (`CosmeticGeometry.flat`) - their animation model (depth01 per row/column of
   a flat grid) presumes a plane.
 - `pixelate.mjs` is 2D-only: for a voxel hat, use its output as a
-  palette/proportion reference and author the slices by hand.
+  palette/proportion reference, then generate the actual slice stack with
+  `voxel-hat-builder.mjs` (above) rather than hand-typing the taper.
 
 ## Workflow
 
@@ -394,8 +442,9 @@ like actual pixel art: straighten ragged edges, re-add a detail the
 downsample smeared, cut a silhouette with '.'s. For badge color derivation
 from an image, `extract-colors.mjs` still does that (see step 1-badge below).
 **For a HAT, this 2D output is reference material, not the deliverable** - use
-its palette and proportions to hand-author voxel slices (see "Voxel hats"
-above).
+its palette and proportions as inputs to `voxel-hat-builder.mjs`'s
+`--shape`/`--radius`/color flags (see "Voxel hats" above), not as something to
+manually re-derive into a slice stack.
 
 #### Preparing a real photo
 
@@ -439,11 +488,13 @@ Flags compose (deskew/key-bg, then fit/resize) regardless of argument order,
 so a rotated photo of a dark-background subject can use `--deskew --key-bg`
 together in one run.
 
-**From a description** - author the rows yourself, in the format above (for a
-hat: voxel slices, per "Voxel hats" above). Real pixel-art moves:
-outline/shadow column on one side (see `CRIMSON_CAPE`'s `d` columns), 1px
-accent trim, transparency for scallops and fringes, an emblem in a contrasting
-color. Keep palettes small (3-6 colors read best at this size).
+**From a description** - for CAPE/WINGS, author the rows yourself in the flat
+format above. Real pixel-art moves: outline/shadow column on one side (see
+`CRIMSON_CAPE`'s `d` columns), 1px accent trim, transparency for scallops and
+fringes, an emblem in a contrasting color. Keep palettes small (3-6 colors
+read best at this size). For a HAT, start with `voxel-hat-builder.mjs` (see
+"Voxel hats" above) to get a structurally correct dome/crown/bucket/cone
+shape, then hand-edit for a unique accent.
 
 **Badges**: `extract-colors.mjs <image>` prints a palette + `suggestedBadge`
 (lightness-lifted for nametag readability); from a description pick a hex with
