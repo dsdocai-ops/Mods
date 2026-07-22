@@ -105,18 +105,55 @@ public final class CosmeticGeometry {
     }
 
     /**
-     * The free tip(s) of a cosmetic - one for CAPE (hem center), two for WINGS (each wingtip), none
-     * for HAT/BADGE (nothing free to trail from). Computed fresh each call (cheap - a couple of
-     * float arrays) from the SAME origin/u/v/pivot literals as build()'s (PROCEDURAL) frames or
-     * CosmeticTexturedMesh's (TEXTURED) frame; keep them in sync if a frame ever changes. Works for
-     * a TEXTURED cape (art() null, textureId() set) too - CAPE's width/height come from art()'s own
-     * dimensions when present, else CosmeticTexturedMesh's fixed canonical size (which is what a
-     * textured cape's own geometry actually uses), so a textured cape's particle trail still hangs
-     * from the right spot without needing a PixelArt at all.
+     * The free tip(s) of a cosmetic - one for CAPE (hem center), two for WINGS (each wingtip), one
+     * for a VOXEL HAT (its tallest point's peak - see below), none for a flat-art HAT or BADGE
+     * (nothing free to trail from). Computed fresh each call (cheap - a couple of float arrays) from
+     * the SAME origin/u/v/pivot literals as build()'s (PROCEDURAL) frames or CosmeticTexturedMesh's
+     * (TEXTURED) frame; keep them in sync if a frame ever changes. Works for a TEXTURED cape (art()
+     * null, textureId() set) too - CAPE's width/height come from art()'s own dimensions when
+     * present, else CosmeticTexturedMesh's fixed canonical size (which is what a textured cape's own
+     * geometry actually uses), so a textured cape's particle trail still hangs from the right spot
+     * without needing a PixelArt at all.
+     *
+     * A voxel HAT's tip is NOT animated by CosmeticAnimation (depth01 is implicitly 1.0 here, same
+     * as every other tip point, but animate()/animatePoint() only ever move CAPE/WINGS regardless of
+     * depth01 - see CosmeticAnimation.animates) - the point is static, matching a HAT's deliberate
+     * rigidity (see the class doc's voxel-HAT bullet). A STATIC emission point still produces a
+     * perfectly good rising ember/spark trail (particles get their own motion from the spawn call,
+     * independent of the emitter moving) - this is what makes a glowing cosmetic (e.g. a molten
+     * crown) visually read as "alive" without violating "nothing about a hat should swing loose."
+     * The tip itself is found generically, not hardcoded to any one cosmetic's art: the first filled
+     * voxel in the topmost non-empty layer (scanning front-to-back, left-to-right, matching this
+     * format's own row-reading convention), which is that hat's own actual highest point regardless
+     * of silhouette (a crown's spike, a cone's apex, a top hat's crown-top) - see bodyBottomLayer for
+     * why that's the same y-origin meshVoxels() itself anchors to.
      */
     public static List<TipPoint> tipPointsFor(CosmeticCatalog.Cosmetic cosmetic) {
         if (cosmetic == null) return List.of();
         return switch (cosmetic.kind()) {
+            case HAT -> {
+                if (!(cosmetic.art() instanceof CosmeticPixelArt.VoxelArt voxels)) yield List.of();
+                float ox = -voxels.width() / 2f;
+                float oz = -voxels.depth() / 2f;
+                float oy = -8.6f - (bodyBottomLayer(voxels, ox, oz) + 1);
+                int tipX = -1, tipY = -1, tipZ = -1;
+                outer:
+                for (int y = 0; y < voxels.height(); y++) {
+                    for (int z = 0; z < voxels.depth(); z++) {
+                        for (int x = 0; x < voxels.width(); x++) {
+                            if (voxels.voxelAt(x, y, z) >= 0) {
+                                tipX = x;
+                                tipY = y;
+                                tipZ = z;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+                if (tipY < 0) yield List.of(); // an entirely empty grid - not a real cosmetic, but nothing to crash on
+                float[] tip = { ox + tipX + 0.5f, oy + tipY, oz + tipZ + 0.5f };
+                yield List.of(new TipPoint(scaledPoint(tip), scaledPoint(tip)));
+            }
             case CAPE -> {
                 if (cosmetic.art() == null && cosmetic.textureId() == null) yield List.of();
                 float width = cosmetic.art() != null ? cosmetic.art().width() : CosmeticTexturedMesh.CAPE_FRAME_WIDTH;

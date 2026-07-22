@@ -48,10 +48,9 @@ public final class CosmeticCatalog {
      * for BADGE kinds (gear keeps the default nametag red); art is the pixel grid for a PROCEDURAL
      * gear cosmetic (CosmeticPixelArt.Art: flat PixelArt for any gear kind, VoxelArt for a true-3D
      * HAT), null for badges and for TEXTURED gear. trailColor is an opt-in per-cosmetic
-     * choice (null = no trail, RGB otherwise) - only CAPE/WINGS ever emit one (see
-     * CosmeticGeometry.tipPointsFor: HAT/BADGE have no tip to trail from, so a trailColor there
-     * would silently never fire; leave it null for those kinds rather than setting a color that
-     * does nothing). textureId is null for procedural/badge cosmetics; for a TEXTURED cosmetic it's
+     * choice (null = no trail, RGB otherwise) - CAPE/WINGS and a VOXEL HAT can all emit one (see
+     * CosmeticGeometry.tipPointsFor: a flat-art HAT and BADGE have no tip to trail from, so a
+     * trailColor there would silently never fire; leave it null for those). textureId is null for procedural/badge cosmetics; for a TEXTURED cosmetic it's
      * the path under textures/ WITHOUT the leading "textures/" segment or ".png" extension already
      * baked in - e.g. "cosmetics/starlit_cape" resolves to textures/cosmetics/starlit_cape.png in
      * both loaders' resource trees (mod/fabric/.../assets/omega-client/, mod/forge/.../assets/
@@ -79,13 +78,15 @@ public final class CosmeticCatalog {
             Map.entry("starlit_cape", new Cosmetic("starlit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xB39DDB, "cosmetics/starlit_cape")),
             Map.entry("eclipse_cape", new Cosmetic("eclipse_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xFFA050, "cosmetics/eclipse_cape")),
             Map.entry("inferno_wings", new Cosmetic("inferno_wings", Kind.WINGS, DEFAULT_BADGE_RGB, CosmeticPixelArt.INFERNO_WINGS, 0xFF6B4A, null)),
-            // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
-            // so a color here would silently never fire - see the Cosmetic record's own doc above.
+            // trailColor left null - a voxel HAT CAN emit a trail from its tallest point now
+            // (CosmeticGeometry.tipPointsFor), but a charm dangling off the brim isn't a glowing
+            // effect, so this one just doesn't call for one; see molten_crown_hat below for one that does.
             Map.entry("azure_charm_hat", new Cosmetic("azure_charm_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.AZURE_CHARM_HAT, null, null)),
             Map.entry("twilight_summit_cape", new Cosmetic("twilight_summit_cape", Kind.CAPE, DEFAULT_BADGE_RGB, null, 0xCFE8FF, "cosmetics/twilight_summit_cape")),
-            // trailColor is null, not just omitted: HAT has no tip point (CosmeticGeometry.tipPointsFor),
-            // so a color here would silently never fire - see the Cosmetic record's own doc above.
-            Map.entry("molten_crown_hat", new Cosmetic("molten_crown_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.MOLTEN_CROWN_HAT, null, null))
+            // A sparse ember trail rising from the crown's tallest spike - CosmeticGeometry.tipPointsFor's
+            // voxel-HAT case finds that point generically (the topmost filled voxel), so this is the same
+            // one-line opt-in every CAPE/WINGS trail already is, extended to a HAT for the first time.
+            Map.entry("molten_crown_hat", new Cosmetic("molten_crown_hat", Kind.HAT, DEFAULT_BADGE_RGB, CosmeticPixelArt.MOLTEN_CROWN_HAT, 0xFFB347, null))
     );
 
     private CosmeticCatalog() {

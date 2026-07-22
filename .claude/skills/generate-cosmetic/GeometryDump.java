@@ -22,8 +22,10 @@ import java.util.List;
  *                                           wired in; the file may be flat OR voxel art (hat only) - parseAny detects
  *                                           which by the "---" layer separators
  *   --textured-candidate                 - static dump of a TEXTURED candidate CAPE's geometry (see CosmeticTexturedMesh for why not HAT/WINGS)
- *   --animate <id>                       - animation-frame dump of a catalog cosmetic (BADGE/HAT ids
- *                                           are accepted but every frame is identical - see below)
+ *   --animate <id>                       - animation-frame dump of a catalog cosmetic (BADGE and a
+ *                                           flat-art HAT have no mesh to move and no tip to trail
+ *                                           from; a VOXEL HAT's mesh is likewise static but CAN have
+ *                                           a tip point/trail - see below)
  *   --animate <artFile> <kind>           - animation-frame dump of a PROCEDURAL candidate
  *   --animate --textured-candidate       - animation-frame dump of a TEXTURED candidate CAPE
  *
@@ -40,10 +42,12 @@ import java.util.List;
  *   "<id>":{"kind":"cape","quads":[quad...]},                                   // procedural
  *   "<id>":{"kind":"cape","textured":true,"textureId":"cosmetics/x","uvQuads":[uvQuad...]}  // textured
  * }}
- * Animate output (procedural): {"player":[...],"kind":"cape","trailColor":16766720,
- *   "frames":[{"t":0,"motion":0,"quads":[quad...],"tips":[[x,y,z],...]},...]}
- * Animate output (textured):   {"player":[...],"kind":"cape","textured":true,"textureId":"...",
- *   "trailColor":..., "frames":[{"t":0,"motion":0,"uvQuads":[uvQuad...],"tips":[[x,y,z],...]},...]}
+ * Animate output, CAPE/WINGS (the only kinds whose mesh actually moves - CosmeticAnimation.animates):
+ *   {"player":[...],"kind":"cape","trailColor":16766720,
+ *    "frames":[{"t":0,"motion":0,"quads":[quad...],"tips":[[x,y,z],...]},...]}    (or "uvQuads" if textured)
+ * Animate output, HAT/BADGE (mesh is static - hoisted OUT of "frames" instead of repeated 12x):
+ *   {"player":[...],"kind":"hat","trailColor":16766720,"quads":[quad...],
+ *    "frames":[{"t":0,"motion":0,"tips":[[x,y,z],...]},...]}
  * quad = {"p":[12 floats],"rgb":int,"shade":float}
  * uvQuad = {"p":[12 floats],"uv":[8 floats],"n":[3 floats],"shade":float}
  * candidate mode uses the id "candidate" (procedural) or "candidate_textured" (textured).
@@ -51,19 +55,26 @@ import java.util.List;
  * --animate samples a short, fixed window (not a full sway/flap period - CAPE's idle period alone
  * is ~5s) at two motion levels (0 = standing still, 1 = full sprint) so a reviewer can see both the
  * idle sway and the moving lean/flap without an oversized dump. CosmeticAnimation is a no-op for
- * BADGE/HAT (depth01 is always 0 for hats - nothing is meant to swing loose), so every frame comes
- * back identical for those kinds; that's expected, not a bug in this tool.
+ * BADGE/HAT (depth01 is always 0 for hats - nothing is meant to swing loose): the mesh (and any tip
+ * point) would come back byte-for-byte identical every frame regardless of t/motion, so for those
+ * kinds this tool computes the geometry once (hoisted to the top level, alongside "kind"/
+ * "trailColor") instead of re-serializing it into all 12 frames - the previous version did repeat
+ * it, which was harmless for a simple hat/badge but produced a large enough duplicate payload for a
+ * detailed voxel hat (many small separated spikes = real surface area) to blow past a child-process
+ * pipe's buffer for zero benefit, since nothing in that payload ever differed frame to frame.
  *
  * Each frame's "tips" are CosmeticGeometry.tipPointsFor(cosmetic) - the SAME local points
  * CosmeticTrail's particle spawn uses - run through the SAME CosmeticAnimation.animatePoint() call
- * as the real renderers, at that frame's t/motion, so a rendered trail dot swings in lockstep with
- * the mesh, exactly as it will in-game. "tips" is always present (empty for HAT/BADGE, whose
- * tipPointsFor is empty); "trailColor" is the catalog cosmetic's own trailColor (null for candidates
- * - loadCandidate never sets one - and for any cosmetic that doesn't have one), reported so the
- * preview can default to it, but a caller may draw the tips in any color regardless of whether
- * trailColor is set - this tool doesn't decide whether a trail SHOULD render, only where its tip is.
- * Local-space only: no world/yaw placement here (that's CosmeticTrail.toWorld, deliberately not
- * exercised by this preview tool - see the skill's SKILL.md on that verification boundary).
+ * as the real renderers, at that frame's t/motion (a no-op for HAT, so every frame's tip is
+ * identical too, but tips are cheap - a handful of floats - so keeping them per-frame costs nothing
+ * and keeps the schema uniform). "tips" is always present (empty for a flat-art HAT or BADGE, whose
+ * tipPointsFor is empty; one point for a VOXEL HAT - its tallest point's peak - or CAPE; two for
+ * WINGS); "trailColor" is the catalog cosmetic's own trailColor (null for candidates - loadCandidate
+ * never sets one - and for any cosmetic that doesn't have one), reported so the preview can default
+ * to it, but a caller may draw the tips in any color regardless of whether trailColor is set - this
+ * tool doesn't decide whether a trail SHOULD render, only where its tip is. Local-space only: no
+ * world/yaw placement here (that's CosmeticTrail.toWorld, deliberately not exercised by this preview
+ * tool - see the skill's SKILL.md on that verification boundary).
  */
 public final class GeometryDump {
     private static final float[] FRAME_TICKS = { 0f, 4f, 8f, 12f, 16f, 20f };
@@ -112,6 +123,14 @@ public final class GeometryDump {
             return;
         }
         List<CosmeticGeometry.TipPoint> tips = CosmeticGeometry.tipPointsFor(cosmetic);
+        // HAT/BADGE never animate their MESH (CosmeticAnimation.animate/animatePoint no-op for any
+        // kind but CAPE/WINGS - see that class's animates()), so re-serializing identical geometry
+        // 12 times (FRAME_TICKS.length * FRAME_MOTIONS.length) is pure waste, not fidelity - for a
+        // hat with real surface area (many separated spikes, say) that's easily 10x+ the necessary
+        // JSON and can blow past a child-process pipe's buffer for no benefit, since every frame IS
+        // byte-for-byte identical. Hoist the geometry OUT of the frame loop for these kinds; CAPE/
+        // WINGS keep the full per-frame re-serialization since their mesh genuinely changes.
+        boolean kindAnimates = cosmetic.kind() == CosmeticCatalog.Kind.CAPE || cosmetic.kind() == CosmeticCatalog.Kind.WINGS;
 
         StringBuilder json = new StringBuilder("{");
         appendPlayer(json);
@@ -119,34 +138,58 @@ public final class GeometryDump {
         if (cosmetic.textureId() != null) {
             json.append(",\"textured\":true,\"textureId\":\"").append(cosmetic.textureId()).append("\"");
         }
-        json.append(",\"trailColor\":").append(cosmetic.trailColor()).append(",\"frames\":[");
+        json.append(",\"trailColor\":").append(cosmetic.trailColor());
 
         List<CosmeticGeometry.Quad> quads = cosmetic.textureId() == null ? CosmeticGeometry.quadsFor(cosmetic) : null;
         List<CosmeticTexturedMesh.TexturedQuad> uvQuads =
                 cosmetic.textureId() != null ? CosmeticTexturedMesh.capeStrips(CosmeticTexturedMesh.DEFAULT_CAPE_STRIPS) : null;
 
+        if (!kindAnimates) {
+            // Static geometry, dumped once - t/motion are meaningless for it, so there is nothing to
+            // vary. (animate()/animatePoint() would return it unchanged anyway; skip the call.)
+            if (quads != null) {
+                json.append(",\"quads\":[");
+                for (int i = 0; i < quads.size(); i++) {
+                    if (i > 0) json.append(",");
+                    CosmeticGeometry.Quad quad = quads.get(i);
+                    appendQuadPositions(json, quad.positions(), quad.rgb(), quad.shade());
+                }
+                json.append("]");
+            } else {
+                json.append(",\"uvQuads\":[");
+                for (int i = 0; i < uvQuads.size(); i++) {
+                    if (i > 0) json.append(",");
+                    appendAnimatedUvQuad(json, uvQuads.get(i), cosmetic.kind(), 0f, 0f);
+                }
+                json.append("]");
+            }
+        }
+
+        json.append(",\"frames\":[");
         boolean first = true;
         for (float motion : FRAME_MOTIONS) {
             for (float t : FRAME_TICKS) {
                 if (!first) json.append(",");
                 first = false;
-                json.append("{\"t\":").append(t).append(",\"motion\":").append(motion).append(",");
-                if (quads != null) {
-                    json.append("\"quads\":[");
-                    for (int i = 0; i < quads.size(); i++) {
-                        if (i > 0) json.append(",");
-                        CosmeticGeometry.Quad quad = quads.get(i);
-                        float[] animated = CosmeticAnimation.animate(quad, cosmetic.kind(), t, motion);
-                        appendQuadPositions(json, animated, quad.rgb(), quad.shade());
+                json.append("{\"t\":").append(t).append(",\"motion\":").append(motion);
+                if (kindAnimates) {
+                    if (quads != null) {
+                        json.append(",\"quads\":[");
+                        for (int i = 0; i < quads.size(); i++) {
+                            if (i > 0) json.append(",");
+                            CosmeticGeometry.Quad quad = quads.get(i);
+                            float[] animated = CosmeticAnimation.animate(quad, cosmetic.kind(), t, motion);
+                            appendQuadPositions(json, animated, quad.rgb(), quad.shade());
+                        }
+                        json.append("]");
+                    } else {
+                        json.append(",\"uvQuads\":[");
+                        for (int i = 0; i < uvQuads.size(); i++) {
+                            if (i > 0) json.append(",");
+                            appendAnimatedUvQuad(json, uvQuads.get(i), cosmetic.kind(), t, motion);
+                        }
+                        json.append("]");
                     }
-                    json.append("]");
-                } else {
-                    json.append("\"uvQuads\":[");
-                    for (int i = 0; i < uvQuads.size(); i++) {
-                        if (i > 0) json.append(",");
-                        appendAnimatedUvQuad(json, uvQuads.get(i), cosmetic.kind(), t, motion);
-                    }
-                    json.append("]");
                 }
                 json.append(",\"tips\":[");
                 for (int i = 0; i < tips.size(); i++) {

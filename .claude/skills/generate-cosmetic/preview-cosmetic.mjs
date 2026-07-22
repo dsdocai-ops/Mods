@@ -334,7 +334,10 @@ try {
             ${times
               .map((t) => {
                 const frame = frameOf(t, motion);
-                return svgView(dump.textured ? [] : frame.quads, `t=${t}`, 30, 12, W, H, scale, {
+                // HAT/BADGE hoist their (unchanging) geometry to the top level instead of repeating
+                // it in every frame - see GeometryDump's class doc - so fall back to that when a
+                // frame doesn't carry its own copy.
+                return svgView(dump.textured ? [] : frame.quads ?? dump.quads, `t=${t}`, 30, 12, W, H, scale, {
                   tipPoints: frame.tips,
                   trailColorHex,
                   texturedUvQuads: dump.textured ? frame.uvQuads : null,
@@ -352,7 +355,7 @@ try {
         : `<div class="legend">trail: none${dump.frames[0].tips.length === 0 ? " (this kind has no tip - see CosmeticGeometry.tipPointsFor)" : " (no trailColor set - pass --trail-color to preview one)"}</div>`;
     const paletteOrTexture = dump.textured
       ? `<div class="legend">texture: ${dump.textureId}${texturedCandidate ? ` (candidate: ${path.basename(opts.texture)})` : ""}</div>`
-      : `<div class="legend">palette:${legendFor(dump.frames[0].quads)}</div>`;
+      : `<div class="legend">palette:${legendFor(dump.frames[0].quads ?? dump.quads)}</div>`;
     html = `<!doctype html><html><head><meta charset="utf-8"><style>
       ${commonCss}
       .row { margin-bottom: 14px; }

@@ -82,8 +82,10 @@ there); gear kinds render either `CosmeticGeometry.quadsFor(cosmetic)`
    TEXTURED gear, else null - exactly one of `art`/`textureId` is non-null for
    any HAT/CAPE/WINGS entry, both null for BADGE. `badgeRgb` is only read for
    BADGE kinds - pass `DEFAULT_BADGE_RGB` for gear. `trailColor` is a nullable
-   boxed `Integer` RGB (null = no particle trail; only ever fires for
-   CAPE/WINGS regardless of PROCEDURAL/TEXTURED - see "The particle trail model")
+   boxed `Integer` RGB (null = no particle trail; fires for CAPE/WINGS
+   regardless of PROCEDURAL/TEXTURED, and for a VOXEL HAT from its tallest
+   point's peak - a flat-art HAT and BADGE have no tip to trail from - see
+   "The particle trail model")
 2. `src/shared/cosmetics.ts` - `KNOWN_COSMETIC_IDS` (what `licensing.ts` will
    redeem)
 3. `scripts/generate-license-key.cjs` - its own private `KNOWN_COSMETIC_IDS`
@@ -146,7 +148,10 @@ uses instead of real lighting.
 ## The particle trail model
 
 `CosmeticGeometry.tipPointsFor(cosmetic)` returns the free tip(s) of a CAPE
-(one: the hem center) or WINGS (two: each wingtip) as `TipPoint`s - the same
+(one: the hem center), WINGS (two: each wingtip), or a VOXEL HAT (one: its
+tallest point's peak - the topmost filled voxel, found generically by scan
+rather than hardcoded to any one cosmetic's art, so it works for a crown's
+spike, a cone's apex, or any other silhouette) as `TipPoint`s - the same
 `pivot` a mesh Quad there would carry, at `depth01` 1.0. Both renderers, for
 any cosmetic with a non-null `trailColor`, animate each tip point through
 `CosmeticAnimation.animatePoint(...)` (the exact same rotation `animate()`
@@ -158,6 +163,18 @@ close enough for a decorative effect), roll a chance to skip most frames
 (`CosmeticTrail.shouldEmit`, ~6/sec per tip), and spawn one colored dust
 particle (`DustParticleEffect` on Fabric, `DustParticleOptions` on Forge -
 both take an RGB `Vector3f` + a scale) tinted to `trailColor`.
+
+**A HAT's tip point is never swayed** (`CosmeticAnimation.animates` only
+returns true for CAPE/WINGS, by design - see "The animation model" above) -
+`animatePoint` returns it completely unchanged every frame, matching a HAT's
+deliberate rigidity. This is NOT a limitation on the trail effect: a static
+emission point still produces a perfectly good rising ember/spark trail,
+since a particle gets its own motion from the spawn call (`addParticle(...,
+velocityY, ...)`), independent of whether its origin moves. This is how the
+Molten Crown hat justifies its price point with a real animated effect - a
+sparse stream of embers rising from its tallest spike - without the crown
+itself ever looking like it's coming loose, which is exactly the balance
+"nothing about a hat should swing loose" (see the Gotchas) was protecting.
 
 **This is the least locally-verifiable part of the whole cosmetic pipeline.**
 `CosmeticTrail`'s coordinate math is pure/common and was numerically sanity-
@@ -759,8 +776,10 @@ tolerant of hyphenated ids, but don't create the ambiguity.
   `COSMETICS` entry with `art` null, `textureId` set - see "The textured
   rendering model" for the exact path convention.
 - Badge: catalog entry with the color as `badgeRgb`, `art`/`textureId` both null.
-- Optional, CAPE/WINGS only (either PROCEDURAL or TEXTURED): set `trailColor`
-  to an `0xRRGGBB` int to give it a particle trail; `null` for none.
+- Optional, CAPE/WINGS (either PROCEDURAL or TEXTURED) or a VOXEL HAT: set
+  `trailColor` to an `0xRRGGBB` int to give it a particle trail from its tip
+  (a flat-art HAT and BADGE have no tip - leave `trailColor` `null` there);
+  `null` for none.
 - Add the id to the other two lists (`cosmetics.ts`, `generate-license-key.cjs`).
 - If the cosmetic set stops matching what `README.md`'s "Paid cosmetics"
   section and `mod/README.md`'s presence-badge feature row describe, update
@@ -866,18 +885,22 @@ node scripts/generate-license-key.cjs <new_id>
   `CosmeticAnimation.animate`'s kind switch, (3) confirming the anchor
   ModelPart (head vs body) still makes sense for how it should move. Skipping
   any one leaves it silently rigid.
-- **Setting `trailColor` on a HAT or BADGE does nothing** (silently - no
-  error, no warning). `CosmeticGeometry.tipPointsFor` only returns points for
-  CAPE/WINGS, so the trail loop in both renderers just never runs. Leave it
-  `null` for those kinds - a non-null value there is misleading dead data.
-- **A new trailed cosmetic needing a NEW tip point** (a third kind, or a
-  cosmetic whose "trailing edge" isn't its geometric hem/wingtip) means adding
-  a case to `CosmeticGeometry.tipPointsFor`, mirroring the ORIGIN/U/V it
-  already uses in `build()`'s matching case - keep the two in sync by hand
-  (there's no shared frame object between them; see that method's own doc for
-  why). A tip point that doesn't match its mesh's actual frame will animate
-  correctly in isolation but drift from where the visible hem/wingtip actually
-  is.
+- **Setting `trailColor` on a flat-art HAT or BADGE does nothing** (silently -
+  no error, no warning). `CosmeticGeometry.tipPointsFor` only returns a point
+  for CAPE, WINGS, and a VOXEL HAT (its tallest point's peak) - a flat-art HAT
+  has no such case and BADGE has no geometry at all, so the trail loop in both
+  renderers just never runs for either. Leave `trailColor` `null` for those -
+  a non-null value there is misleading dead data. A voxel HAT genuinely CAN
+  have one (see the Molten Crown hat and "The particle trail model" above).
+- **A new trailed cosmetic needing a NEW tip point** (a fourth case beyond
+  CAPE/WINGS/voxel-HAT, or a cosmetic whose "trailing edge" isn't its
+  geometric hem/wingtip/highest-point) means adding a case to
+  `CosmeticGeometry.tipPointsFor`, mirroring the ORIGIN/U/V (or, for a voxel
+  hat, the `ox`/`oz`/`oy` anchoring) it already uses in `build()`'s/
+  `meshVoxels()`'s matching case - keep the two in sync by hand (there's no
+  shared frame object between them; see that method's own doc for why). A tip
+  point that doesn't match its mesh's actual frame will animate correctly in
+  isolation but drift from where the visible hem/wingtip/peak actually is.
 - **Don't extend `CosmeticTrail` to read player velocity, body yaw, or the
   render MatrixStack/PoseStack** without re-reading its class doc first - it
   deliberately sticks to `getX/Y/Z()` + head yaw (both loaders' already-passed
