@@ -416,6 +416,65 @@ Authoring rules that matter:
   palette/proportion reference, then generate the actual slice stack with
   `voxel-hat-builder.mjs` (above) rather than hand-typing the taper.
 
+## Judging whether a cosmetic actually looks good
+
+A cosmetic can be geometrically correct - right kind, right frame, parses,
+renders, silhouette reads as the intended shape - and still look cheap. The
+gap between "renders" and "looks like it shipped in Lunar/Feather/Essential"
+is almost always the PALETTE, not the shape, and it's checkable concretely
+rather than by vibes:
+
+**Exploit the shading model - this is the single highest-leverage fix.**
+Every extruded face (PROCEDURAL gear, any kind - flat or voxel) gets exactly
+one of three flat multipliers baked in at build time, never real lighting
+(`CosmeticGeometry.shadeOf`): top-facing **1.0**, vertical sides **0.65**,
+down-facing **0.5**. That triplet is the ENTIRE illusion of depth this
+pipeline has. Feed it a bulk fill color with lightness below ~0.2 (a
+near-black "obsidian"/"shadow" color, which is exactly what the first Molten
+Crown hat draft used for its whole band) and 1.0/0.65/0.5 of a near-zero
+value are all still near-zero - the shape was correct, but every face reads
+as the same flat dark mass, which is what "looks like a blob" actually means
+in this engine. The same failure happens in reverse with a near-white fill
+(lightness above ~0.85). The fix is simple and load-bearing: **any color
+covering a large fill should sit around 0.35-0.65 lightness, with real
+saturation** (a jewel tone, not a desaturated gray) - that's the range where
+1.0/0.65/0.5 actually produce three visibly different, still-clearly-colored
+steps. Reserve true near-black/near-white for what's ALREADY thin in this
+engine's own vocabulary - a 1px rim line, an outline column, a small accent -
+where there's barely any face area for the gradient to show up on regardless.
+`voxel-hat-builder.mjs`'s `--body`/`--band` flags warn automatically when a
+supplied color falls outside this range; the same lightness/saturation
+arithmetic applies to a hand-authored flat CAPE/WINGS palette too, where
+nothing checks it automatically - eyeball it, or reuse the tool's
+`lightnessOf`/`saturationOf` helpers.
+
+**A vivid, thematically "dark" concept still wants a mid-tone bulk color.**
+"Molten obsidian" doesn't have to mean literal near-black rock - real molten
+rock glows, and a deep ember red-orange (`~#7A2E12`, lightness ~0.30, clearly
+saturated) both reads as "molten" AND survives the 1.0/0.65/0.5 spread, where
+a literal charcoal-black does neither. When a theme's obvious color choice is
+an extreme, look for the version of that theme that's already inherently
+mid-toned (embers over ash, a jewel over its setting, a blade's edge-glint
+over its shadow) rather than forcing the extreme and losing the shading.
+
+**Small palette, clear roles, real contrast between them.** 3-6 colors,
+each doing one job - a bulk/body color, one or two accent colors (band, trim,
+gems) at a different hue for contrast (not just a darker/lighter version of
+the body hue), and at most one small bright highlight (a glowing tip, a gem
+glint). A cosmetic where every color is a slightly-different shade of the
+same hue reads as flat regardless of the shape underneath; strong hue
+contrast between the bulk and its accents is what makes a band, rim, or gem
+actually pop instead of blending in.
+
+**Look at the actual preview PNG critically before calling it done** - not
+just "does the silhouette read as the intended shape" (Workflow step 2
+already covers that) but "would this pass next to a screenshot of a real
+Lunar/Feather cosmetic": is there visible depth/gradient across the faces, or
+does it read as one flat-colored mass at a glance? Is there one clear color
+that draws the eye, or does everything blend together? If the honest answer
+is "it's technically the right shape but still looks flat/muddy," that is a
+palette problem to fix (per above), not a shape problem to re-iterate on.
+
 ## Workflow
 
 ### 1. Pick the kind, get candidate art
@@ -513,8 +572,11 @@ node .claude/skills/generate-cosmetic/preview-cosmetic.mjs --id crimson_cape
 ```
 
 Look at the PNG: silhouette reads at a glance from all three views, colors
-contrast against Steve-ish skin/shirt tones, details survived the pixel size.
-Iterate on the art file and re-preview - it's cheap.
+contrast against Steve-ish skin/shirt tones, details survived the pixel size,
+AND it clears the value-contrast/palette bar in "Judging whether a cosmetic
+actually looks good" above (a correct silhouette in a near-black or
+near-white bulk color still fails this check). Iterate on the art file and
+re-preview - it's cheap.
 
 **For CAPE/WINGS, also check the animation** - add `--animate` to either form
 above (works on both a candidate art file and a catalog id):

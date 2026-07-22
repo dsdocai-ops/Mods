@@ -395,6 +395,53 @@ const paletteLines = Object.entries(KEY)
   .filter(([role]) => usedKeys.has(KEY[role]))
   .map(([role, key]) => `${key}=${colorOf[role]}`);
 
+// --- value-contrast check ---------------------------------------------------------------------
+// Faces are shaded 1.0 (top) / 0.65 (side) / 0.5 (bottom) - see CosmeticGeometry.shadeOf. That's
+// the ONLY lighting this pipeline has (flat position-color quads, no normals/light at render time),
+// so a bulk-fill color's lightness decides whether those three multipliers read as a lit 3D shape
+// or collapse into one flat mass. This is exactly how the first Molten Crown draft went wrong: a
+// structurally correct crown shape filled with a near-black body color (lightness ~0.07) whose
+// 1.0/0.65/0.5-shaded faces were all still near-black, so it rendered as a muddy blob despite the
+// shape being right - the fix was a palette problem, not a geometry problem. Warn here so that
+// mistake is caught before the first preview, not after.
+function hexToRgb01(hex) {
+  return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+}
+function lightnessOf(hex) {
+  const [r, g, b] = hexToRgb01(hex);
+  return (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+}
+function saturationOf(hex) {
+  const [r, g, b] = hexToRgb01(hex);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return 0;
+  const d = max - min;
+  return l > 0.5 ? d / (2 - max - min) : d / (max + min);
+}
+// body/band are the roles that typically cover a large, multi-orientation surface (the hat's bulk
+// mass); tip/crack/gem/rim are deliberately small accents where a lightness extreme is fine (a
+// bright glowing tip, a near-black thin rim line) since there's barely any face area for the
+// 1.0/0.65/0.5 spread to show up on regardless.
+for (const role of ["body", "band"]) {
+  if (!usedKeys.has(KEY[role])) continue;
+  const hex = colorOf[role];
+  const l = lightnessOf(hex);
+  const s = saturationOf(hex);
+  if (l < 0.2 || l > 0.85) {
+    console.error(
+      `warning: --${role} #${hex} has lightness ${l.toFixed(2)} - a near-${l < 0.5 ? "black" : "white"} ` +
+      `bulk color collapses the 1.0/0.65/0.5 top/side/bottom shading into one flat mass instead of a lit ` +
+      `3D shape. Prefer roughly 0.35-0.65 lightness for any color covering a large fill; save near-black/` +
+      `near-white for thin trim or outline accents, where there's little face area for the shading to show on.`
+    );
+  } else if (s < 0.15) {
+    console.error(
+      `warning: --${role} #${hex} is nearly grayscale (saturation ${s.toFixed(2)}) - a vivid, saturated ` +
+      `hue reads as deliberately designed at this scale; a desaturated one tends to read flat/generic.`
+    );
+  }
+}
+
 const rawLines = [...paletteLines];
 layerRows.forEach((rows, i) => {
   if (i > 0) rawLines.push("---");
