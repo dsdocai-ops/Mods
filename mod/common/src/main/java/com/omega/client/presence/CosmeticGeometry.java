@@ -57,10 +57,12 @@ import java.util.concurrent.ConcurrentHashMap;
  *     art column, so the wingtip flaps while the shoulder hinge stays put.
  *
  * Lighting is baked into each quad's shade (position-color rendering has no normals/light), using
- * vanilla's flat directional feel: up-facing 1.0, sides 0.65, down-facing 0.5. Faces are emitted
- * double-sided (both windings): the entity flip above inverts winding order, and whether the
- * debug-quads layer culls back faces isn't checkable outside CI - duplicate quads are cheaper than
- * a wrong guess that culls a cosmetic invisible.
+ * vanilla's actual per-direction flat-lighting table: up 1.0, down 0.5, north/south 0.8, east/west
+ * 0.6 (see shadeOf) - four distinct values, not a single flat "sides" tone, so adjacent
+ * perpendicular walls read as visibly different shades the way real Minecraft block/item faces do.
+ * Faces are emitted double-sided (both windings): the entity flip above inverts winding order, and
+ * whether the debug-quads layer culls back faces isn't checkable outside CI - duplicate quads are
+ * cheaper than a wrong guess that culls a cosmetic invisible.
  */
 public final class CosmeticGeometry {
     /**
@@ -257,8 +259,9 @@ public final class CosmeticGeometry {
             }
         }
 
-        // North/south (z-boundary) faces, merged along x runs. Vertical, so shade is the flat 0.65
-        // regardless of winding, and geometry is double-sided - orientation needs no care here.
+        // North/south (z-boundary) faces, merged along x runs. Vertical, so shade is a flat 0.8
+        // regardless of winding (shadeOf's dominant-axis lookup), and geometry is double-sided -
+        // orientation needs no care here.
         for (int z = 0; z <= art.depth(); z++) {
             for (int y = 0; y < art.height(); y++) {
                 int x = 0;
@@ -282,7 +285,8 @@ public final class CosmeticGeometry {
             }
         }
 
-        // East/west (x-boundary) faces, merged along z runs. Vertical - same shade note as above.
+        // East/west (x-boundary) faces, merged along z runs. Vertical, flat 0.6 (shadeOf's
+        // dominant-axis lookup) - same "orientation needs no care" note as north/south above.
         for (int x = 0; x <= art.width(); x++) {
             for (int y = 0; y < art.height(); y++) {
                 int z = 0;
@@ -501,7 +505,7 @@ public final class CosmeticGeometry {
         return new float[]{ p[0] * PX, p[1] * PX, p[2] * PX };
     }
 
-    /** Unit face normal of a quad (Newell-free cross product, fine for a planar quad) - shadeOf derives its "upness" from this. */
+    /** Unit face normal of a quad (Newell-free cross product, fine for a planar quad) - shadeOf classifies its dominant axis from this. */
     static float[] normalOf(float[] a, float[] b, float[] c, float[] d) {
         float ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
         float vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
@@ -509,17 +513,34 @@ public final class CosmeticGeometry {
         float ny = uz * vx - ux * vz;
         float nz = ux * vy - uy * vx;
         float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-        // y=0 (not up or down) for a degenerate/zero-area face, so shadeOf's upness-based formula
-        // below falls back to its own neutral 0.65 (matching this method's pre-refactor behavior)
-        // rather than reading as fully "down-facing".
+        // A degenerate/zero-area face has no real facing direction; the fallback's exact shade
+        // doesn't matter (zero area means zero visible pixels either way) - {0,0,1} just needs to
+        // be a valid unit vector so shadeOf's dominant-axis classification has something to read.
         if (len < 1e-6f) return new float[]{ 0, 0, 1 };
         return new float[]{ nx / len, ny / len, nz / len };
     }
 
-    /** Vanilla-flavored flat shade from the face normal: up-facing 1.0, vertical sides 0.65, down-facing 0.5 (y-down space, so "up" is -y). */
+    /**
+     * Vanilla's ACTUAL flat-lighting table, not an approximation of it: real Minecraft block/item
+     * faces are shaded by a fixed per-axis-direction lookup - up 1.0, down 0.5, north/south (the
+     * z-axis pair) 0.8, east/west (the x-axis pair) 0.6 - four distinct values, not three. An
+     * earlier version of this method only branched on up-vs-down "upness" and gave every vertical
+     * face the same flat 0.65 regardless of which way it faced; that's why a hat's front/back walls
+     * and left/right walls all read as one identical flat wash of color instead of the subtly
+     * different tones adjacent perpendicular faces get in real Minecraft (and, rendered in the same
+     * engine, in Lunar/Feather/Essential cosmetics) - a real, measurable chunk of "looks blocky and
+     * flat" that no amount of palette tuning on the art itself could fix, because the two walls were
+     * being handed the exact same brightness no matter what color they started from.
+     * Classifies by the DOMINANT axis of the face normal rather than a hardcoded 6-way switch, so
+     * this generalizes correctly to the CAPE/WINGS frames' deliberately tilted, non-axis-aligned
+     * quads too (their normal still has one clearly dominant axis) instead of only handling perfectly
+     * cardinal voxel/flat-HAT faces.
+     */
     static float shadeOf(float[] a, float[] b, float[] c, float[] d) {
         float[] n = normalOf(a, b, c, d);
-        float upness = -n[1];
-        return 0.65f + 0.35f * Math.max(0f, upness) - 0.15f * Math.max(0f, -upness);
+        float ax = Math.abs(n[0]), ay = Math.abs(n[1]), az = Math.abs(n[2]);
+        if (ay >= ax && ay >= az) return n[1] < 0 ? 1.0f : 0.5f; // y is down here, so up is negative y
+        if (az >= ax) return 0.8f; // north/south
+        return 0.6f; // east/west
     }
 }

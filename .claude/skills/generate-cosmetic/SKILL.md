@@ -425,20 +425,30 @@ is almost always the PALETTE, not the shape, and it's checkable concretely
 rather than by vibes:
 
 **Exploit the shading model - this is the single highest-leverage fix.**
-Every extruded face (PROCEDURAL gear, any kind - flat or voxel) gets exactly
-one of three flat multipliers baked in at build time, never real lighting
-(`CosmeticGeometry.shadeOf`): top-facing **1.0**, vertical sides **0.65**,
-down-facing **0.5**. That triplet is the ENTIRE illusion of depth this
-pipeline has. Feed it a bulk fill color with lightness below ~0.2 (a
-near-black "obsidian"/"shadow" color, which is exactly what the first Molten
-Crown hat draft used for its whole band) and 1.0/0.65/0.5 of a near-zero
-value are all still near-zero - the shape was correct, but every face reads
-as the same flat dark mass, which is what "looks like a blob" actually means
-in this engine. The same failure happens in reverse with a near-white fill
+Every extruded face (PROCEDURAL gear, any kind - flat or voxel) gets a flat
+multiplier baked in at build time, never real lighting (`CosmeticGeometry.
+shadeOf`) - and that multiplier is vanilla Minecraft's ACTUAL per-direction
+flat-lighting table, not a simplified stand-in for it: **up 1.0, down 0.5,
+north/south (one horizontal axis) 0.8, east/west (the other) 0.6** - four
+distinct values classified by the face normal's dominant axis, so two
+perpendicular walls of the same color visibly differ in tone (this replaced
+an earlier version of `shadeOf` that only checked up-vs-down and gave every
+vertical face an identical flat 0.65 regardless of which way it faced - that
+collapsed distinction is a real, measurable piece of "looks flat/blocky
+instead of sculpted," independent of any palette choice, and no amount of
+color tuning on the art itself could fix it because perpendicular walls were
+being handed the exact same brightness no matter what color they started
+from). This four-value spread is the ENTIRE illusion of depth this pipeline
+has. Feed it a bulk fill color with lightness below ~0.2 (a near-black
+"obsidian"/"shadow" color, which is exactly what the first Molten Crown hat
+draft used for its whole band) and 1.0/0.8/0.6/0.5 of a near-zero value are
+all still near-zero - the shape was correct, but every face reads as the
+same flat dark mass, which is what "looks like a blob" actually means in
+this engine. The same failure happens in reverse with a near-white fill
 (lightness above ~0.85). The fix is simple and load-bearing: **any color
 covering a large fill should sit around 0.35-0.65 lightness, with real
 saturation** (a jewel tone, not a desaturated gray) - that's the range where
-1.0/0.65/0.5 actually produce three visibly different, still-clearly-colored
+1.0/0.8/0.6/0.5 actually produce four visibly different, still-clearly-colored
 steps. Reserve true near-black/near-white for what's ALREADY thin in this
 engine's own vocabulary - a 1px rim line, an outline column, a small accent -
 where there's barely any face area for the gradient to show up on regardless.
@@ -451,11 +461,12 @@ nothing checks it automatically - eyeball it, or reuse the tool's
 **A vivid, thematically "dark" concept still wants a mid-tone bulk color.**
 "Molten obsidian" doesn't have to mean literal near-black rock - real molten
 rock glows, and a deep ember red-orange (`~#7A2E12`, lightness ~0.30, clearly
-saturated) both reads as "molten" AND survives the 1.0/0.65/0.5 spread, where
-a literal charcoal-black does neither. When a theme's obvious color choice is
-an extreme, look for the version of that theme that's already inherently
-mid-toned (embers over ash, a jewel over its setting, a blade's edge-glint
-over its shadow) rather than forcing the extreme and losing the shading.
+saturated) both reads as "molten" AND survives the 1.0/0.8/0.6/0.5 spread,
+where a literal charcoal-black does neither. When a theme's obvious color
+choice is an extreme, look for the version of that theme that's already
+inherently mid-toned (embers over ash, a jewel over its setting, a blade's
+edge-glint over its shadow) rather than forcing the extreme and losing the
+shading.
 
 **Small palette, clear roles, real contrast between them.** 3-6 colors,
 each doing one job - a bulk/body color, one or two accent colors (band, trim,
