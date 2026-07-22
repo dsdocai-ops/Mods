@@ -80,27 +80,8 @@ export function createInstance(input: CreateInstanceInput): Instance {
   return store.saveInstance(instance);
 }
 
-/**
- * Saves an instance and, if it just switched accounts, mirrors the new account onto every other
- * instance that's opted into account syncing (Instance.syncAccount, falling back to
- * AppSettings.syncAccountAcrossInstances for instances that don't set it) - so switching the
- * account anywhere keeps every synced instance pointed at the same one.
- */
 export function updateInstance(instance: Instance): Instance {
-  const settings = store.getSettings();
-  const previous = store.getInstances().find((i) => i.id === instance.id);
-  const saved = store.saveInstance(instance);
-
-  const changingInstanceSyncs = instance.syncAccount ?? settings.syncAccountAcrossInstances;
-  if (changingInstanceSyncs && instance.accountId !== previous?.accountId) {
-    for (const other of store.getInstances()) {
-      if (other.id === instance.id) continue;
-      const otherSyncs = other.syncAccount ?? settings.syncAccountAcrossInstances;
-      if (!otherSyncs || other.accountId === instance.accountId) continue;
-      store.saveInstance({ ...other, accountId: instance.accountId });
-    }
-  }
-  return saved;
+  return store.saveInstance(instance);
 }
 
 export function removeInstance(id: string): void {

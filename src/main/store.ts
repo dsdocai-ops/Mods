@@ -28,7 +28,7 @@ const DEFAULT_STORE: StoreShape = {
     showModDownloadWarning: true,
     discordRichPresenceEnabled: true,
     launchAnimationsEnabled: true,
-    syncAccountAcrossInstances: true,
+    syncGameSettingsAcrossInstances: true,
   },
 };
 
@@ -60,7 +60,7 @@ function readStore(): StoreShape {
         showModDownloadWarning: parsed.settings?.showModDownloadWarning ?? true,
         discordRichPresenceEnabled: parsed.settings?.discordRichPresenceEnabled ?? true,
         launchAnimationsEnabled: parsed.settings?.launchAnimationsEnabled ?? true,
-        syncAccountAcrossInstances: parsed.settings?.syncAccountAcrossInstances ?? true,
+        syncGameSettingsAcrossInstances: parsed.settings?.syncGameSettingsAcrossInstances ?? true,
       },
     };
   } catch {

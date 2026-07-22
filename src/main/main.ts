@@ -17,6 +17,7 @@ import { installFabric, installForge, installVanilla, listInstallableVersions } 
 import type { InstallProgress } from "../shared/types";
 import { findModConfigPath, readModConfigFile, writeModConfigFile } from "./modConfig";
 import { ensureOmegaMods, hasShaderLoader, installShaderSupport } from "./bundledMods";
+import * as gameSettingsSync from "./gameSettingsSync";
 import * as discordPresence from "./discordPresence";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
@@ -370,6 +371,14 @@ app.whenReady().then(() => {
         }
       }
       const settingsForLaunch = store.getSettings();
+      // Pull in the sync group's latest in-game settings (options.txt) before starting, if this
+      // instance opted into game-settings syncing - see gameSettingsSync.ts. Best-effort: a
+      // read/copy failure here must never block the game from launching.
+      try {
+        gameSettingsSync.pullBeforeLaunch(instance);
+      } catch {
+        /* non-fatal - this instance simply launches with its own current settings */
+      }
       const launchedAt = Date.now();
       const handle = await launchInstance(instance, settingsForLaunch.msaClientId, onLog);
       runningProcesses.set(instance.id, handle.process);
@@ -384,6 +393,14 @@ app.whenReady().then(() => {
         // clear it once nothing else launched by this app is still running.
         if (runningProcesses.size === 0) discordPresence.clearPresence().catch(() => {});
         checkSwitchAccountRequest(instance);
+        // Push any in-game settings changed this session out to the rest of the sync group -
+        // see gameSettingsSync.ts. Best-effort: a missing/unwritable options.txt just means nothing
+        // to push, not a launch failure.
+        try {
+          gameSettingsSync.pushAfterExit(instance);
+        } catch {
+          /* non-fatal - the group simply stays on its previous settings */
+        }
         if (!wasStopRequested && code !== 0 && Date.now() - launchedAt < EARLY_EXIT_THRESHOLD_MS) {
           onLog({
             instanceId: instance.id,
