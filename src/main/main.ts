@@ -22,6 +22,7 @@ import * as discordPresence from "./discordPresence";
 import { setupAutoUpdater } from "./updater";
 import * as accounts from "./accountStore";
 import * as licensing from "./licensing";
+import * as wallet from "./wallet";
 
 const isDev = process.env.NODE_ENV === "development";
 const runningProcesses = new Map<string, ChildProcess>();
@@ -220,6 +221,10 @@ app.whenReady().then(() => {
   ipcMain.handle("licensing:listOwned", () => licensing.getOwnedCosmetics());
   ipcMain.handle("licensing:getActive", () => licensing.getActiveCosmetic());
   ipcMain.handle("licensing:equip", (_e, cosmeticId: string) => licensing.equipOwnedCosmetic(cosmeticId));
+
+  ipcMain.handle("coins:getBalance", () => wallet.getCoinBalance());
+  ipcMain.handle("coins:redeem", (_e, code: string) => wallet.redeemCoinCode(code));
+  ipcMain.handle("coins:purchaseCosmetic", (_e, cosmeticId: string) => wallet.purchaseCosmeticWithCoins(cosmeticId));
 
   ipcMain.handle("install:listVersions", () => listInstallableVersions());
 

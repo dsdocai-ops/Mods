@@ -1,9 +1,16 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
 import type { CosmeticType } from "@shared/cosmetics";
-import { COSMETIC_CATALOG, COSMETIC_TYPE_LABELS, STRIPE_COSMETIC_PAYMENT_LINK_URL, cosmeticById } from "@shared/cosmetics";
+import {
+  COSMETIC_CATALOG,
+  COSMETIC_TYPE_LABELS,
+  STRIPE_COINS_PAYMENT_LINK_URL,
+  STRIPE_COSMETIC_PAYMENT_LINK_URL,
+  cosmeticById,
+} from "@shared/cosmetics";
 import { CapeGlyph, HatGlyph, WingsGlyph } from "../components/Icons";
 import { toast } from "../toast";
+import coinIcon from "../assets/coin.png";
 
 /** Renders the right silhouette for a cosmetic type, tinted to its color. Badges have no gear shape - a plain swatch. */
 function CosmeticGlyph({ type, color, size }: { type: CosmeticType; color: string; size: number }) {
@@ -26,12 +33,17 @@ export default function Cosmetics() {
   const [equippedId, setEquippedId] = useState<string>("");
   const [licenseKey, setLicenseKey] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [coins, setCoins] = useState(0);
+  const [coinCode, setCoinCode] = useState("");
+  const [redeemingCoins, setRedeemingCoins] = useState(false);
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
   const reload = () =>
-    Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive()])
-      .then(([o, active]) => {
+    Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive(), window.api.coins.getBalance()])
+      .then(([o, active, balance]) => {
         setOwned(o);
         setEquippedId(active);
+        setCoins(balance);
       })
       .catch(() => {});
 
@@ -56,7 +68,7 @@ export default function Cosmetics() {
     }
   };
 
-  /** Re-equip an already-owned cosmetic - unowned cards open the buy link instead (handled by the caller). */
+  /** Re-equip an already-owned cosmetic - unowned cards spend coins instead (handled by the caller). */
   const equip = async (cosmeticId: string) => {
     try {
       await window.api.licensing.equip(cosmeticId);
@@ -67,16 +79,54 @@ export default function Cosmetics() {
     }
   };
 
+  /** Spends coins to unlock+equip a cosmetic directly, no license key involved. */
+  const purchaseWithCoins = async (cosmeticId: string) => {
+    setPurchasingId(cosmeticId);
+    try {
+      const result = await window.api.coins.purchaseCosmetic(cosmeticId);
+      if (typeof result.coins === "number") setCoins(result.coins);
+      toast(result.message, result.ok ? "success" : "info");
+      if (result.ok) reload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setPurchasingId(null);
+    }
+  };
+
+  const redeemCoinCode = async () => {
+    if (!coinCode.trim()) return;
+    setRedeemingCoins(true);
+    try {
+      const result = await window.api.coins.redeem(coinCode.trim());
+      toast(result.message, result.ok ? "success" : "info");
+      if (typeof result.coins === "number") setCoins(result.coins);
+      if (result.ok) setCoinCode("");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setRedeemingCoins(false);
+    }
+  };
+
   const equipped = equippedId ? cosmeticById(equippedId) : undefined;
 
   return (
     <div className="settings-panel">
-      <p className="welcome-kicker">Cosmetics</p>
-      <h1 className="page-title">Cosmetics</h1>
+      <div className="cosmetics-header-row">
+        <div>
+          <p className="welcome-kicker">Cosmetics</p>
+          <h1 className="page-title">Cosmetics</h1>
+        </div>
+        <div className="coin-balance" title="Your coin balance">
+          <img src={coinIcon} alt="" className="coin-icon" />
+          <span>{coins.toLocaleString()}</span>
+        </div>
+      </div>
       <p className="instance-subtitle">
         A cosmetic other Omega Client players see on you in-game - a colored name badge, or a hat/cape/wings on your
-        player model (needs a server/proxy relaying the presence channel). Buy one, redeem the license key
-        you&rsquo;re given, then equip it. You wear one at a time.
+        player model (needs a server/proxy relaying the presence channel). Spend coins to unlock one directly, then
+        equip it. You wear one at a time.
       </p>
 
       <div className="cosmetic-preview">
@@ -103,20 +153,33 @@ export default function Cosmetics() {
               {items.map((cosmetic) => {
                 const isOwned = owned.includes(cosmetic.id);
                 const isActive = equippedId === cosmetic.id;
+                const isPurchasing = purchasingId === cosmetic.id;
                 return (
                   <button
                     key={cosmetic.id}
                     className={`cosmetic-card ${isActive ? "cosmetic-card-active" : ""} ${isOwned ? "" : "cosmetic-card-locked"}`}
-                    onClick={() =>
-                      isOwned ? (isActive ? undefined : equip(cosmetic.id)) : window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)
-                    }
+                    disabled={isPurchasing}
+                    onClick={() => (isOwned ? (isActive ? undefined : equip(cosmetic.id)) : purchaseWithCoins(cosmetic.id))}
                     title={cosmetic.description}
                   >
                     <span className="cosmetic-swatch">
                       <CosmeticGlyph type={cosmetic.type} color={cosmetic.colorHex} size={30} />
                     </span>
                     <span className="cosmetic-name">{cosmetic.name}</span>
-                    <span className="cosmetic-state">{isActive ? "Active" : isOwned ? "Equip" : "Buy"}</span>
+                    <span className="cosmetic-state">
+                      {isActive ? (
+                        "Active"
+                      ) : isOwned ? (
+                        "Equip"
+                      ) : isPurchasing ? (
+                        "..."
+                      ) : (
+                        <span className="cosmetic-price">
+                          <img src={coinIcon} alt="" className="coin-icon-tiny" />
+                          {cosmetic.coinPrice.toLocaleString()}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -125,8 +188,39 @@ export default function Cosmetics() {
         );
       })}
 
+      <h3 className="settings-subheading">Get coins</h3>
+      <p className="instance-subtitle">Buy a coin pack, then paste the code you&rsquo;re given here to add it to your balance.</p>
+      <div className="field-row">
+        <label className="field">
+          <span>Coin code</span>
+          <input
+            className="input"
+            placeholder="e.g. coins:500-9f1c2a3b4d5e6f70-a1b2c3d4e5f6"
+            value={coinCode}
+            onChange={(e) => setCoinCode(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") redeemCoinCode();
+            }}
+          />
+        </label>
+        <div className="settings-actions">
+          <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COINS_PAYMENT_LINK_URL)}>
+            Buy coins
+          </button>
+          <button className="btn btn-secondary" disabled={redeemingCoins || !coinCode.trim()} onClick={redeemCoinCode}>
+            {redeemingCoins ? "Redeeming..." : "Redeem"}
+          </button>
+        </div>
+      </div>
+
       <h3 className="settings-subheading">Redeem a license key</h3>
-      <p className="instance-subtitle">Bought a cosmetic? Paste the key you were given to unlock it.</p>
+      <p className="instance-subtitle">
+        Bought a cosmetic directly with real money instead of coins? Paste the key you were given to unlock it. (
+        <button className="link-inline" onClick={() => window.api.external.open(STRIPE_COSMETIC_PAYMENT_LINK_URL)}>
+          buy one directly
+        </button>
+        )
+      </p>
       <div className="field-row">
         <label className="field">
           <span>License key</span>

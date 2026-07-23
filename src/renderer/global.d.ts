@@ -21,6 +21,8 @@ import type {
   ModrinthUpdate,
   ModTag,
   PublicAccount,
+  PurchaseCosmeticResult,
+  RedeemCoinCodeResult,
   RedeemLicenseResult,
   ShaderPackInfo,
 } from "@shared/types";
@@ -85,6 +87,11 @@ export interface LauncherApi {
     listOwned(): Promise<string[]>;
     getActive(): Promise<string>;
     equip(cosmeticId: string): Promise<void>;
+  };
+  coins: {
+    getBalance(): Promise<number>;
+    redeem(code: string): Promise<RedeemCoinCodeResult>;
+    purchaseCosmetic(cosmeticId: string): Promise<PurchaseCosmeticResult>;
   };
   install: {
     listVersions(): Promise<InstallableVersion[]>;

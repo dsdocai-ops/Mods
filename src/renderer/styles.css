@@ -1276,6 +1276,52 @@ input[type="checkbox"] {
   display: inline-flex;
 }
 
+.cosmetics-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Coin balance pill - icon on the left, count to its right. */
+.coin-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  background: var(--panel-grad);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--panel-edge);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.coin-icon {
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+}
+
+.coin-icon-tiny {
+  width: 13px;
+  height: 13px;
+  image-rendering: pixelated;
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
+.cosmetic-price {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 /* Live preview of the active badge at the top of the Cosmetics page. */
 .cosmetic-preview {
   display: flex;

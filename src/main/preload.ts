@@ -19,6 +19,8 @@ import type {
   ModrinthUpdate,
   ModTag,
   PublicAccount,
+  PurchaseCosmeticResult,
+  RedeemCoinCodeResult,
   RedeemLicenseResult,
   ShaderPackInfo,
 } from "../shared/types";
@@ -102,6 +104,11 @@ const api = {
     listOwned: (): Promise<string[]> => ipcRenderer.invoke("licensing:listOwned"),
     getActive: (): Promise<string> => ipcRenderer.invoke("licensing:getActive"),
     equip: (cosmeticId: string): Promise<void> => ipcRenderer.invoke("licensing:equip", cosmeticId),
+  },
+  coins: {
+    getBalance: (): Promise<number> => ipcRenderer.invoke("coins:getBalance"),
+    redeem: (code: string): Promise<RedeemCoinCodeResult> => ipcRenderer.invoke("coins:redeem", code),
+    purchaseCosmetic: (cosmeticId: string): Promise<PurchaseCosmeticResult> => ipcRenderer.invoke("coins:purchaseCosmetic", cosmeticId),
   },
   install: {
     listVersions: (): Promise<InstallableVersion[]> => ipcRenderer.invoke("install:listVersions"),

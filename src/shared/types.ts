@@ -302,6 +302,20 @@ export interface RedeemLicenseResult {
   message: string;
 }
 
+/** Result of redeeming a coin top-up code - see main/wallet.ts. `coins` is the resulting balance whenever it's known, even on failure (e.g. "already redeemed"). */
+export interface RedeemCoinCodeResult {
+  ok: boolean;
+  coins?: number;
+  message: string;
+}
+
+/** Result of spending coins to unlock a cosmetic directly (no license key involved) - see main/wallet.ts. */
+export interface PurchaseCosmeticResult {
+  ok: boolean;
+  coins?: number;
+  message: string;
+}
+
 /**
  * A native, in-launcher sponsor/affiliate recommendation - not a third-party ad network banner (see
  * README's Monetization section for why). Always paired with an explicit disclosure per FTC-style
