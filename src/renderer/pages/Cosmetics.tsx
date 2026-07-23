@@ -1,14 +1,9 @@
 // "I am the Alpha and the Omega, the first and the last, the beginning and the end" (Revelation 22:13).
 import { useEffect, useState } from "react";
 import type { CosmeticType } from "@shared/cosmetics";
-import {
-  COSMETIC_CATALOG,
-  COSMETIC_TYPE_LABELS,
-  STRIPE_COINS_PAYMENT_LINK_URL,
-  STRIPE_COSMETIC_PAYMENT_LINK_URL,
-  cosmeticById,
-} from "@shared/cosmetics";
+import { COSMETIC_CATALOG, COSMETIC_TYPE_LABELS, STRIPE_COSMETIC_PAYMENT_LINK_URL, cosmeticById } from "@shared/cosmetics";
 import { CapeGlyph, HatGlyph, WingsGlyph } from "../components/Icons";
+import CoinShopModal from "../components/CoinShopModal";
 import { toast } from "../toast";
 import coinIcon from "../assets/coin.png";
 
@@ -37,6 +32,7 @@ export default function Cosmetics() {
   const [coinCode, setCoinCode] = useState("");
   const [redeemingCoins, setRedeemingCoins] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
 
   const reload = () =>
     Promise.all([window.api.licensing.listOwned(), window.api.licensing.getActive(), window.api.coins.getBalance()])
@@ -118,11 +114,13 @@ export default function Cosmetics() {
           <p className="welcome-kicker">Cosmetics</p>
           <h1 className="page-title">Cosmetics</h1>
         </div>
-        <div className="coin-balance" title="Your coin balance">
+        <button className="coin-balance" title="Buy more coins" onClick={() => setShopOpen(true)}>
           <img src={coinIcon} alt="" className="coin-icon" />
           <span>{coins.toLocaleString()}</span>
-        </div>
+        </button>
       </div>
+
+      {shopOpen && <CoinShopModal onClose={() => setShopOpen(false)} />}
       <p className="instance-subtitle">
         A cosmetic other Omega Client players see on you in-game - a colored name badge, or a hat/cape/wings on your
         player model (needs a server/proxy relaying the presence channel). Spend coins to unlock one directly, then
@@ -204,7 +202,7 @@ export default function Cosmetics() {
           />
         </label>
         <div className="settings-actions">
-          <button className="btn btn-secondary" onClick={() => window.api.external.open(STRIPE_COINS_PAYMENT_LINK_URL)}>
+          <button className="btn btn-secondary" onClick={() => setShopOpen(true)}>
             Buy coins
           </button>
           <button className="btn btn-secondary" disabled={redeemingCoins || !coinCode.trim()} onClick={redeemCoinCode}>

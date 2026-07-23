@@ -62,6 +62,11 @@ function installMockApi() {
   window.__activeCosmetic = 'gold_badge';
   // Catalog id -> type (mirrors shared/cosmetics.ts), used by the mock redeem to validate.
   window.__catalogTypes = { gold_badge: 'hat', azure_badge: 'hat', crimson_cape: 'cape', emerald_cape: 'cape', phantom_wings: 'wings' };
+  // Catalog id -> coinPrice (mirrors shared/cosmetics.ts's coinPrice field), used by the mock
+  // coins.purchaseCosmetic below. Seeded with a starting balance comfortably above every price so
+  // the "buy with coins" path is exercisable without first going through the redeem-code flow.
+  window.__coins = 5000;
+  window.__coinPrices = { gold_badge: 150, azure_badge: 150, crimson_cape: 350, emerald_cape: 400, phantom_wings: 500 };
   // A couple of extra instances so the Play screen's instance grid has something to show beyond
   // the single MOCK_INSTANCE (which the rest of the app keys off).
   const EXTRA_INSTANCES = [
@@ -203,6 +208,30 @@ function installMockApi() {
           throw new Error("You don't own that cosmetic.");
         }
         window.__activeCosmetic = cosmeticId;
+      },
+    },
+    // getBalance(): Promise<number>; redeem(code): Promise<RedeemCoinCodeResult>;
+    // purchaseCosmetic(id): Promise<PurchaseCosmeticResult> - see src/main/wallet.ts. The real
+    // handler resets a tampered balance to 0 and rejects a replayed code; this mock doesn't model
+    // either (nothing here writes to a file to tamper with), it only round-trips the happy path.
+    coins: {
+      getBalance: async () => window.__coins,
+      redeem: async (code) => {
+        window.__calls.write.push({ coinsRedeem: code });
+        const match = typeof code === 'string' ? /^coins:(\d+)-/.exec(code) : null;
+        if (!match) return { ok: false, message: "That doesn't look like a valid coin code." };
+        window.__coins += Number(match[1]);
+        return { ok: true, coins: window.__coins, message: `+${match[1]} coins` };
+      },
+      purchaseCosmetic: async (cosmeticId) => {
+        window.__calls.write.push({ coinsPurchase: cosmeticId });
+        if (window.__owned.includes(cosmeticId)) return { ok: false, message: 'You already own that cosmetic.' };
+        const price = window.__coinPrices[cosmeticId] ?? 999999;
+        if (window.__coins < price) return { ok: false, coins: window.__coins, message: 'Not enough coins.' };
+        window.__coins -= price;
+        window.__owned.push(cosmeticId);
+        window.__activeCosmetic = cosmeticId;
+        return { ok: true, coins: window.__coins, message: `Unlocked: ${cosmeticId}` };
       },
     },
     install: {
