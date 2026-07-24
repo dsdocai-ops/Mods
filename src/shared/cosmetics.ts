@@ -29,6 +29,8 @@ export interface Cosmetic {
   colorHex: string;
   type: CosmeticType;
   description: string;
+  /** Price in coins to unlock this cosmetic directly from the Cosmetics page - see main/wallet.ts. */
+  coinPrice: number;
 }
 
 /**
@@ -38,18 +40,18 @@ export interface Cosmetic {
  * the generate-cosmetic skill.
  */
 export const COSMETIC_CATALOG: Cosmetic[] = [
-  { id: "gold_badge", name: "Gold Badge", colorHex: "#FFD700", type: "badge", description: "A gold Ω badge next to your name in-game." },
-  { id: "azure_badge", name: "Azure Badge", colorHex: "#3B9CFF", type: "badge", description: "An azure Ω badge next to your name in-game." },
-  { id: "crimson_cape", name: "Crimson Cape", colorHex: "#C62839", type: "cape", description: "A crimson cape trimmed in gold, with a gold Ω emblem and a fringed hem." },
-  { id: "nightfall_cape", name: "Nightfall Cape", colorHex: "#4C2D99", type: "cape", description: "A midnight cape scattered with stars, rising into a purple flame gradient." },
-  { id: "seraph_wings", name: "Seraph Wings", colorHex: "#F2EFE6", type: "wings", description: "Layered white feather wings with a gold top ridge." },
-  { id: "obsidian_top_hat", name: "Obsidian Top Hat", colorHex: "#241F31", type: "hat", description: "A dark top hat with a brand-red band." },
-  { id: "navy_captain_hat", name: "Navy Captain's Hat", colorHex: "#1B2A49", type: "hat", description: "A peaked officer's cap with a gold band and white emblem." },
-  { id: "starlit_cape", name: "Starlit Cape", colorHex: "#B39DDB", type: "cape", description: "A real painted texture cape of a starlit night sky." },
-  { id: "eclipse_cape", name: "Eclipse Cape", colorHex: "#FFA050", type: "cape", description: "A real painted texture cape of a solar eclipse." },
-  { id: "inferno_wings", name: "Inferno Wings", colorHex: "#FF6B4A", type: "wings", description: "Dragon-like wings with an ember-to-shadow membrane gradient." },
-  { id: "azure_charm_hat", name: "Azure Charm Hat", colorHex: "#34689E", type: "hat", description: "A true-3D voxel bucket hat with a gold fish charm dangling from a chain." },
-  { id: "twilight_summit_cape", name: "Twilight Summit Cape", colorHex: "#CFE8FF", type: "cape", description: "A real painted texture cape of a starry sky over icy mountain peaks." },
+  { id: "gold_badge", name: "Gold Badge", colorHex: "#FFD700", type: "badge", description: "A gold Ω badge next to your name in-game.", coinPrice: 150 },
+  { id: "azure_badge", name: "Azure Badge", colorHex: "#3B9CFF", type: "badge", description: "An azure Ω badge next to your name in-game.", coinPrice: 150 },
+  { id: "crimson_cape", name: "Crimson Cape", colorHex: "#C62839", type: "cape", description: "A crimson cape trimmed in gold, with a gold Ω emblem and a fringed hem.", coinPrice: 350 },
+  { id: "nightfall_cape", name: "Nightfall Cape", colorHex: "#4C2D99", type: "cape", description: "A midnight cape scattered with stars, rising into a purple flame gradient.", coinPrice: 400 },
+  { id: "seraph_wings", name: "Seraph Wings", colorHex: "#F2EFE6", type: "wings", description: "Layered white feather wings with a gold top ridge.", coinPrice: 500 },
+  { id: "obsidian_top_hat", name: "Obsidian Top Hat", colorHex: "#241F31", type: "hat", description: "A dark top hat with a brand-red band.", coinPrice: 300 },
+  { id: "navy_captain_hat", name: "Navy Captain's Hat", colorHex: "#1B2A49", type: "hat", description: "A peaked officer's cap with a gold band and white emblem.", coinPrice: 350 },
+  { id: "starlit_cape", name: "Starlit Cape", colorHex: "#B39DDB", type: "cape", description: "A real painted texture cape of a starlit night sky.", coinPrice: 450 },
+  { id: "eclipse_cape", name: "Eclipse Cape", colorHex: "#FFA050", type: "cape", description: "A real painted texture cape of a solar eclipse.", coinPrice: 450 },
+  { id: "inferno_wings", name: "Inferno Wings", colorHex: "#FF6B4A", type: "wings", description: "Dragon-like wings with an ember-to-shadow membrane gradient.", coinPrice: 550 },
+  { id: "azure_charm_hat", name: "Azure Charm Hat", colorHex: "#34689E", type: "hat", description: "A true-3D voxel bucket hat with a gold fish charm dangling from a chain.", coinPrice: 500 },
+  { id: "twilight_summit_cape", name: "Twilight Summit Cape", colorHex: "#CFE8FF", type: "cape", description: "A real painted texture cape of a starry sky over icy mountain peaks.", coinPrice: 500 },
 ];
 
 /** Id list, still exported for the license-key validator (see main/licensing.ts). */
@@ -60,7 +62,10 @@ export function cosmeticById(id: string): Cosmetic | undefined {
 }
 
 /**
- * Where to buy a cosmetic - opened via `external:open` (renderer -> main, https-only) same as every
- * sponsor placement in shared/affiliates.ts. Replace with your real Stripe Payment Link.
+ * Where to buy a cosmetic directly with real money (no coins involved) - opened via `external:open`
+ * (renderer -> main, https-only) same as every sponsor placement in shared/affiliates.ts. Replace
+ * with your real Stripe Payment Link. Redeeming the license key you're given afterwards still works
+ * (main/licensing.ts) - coins (shared/coinPacks.ts) are an additional, separate way to unlock a
+ * cosmetic.
  */
 export const STRIPE_COSMETIC_PAYMENT_LINK_URL = "https://buy.stripe.com/REPLACE_ME";
